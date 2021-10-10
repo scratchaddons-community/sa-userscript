@@ -1,3 +1,5 @@
+/* global console */
+
 function injectRedux() {
   window.__scratchAddonsRedux = {};
   if (typeof window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ !== "undefined") {
