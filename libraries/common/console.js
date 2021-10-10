@@ -1,3 +1,4 @@
+/* global console */
 const consoleOutput = (logAuthor) => {
   const style = {
     leftPrefix: "background:  #ff7b26; color: white; border-radius: 0.5rem 0 0 0.5rem; padding: 0 0.5rem",
