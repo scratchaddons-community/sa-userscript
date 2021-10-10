@@ -1,4 +1,4 @@
-import chrome from './chrome.js'
+import chrome from "./chrome.js";
 const styles = {};
 
 /**
@@ -19,7 +19,9 @@ export default (filenames) =>
           const dom = new DOMParser().parseFromString(text, "text/html");
           const css = dom.querySelector("style")?.textContent;
           if (css) {
-            if (false) {
+            /** Lint hack */
+            const no = false;
+            if (no) {
               const normalizedCss = css.replace("\n", "").trimEnd();
               const normalizedText = text.replace(/\r/g, "");
               const cssFirstLine = normalizedCss.substring(0, normalizedCss.indexOf("\n"));
