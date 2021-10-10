@@ -96,5 +96,5 @@ const groups = () => [
 
 export default async () => {
   await chrome.i18n.init();
-  return groups;
+  return groups();
 };

@@ -1,7 +1,5 @@
 import LocalizationProvider from "../libraries/common/cs/l10n.js";
-import createConsole from "../libraries/common/console.js";
-
-const console = createConsole("background");
+import chrome from "../libraries/common/chrome.js";
 
 const ui = chrome.i18n.getUILanguage().toLowerCase();
 const locales = [ui];
@@ -17,33 +15,22 @@ export default class BackgroundLocalizationProvider extends LocalizationProvider
   }
 
   async load(addonIds) {
-    addonIds = ["_general", ...addonIds].filter(
-      (addonId) => !addonId.startsWith("//") && !this.loaded.includes(addonId)
-    );
+    addonIds = addonIds.filter((addonId) => !addonId.startsWith("//") && !this.loaded.includes(addonId));
 
     const localePromises = locales.map(async (locale) => {
-      let skip = [];
+      const url = chrome.runtime.getURL(`addons-l10n/${locale}/_general.json`);
+      const general = await fetch(url).then((res) => {if (res.status === 404) return res.json();});
 
-      const localePromises = addonIds.map(async (addonId) => {
-        if (skip[locale]) return;
+      const messagePromises = general?addonIds.map(async (addonId) => {
         const url = chrome.runtime.getURL(`addons-l10n/${locale}/${addonId}.json`);
-        let res;
-        const messages = await fetch(url)
-          .then((resp) => {
-            res = resp;
-            return resp.json();
-          })
-          .catch((e) => {
-            if (addonId === "_general") skip[locale] = true;
-            if (res?.status !== 404) console.error(e);
-          });
 
-        return messages;
-      });
+        return fetch(url).then((res) => (res.status === 404 ? {} : res.json()));
+      }):[];
 
       return Object.assign(
         {},
-        ...(await Promise.all(localePromises)).filter((addon) => addon) // filter out undefined values
+        general,
+        ...(await Promise.all(messagePromises))
       );
     });
 

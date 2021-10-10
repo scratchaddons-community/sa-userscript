@@ -1,10 +1,3 @@
-const promises = [
-  import("https://userscript.scratchaddons.cf/content-scripts/prototype-handler.js"),
-  import("https://userscript.scratchaddons.cf/content-scripts/load-redux.js"),
-  import("https://userscript.scratchaddons.cf/content-scripts/fix-console.js"),
-  import("https://userscript.scratchaddons.cf/libraries/common/cs/text-color.js"),
-];
-
 function updateAttrs(target, source) {
   Array.from(target.attributes).forEach((attr) => target.removeAttribute(attr.name));
 
@@ -52,6 +45,12 @@ if (/^\/(scratch\-addons\-extension|sa\-ext|sa|scratch-addons|)\/settings\/?$/i.
       for (const run of deferred) await run();
     });
 } else {
+  const promises = [
+    import("https://userscript.scratchaddons.cf/content-scripts/prototype-handler.js"),
+    import("https://userscript.scratchaddons.cf/content-scripts/load-redux.js"),
+    import("https://userscript.scratchaddons.cf/content-scripts/fix-console.js"),
+    import("https://userscript.scratchaddons.cf/libraries/common/cs/text-color.js"),
+  ];
   document.documentElement.append(
     Object.assign(document.createElement("script"), {
       src: "https://userscript.scratchaddons.cf/webpages/check-unsupported.js",
