@@ -157,9 +157,9 @@ export default async function getContentScriptInfo(url) {
     } */
     const promise = getAddonData({ addonId, manifest, url });
     const { userscripts, userstyles, cssVariables } = await promise;
-    if (userscripts.length) {
-      data.addonsWithUserscripts.push({ addonId, scripts: userscripts });
+    if (userscripts.length) data.addonsWithUserscripts.push({ addonId, scripts: userscripts });
 
+    if (userstyles.length)
       data.addonsWithUserstyles.push({
         addonId,
         styles: userstyles,
@@ -167,8 +167,8 @@ export default async function getContentScriptInfo(url) {
         injectAsStyleElt: manifest.injectAsStyleElt,
         index: i,
       });
-    }
   });
+
   await Promise.all(promises);
   data.globalState = scratchAddons.globalState._target;
 

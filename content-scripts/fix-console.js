@@ -1,3 +1,4 @@
+/* global console */
 function fixConsole() {
   window._realConsole = {
     ...console,
