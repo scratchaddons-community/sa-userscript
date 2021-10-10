@@ -1,3 +1,5 @@
+/* global console */
+
 function injectRedux() {
   window.__scratchAddonsRedux = {};
   if (typeof window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ !== "undefined") {
@@ -66,6 +68,8 @@ remove this warning."
   };
 }
 
-const injectReduxScript = document.createElement("script");
-injectReduxScript.append(document.createTextNode("(" + injectRedux + ")()"));
-(document.head || document.documentElement).appendChild(injectReduxScript);
+if (!(document.documentElement instanceof SVGElement)) {
+  const injectReduxScript = document.createElement("script");
+  injectReduxScript.append(document.createTextNode("(" + injectRedux + ")()"));
+  (document.head || document.documentElement).appendChild(injectReduxScript);
+}
