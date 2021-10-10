@@ -1,3 +1,5 @@
+import chrome from "../libraries/common/chrome.js";
+
 const extraInfoSpec = ["blocking", "requestHeaders"];
 if (Object.prototype.hasOwnProperty.call(chrome.webRequest.OnBeforeSendHeadersOptions, "EXTRA_HEADERS"))
   extraInfoSpec.push("extraHeaders");

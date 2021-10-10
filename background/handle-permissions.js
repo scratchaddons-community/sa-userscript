@@ -1,6 +1,7 @@
 import changeAddonState from "./imports/change-addon-state.js";
 import { getMissingOptionalPermissions } from "./imports/util.js";
 import createConsole from "../libraries/common/console.js";
+import chrome from "../libraries/common/chrome.js";
 
 const console = createConsole("background");
 

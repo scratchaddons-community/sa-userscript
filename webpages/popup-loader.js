@@ -1,6 +1,9 @@
 import "./set-lang.js";
 import Addon from "../addon-api/popup/Addon.js";
 import WebsiteLocalizationProvider from "../libraries/common/website-l10n.js";
+import chrome from "../libraries/common/chrome.js";
+import createConsole from "../libraries/common/console.js";
+const console = createConsole("popups");
 
 const scratchAddons = (window.scratchAddons = {});
 // Store event targets for addon.* API events

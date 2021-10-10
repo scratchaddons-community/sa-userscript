@@ -1,3 +1,5 @@
+import chrome from "../../libraries/common/chrome.js";
+
 export default class Popup {
   /**
    * Whether the popup is displayed fullscreen.

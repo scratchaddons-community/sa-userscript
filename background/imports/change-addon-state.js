@@ -1,4 +1,5 @@
 // import runPersistentScripts from "./run-persistent-scripts.js";
+import chrome from "../../libraries/common/chrome.js";
 
 /**
  * Changes addon state (enabled/disabled), and executes the addons if enabled,

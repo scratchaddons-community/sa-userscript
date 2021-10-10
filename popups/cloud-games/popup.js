@@ -1,4 +1,6 @@
-export default async ({ addon, msg, safeMsg }) => {
+import chrome from "../../libraries/common/chrome.js";
+
+export default async ({addon, msg, safeMsg,console}) => {
   // TODO: support setting this via settings page
   const url = "https://scratch.mit.edu/studios/539952/";
   const studioId = url.match(/\d+/)?.[0];
