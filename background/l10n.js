@@ -19,19 +19,19 @@ export default class BackgroundLocalizationProvider extends LocalizationProvider
 
     const localePromises = locales.map(async (locale) => {
       const url = chrome.runtime.getURL(`addons-l10n/${locale}/_general.json`);
-      const general = await fetch(url).then((res) => {if (res.status === 404) return res.json();});
+      const general = await fetch(url).then((res) => {
+        if (res.status === 200) return res.json();
+      });
 
-      const messagePromises = general?addonIds.map(async (addonId) => {
-        const url = chrome.runtime.getURL(`addons-l10n/${locale}/${addonId}.json`);
+      const messagePromises = general
+        ? addonIds.map(async (addonId) => {
+            const url = chrome.runtime.getURL(`addons-l10n/${locale}/${addonId}.json`);
 
-        return fetch(url).then((res) => (res.status === 404 ? {} : res.json()));
-      }):[];
+            return fetch(url).then((res) => (res.status === 200 ? res.json() : {}));
+          })
+        : [];
 
-      return Object.assign(
-        {},
-        general,
-        ...(await Promise.all(messagePromises))
-      );
+      return Object.assign({}, general, ...(await Promise.all(messagePromises)));
     });
 
     this.messages = Object.assign({}, ...(await Promise.all(localePromises)).reverse());
