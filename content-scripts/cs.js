@@ -12,9 +12,10 @@ try {
 } catch {
   throw "Scratch Addons: not first party iframe";
 }
+if (document.documentElement instanceof SVGElement) throw "Scratch Addons: Top-level SVG document (this can be ignored)";
 
 if (typeof scratchAddons === "object") {
-  console.log("Scratch Addons: extention running, stopping userscript");
+  throw "Scratch Addons: extention running, stopping userscript (this can be ignored)";
 }
 
 const addonListPromise = loadManifests(false),
@@ -599,7 +600,7 @@ const showBanner = async () => {
   });
   const notifInnerText1 = Object.assign(document.createElement("span"), {
     style: NOTIF_TEXT_STYLE,
-    innerHTML: escapeHTML(chrome.i18n.getMessage("extensionUpdateInfo1_v1_20", DOLLARS)).replace(
+    innerHTML: escapeHTML(chrome.i18n.getMessage("extensionUpdateInfo1_v1_21", DOLLARS)).replace(
       /\$(\d+)/g,
       (_, i) =>
         [
@@ -618,7 +619,7 @@ const showBanner = async () => {
   });
   const notifInnerText2 = Object.assign(document.createElement("span"), {
     style: NOTIF_TEXT_STYLE,
-    textContent: chrome.i18n.getMessage("extensionUpdateInfo2_v1_20"),
+    textContent: chrome.i18n.getMessage("extensionUpdateInfo2_v1_21"),
   });
   const notifFooter = Object.assign(document.createElement("span"), {
     style: NOTIF_TEXT_STYLE,
