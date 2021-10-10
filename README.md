@@ -48,7 +48,7 @@ npm install serve --global;
 1. Run `npx serve --cors --symlinks` in the terminal.
 2. Update [the userscript](https://userscript.scratchaddons.cf/userscript/script.user.js) on your device.
 
-Scratch Addons will now be running as a userscript. You will have to redo the first step on any changes, and redo the seccond on any changes to files under `/userscript/`
+Scratch Addons will now be running as a userscript. You may or may not have to redo those steps depending on which files you have changed.
 
 ## License
 
