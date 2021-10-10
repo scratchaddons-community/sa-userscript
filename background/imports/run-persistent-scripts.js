@@ -4,15 +4,16 @@ import Addon from "../../addon-api/background/Addon.js";
 import changeAddonState from "./change-addon-state.js";
 import { getMissingOptionalPermissions } from "./util.js";
 import createConsole from "../../libraries/common/console.js";
+import chrome from "../../libraries/common/chrome.js";
 
-const console = createConsole("page");
+let console = createConsole("background");
 
 export default async function runPersistentScripts(addonId) {
   const manifest = scratchAddons.manifests.find((obj) => obj.addonId === addonId).manifest;
   const permissions = manifest.permissions || [];
   const missing = await getMissingOptionalPermissions();
   if (permissions.some((p) => missing.includes(p))) {
-    console.warn("Disabled addon", addonId, "due to missing optional permission");
+    console.warnForAddon(addonId)("Disabled addon due to missing optional permission");
     changeAddonState(addonId, false);
     return;
   }
@@ -21,6 +22,12 @@ export default async function runPersistentScripts(addonId) {
 }
 
 async function executePersistentScripts({ addonId, permissions, scriptUrls }) {
+  console = {
+    ...console,
+    log: console.logForAddon(addonId),
+    warn: console.warnForAddon(addonId),
+    error: console.errorForAddon(addonId),
+  };
   const addonObjReal = new Addon({ id: addonId, permissions });
   const addonObjRevocable = Proxy.revocable(addonObjReal, {});
   const addonObj = addonObjRevocable.proxy;
@@ -69,20 +76,15 @@ async function executePersistentScripts({ addonId, permissions, scriptUrls }) {
 
   for (const scriptPath of scriptUrls) {
     const scriptUrl = chrome.runtime.getURL(`addons/${addonId}/${scriptPath}`);
-    console.logForAddon(`${addonId}`)(`Running ${scriptUrl}`);
+    console.log(`Running ${scriptUrl}`);
     const module = await import(chrome.runtime.getURL(`addons/${addonId}/${scriptPath}`));
-    const localConsole = {
-      log: console.logForAddon(addonId),
-      warn: console.warnForAddon(addonId),
-      error: console.errorForAddon(addonId),
-    };
     const msg = (key, placeholders) =>
       scratchAddons.l10n.get(key.startsWith("/") ? key.slice(1) : `${addonId}/${key}`, placeholders);
     msg.locale = scratchAddons.l10n.locale;
     module.default({
       addon: addonObj,
       global: globalObj,
-      console: { ...console, ...localConsole },
+      console,
       msg,
       setTimeout: setTimeoutFunc,
       setInterval: setIntervalFunc,
