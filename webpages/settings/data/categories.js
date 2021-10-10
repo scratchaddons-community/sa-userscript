@@ -91,5 +91,5 @@ const categories = () => [
 
 export default async () => {
   await chrome.i18n.init();
-  return categories;
+  return categories();
 };

@@ -1,3 +1,5 @@
+import chrome from "../libraries/common/chrome.js";
+
 const POPUP_PREFIX = chrome.runtime.getURL("popups");
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

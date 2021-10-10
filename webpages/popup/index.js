@@ -1,3 +1,5 @@
+import chrome from "../../libraries/common/chrome.js";
+
 //theme switching
 const lightThemeLink = document.createElement("link");
 lightThemeLink.setAttribute("rel", "stylesheet");

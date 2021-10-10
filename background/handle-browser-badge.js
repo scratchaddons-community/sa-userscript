@@ -1,3 +1,5 @@
+import chrome from "../libraries/common/chrome.js";
+
 scratchAddons.localEvents.addEventListener("badgeUpdateNeeded", () => {
   // Note: for now, only one addon can use the badge.
   // If you want your addon to use the badge's text

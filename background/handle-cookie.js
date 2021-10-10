@@ -1,3 +1,5 @@
+import chrome from "../libraries/common/chrome.js";
+
 // Remove Set-Cookie header that forces logout when they should not
 const specs = ["responseHeaders", "blocking"];
 if (Object.prototype.hasOwnProperty.call(chrome.webRequest.OnBeforeSendHeadersOptions, "EXTRA_HEADERS")) {
