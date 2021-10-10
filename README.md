@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/SA-Userscript/ScratchAddons/master/images/icon.svg" alt="Scratch Addons logo" align="right" width="128px"></img>
+<img src="https://userscript.scratchaddons.cf/images/icon.svg" alt="Scratch Addons logo" align="right" width="128px"></img>
 
 # Welcome to Scratch Addons Userscript's repository!
 
@@ -16,11 +16,39 @@
 
 ## About
 
-Scratch Addons Userscript is a userscript that has all the features of Scratch Addons' extension. Scratch Addons' mission is to combine all existing Scratch extensions, userscripts and userstyles into a single easy-to-access place, while still letting users choose which ones to enable. Learn more about Scratch Addons [here](https://github.com/scratchaddons/scratchaddons#readme)
+Scratch Addons Userscript is a userscript that has all the features of Scratch Addons' extension. Scratch Addons' mission is to combine all existing Scratch extensions, userscripts and userstyles into a single easy-to-access place, while still letting users choose which ones to enable. Learn more about Scratch Addons [here](https://github.com/ScratchAddons/Scratchaddons#readme)
 
 ## Contribute
 
 If you found a bug, or want to suggest new features, please use the [issues tab](https://github.com/SA-Userscript/ScratchAddons/issues). If you want to help with the code or add a new addon, fork this repository, and then create a [pull request](https://github.com/SA-Userscript/ScratchAddons/pulls). Also, please read our [contributing guidelines](https://github.com/SA-Userscript/ScratchAddons/blob/master/CONTRIBUTING.md).
+
+### How to test
+
+#### Project one-time setup
+
+1. Clone the source code
+
+```sh
+git clone https://github.com/SA-Userscript/ScratchAddons.git;
+cd ScratchAddons;
+```
+
+2. [Install Node.JS](https://nodejs.org/en/download/) and `serve`
+
+```sh
+npm install serve --global;
+```
+
+4. Install a redirector browser extension like [Redirector](https://chrome.google.com/webstore/detail/redirector/ocgpenflpmgnfapjedencafcfakcekcd).
+5. Add the following redirect: ![](https://media.discordapp.net/attachments/889246380068077608/896438233217531955/unknown.png?width=675&height=585)
+6. Install a userscript manager browser extension like [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo).
+
+#### Run the server to test
+
+1. Run `npx serve --cors --symlinks` in the terminal.
+2. Update [the userscript](https://userscript.scratchaddons.cf/userscript/script.user.js) on your device.
+
+Scratch Addons will now be running as a userscript. You will have to redo the first step on any changes, and redo the seccond on any changes to files under `/userscript/`
 
 ## License
 
