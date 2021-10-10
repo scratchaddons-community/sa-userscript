@@ -1,4 +1,5 @@
 import changeAddonState from "./imports/change-addon-state.js";
+import chrome from "../libraries/common/chrome.js";
 
 export default function (request, sendResponse) {
   // Message used to load popups as well

@@ -1,3 +1,5 @@
+import chrome from "../libraries/common/chrome.js";
+
 /* global libraryLicenses, licenseNameToText, licensesReady */
 
 window.licenseNameToText = {};

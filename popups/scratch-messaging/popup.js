@@ -1,6 +1,7 @@
 import { escapeHTML } from "../../libraries/common/cs/autoescaper.js";
+import chrome from "../../libraries/common/chrome.js";
 
-export default async ({ addon, msg, safeMsg }) => {
+export default async ({ addon, msg, safeMsg,console }) => {
   let dateNow = Date.now();
 
   // <comment> component

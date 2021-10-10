@@ -1,4 +1,5 @@
 import Listenable from "../common/Listenable.js";
+import chrome from "../../libraries/common/chrome.js";
 
 /**
  * Handles notifications.

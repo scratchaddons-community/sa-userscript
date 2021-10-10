@@ -1,4 +1,5 @@
 import commentEmojis from "./comment-emojis.js";
+import chrome from "../../libraries/common/chrome.js";
 
 export default async function ({ addon, global, console, setTimeout, setInterval, clearTimeout, clearInterval, msg }) {
   let msgCount = null;

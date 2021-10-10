@@ -1,3 +1,5 @@
+import chrome from "../libraries/common/chrome.js";
+
 const periods = [
   {
     name: chrome.i18n.getMessage("15min"),

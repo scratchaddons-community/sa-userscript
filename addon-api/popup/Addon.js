@@ -1,5 +1,6 @@
 import Addon from "../common/Addon.js";
 import Popup from "./Popup.js";
+import chrome from "../../libraries/common/chrome.js";
 
 /**
  * An addon that loads as a popup.
