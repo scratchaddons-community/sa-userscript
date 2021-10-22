@@ -77,7 +77,7 @@
         "webpages/**/*.js"
       ],
       "env": {
-        "webextensions": true
+        "webextensions": false
       },
       "rules": {
         "no-eval": 2
@@ -106,6 +106,10 @@
     {
       "files": [".github/**",".github/*","**rc.js", "**.config.js", "*rc.js", "*.config.js", "*.mjs", "**.mjs", "*.cjs", "**.cjs"],
       "env": { "node": true }
+    },
+    {
+      "files": ["userscript/**","userscript/*"],
+      "extends":["plugin:@onedotprojects/recommended","plugin:@onedotprojects/browser"]
     }
   ]
 }

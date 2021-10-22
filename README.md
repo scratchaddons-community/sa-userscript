@@ -45,7 +45,7 @@ npm install serve --global;
 
 #### Run the server to test
 
-1. Run `npx serve --cors --symlinks` in the terminal.
+1. Run `npx serve --cors --symlinks;` in the terminal.
 2. Update [the userscript](https://userscript.scratchaddons.cf/userscript/script.user.js) on your device.
 
 Scratch Addons will now be running as a userscript. You may or may not have to redo those steps depending on which files you have changed.
@@ -61,7 +61,7 @@ git pull origin master; # `origin` is https://github.com/ScratchAddons/ScratchAd
 npx serve --cors --symlinks;
 # test
 git add .; # if conflicts or other changes
-git commit; # if conflicts or other changes
+git commit;
 # write commit message
 git push fork pull-from-upstream; # `fork` is your fork; `pull-from-upstream` is the branch name
 # create PR to https://github.com/SA-Userscript/ScratchAddons/
