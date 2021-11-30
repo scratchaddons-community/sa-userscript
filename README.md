@@ -65,7 +65,10 @@ git commit;
 # write commit message
 git push fork pull-from-upstream; # `fork` is your fork; `pull-from-upstream` is the branch name
 # create PR to https://github.com/SA-Userscript/ScratchAddons/
+# merge PR
+git branch -D pull-from-upstream; # `pull-from-upstream` is the branch name
 ```
+
 ## License
 
 Scratch Addons is licensed under the terms of the [GNU General Public License v3.0](https://github.com/SA-Userscript/ScratchAddons/blob/master/LICENSE).
