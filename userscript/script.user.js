@@ -5,14 +5,14 @@
 // @author
 // @description
 // @homepage     https://scratchaddons.com/
-// @icon         https://userscript.scratchaddons.cf/images/icon.svg
-// @updateURL    https://userscript.scratchaddons.cf/userscript/script.user.js
+// @icon         http://localhost:3000/images/icon.svg
+// @updateURL    http://localhost:3000/userscript/script.user.js
 // @supportURL   https://scratchaddons.com/feedback
 // @match        https://scratch.mit.edu/*
-// @require      https://userscript.scratchaddons.cf/content-scripts/prototype-handler.js
-// @require      https://userscript.scratchaddons.cf/content-scripts/load-redux.js
-// @require      https://userscript.scratchaddons.cf/content-scripts/fix-console.js
-// @require      https://userscript.scratchaddons.cf/libraries/common/cs/text-color.js
+// @require      http://localhost:3000/content-scripts/load-redux.js
+// @require      http://localhost:3000/content-scripts/prototype-handler.js
+// @require      http://localhost:3000/content-scripts/fix-console.js
+// @require      http://localhost:3000/libraries/common/cs/text-color.js
 // @run-at       document-start
 // @grant        none
 // ==/UserScript==
@@ -24,7 +24,7 @@ function updateAttrs(target, source) {
 }
 
 if (/^\/(scratch\-addons\-extension|sa\-ext|sa|scratch-addons|)\/settings\/?$/i.test(location.pathname)) {
-  fetch("https://userscript.scratchaddons.cf/webpages/settings/scratch.html")
+  fetch("http://localhost:3000/webpages/settings/scratch.html")
     .then((r) => r.text())
     .then(async (html) => {
       const dom = new DOMParser().parseFromString(html, "text/html");
@@ -66,13 +66,13 @@ if (/^\/(scratch\-addons\-extension|sa\-ext|sa|scratch-addons|)\/settings\/?$/i.
 } else {
   document.documentElement.append(
     Object.assign(document.createElement("script"), {
-      src: "https://userscript.scratchaddons.cf/webpages/check-unsupported.js",
+      src: "http://localhost:3000/webpages/check-unsupported.js",
       type: "module",
     })
   );
   document.documentElement.append(
     Object.assign(document.createElement("script"), {
-      src: "https://userscript.scratchaddons.cf/content-scripts/cs.js",
+      src: "http://localhost:3000/content-scripts/cs.js",
       type: "module",
     })
   );

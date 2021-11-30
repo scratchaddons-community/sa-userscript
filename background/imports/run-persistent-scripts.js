@@ -25,6 +25,7 @@ async function executePersistentScripts({ addonId, permissions, scriptUrls }) {
   console = {
     ...console,
     log: console.logForAddon(addonId),
+    dir: console.dirForAddon(addonId),
     warn: console.warnForAddon(addonId),
     error: console.errorForAddon(addonId),
   };

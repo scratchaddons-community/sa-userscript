@@ -1,4 +1,4 @@
-<img src="https://userscript.scratchaddons.cf/images/icon.svg" alt="Scratch Addons logo" align="right" width="128px"></img>
+<img src="http://localhost:3000/images/icon.svg" alt="Scratch Addons logo" align="right" width="128px"></img>
 
 # Welcome to Scratch Addons Userscript's repository!
 
@@ -46,7 +46,7 @@ npm install serve --global;
 #### Run the server to test
 
 1. Run `npx serve --cors --symlinks;` in the terminal.
-2. Update [the userscript](https://userscript.scratchaddons.cf/userscript/script.user.js) on your device.
+2. Update [the userscript](http://localhost:3000/userscript/script.user.js) on your device.
 
 Scratch Addons will now be running as a userscript. You may or may not have to redo those steps depending on which files you have changed.
 

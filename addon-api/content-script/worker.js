@@ -14,6 +14,7 @@ export default (tab, script, url) => {
     const console = (await import("../../libraries/common/console.js"))("worker");
     const localConsole = {
       log: console.logForAddon(${JSON.stringify(tab._addonId)}),
+      dir: console.dirForAddon(${JSON.stringify(tab._addonId)}),
       warn: console.warnForAddon(${JSON.stringify(tab._addonId)}),
       error: console.errorForAddon(${JSON.stringify(tab._addonId)}),
     };

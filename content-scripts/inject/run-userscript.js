@@ -8,6 +8,7 @@ export default async function runAddonUserscripts({ addonId, scripts, enabledLat
   console = {
     ...console,
     log: console.logForAddon(addonId),
+    dir: console.dirForAddon(addonId),
     warn: console.warnForAddon(addonId),
     error: console.errorForAddon(addonId),
   };

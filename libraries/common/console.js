@@ -14,10 +14,12 @@ export default (logAuthor) => {
   return {
     ..._realConsole,
     log: _realConsole.log.bind(_realConsole, ...consoleOutput(logAuthor)),
+    dir: _realConsole.dir.bind(_realConsole, ...consoleOutput(logAuthor)),
     warn: _realConsole.warn.bind(_realConsole, ...consoleOutput(logAuthor)),
     error: _realConsole.error.bind(_realConsole, ...consoleOutput(logAuthor)),
 
     logForAddon: (addonId) => _realConsole.log.bind(_realConsole, ...consoleOutput(addonId)),
+    dirForAddon: (addonId) => _realConsole.dir.bind(_realConsole, ...consoleOutput(addonId)),
     warnForAddon: (addonId) => _realConsole.warn.bind(_realConsole, ...consoleOutput(addonId)),
     errorForAddon: (addonId) => _realConsole.error.bind(_realConsole, ...consoleOutput(addonId)),
   };
