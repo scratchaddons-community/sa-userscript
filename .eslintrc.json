@@ -9,7 +9,7 @@
   },
   "globals": {
     "chrome": "off",
-    "console":"off",
+    "console": "off",
 
     // Scratch Addons-defined
     "scratchAddons": "writable",
@@ -84,7 +84,7 @@
       },
       "globals": {
         "chrome": "off",
-        "console":"off"
+        "console": "off"
       }
     },
     {
@@ -104,12 +104,23 @@
       }
     },
     {
-      "files": [".github/**",".github/*","**rc.js", "**.config.js", "*rc.js", "*.config.js", "*.mjs", "**.mjs", "*.cjs", "**.cjs"],
+      "files": [
+        ".github/**",
+        ".github/*",
+        "**rc.js",
+        "**.config.js",
+        "*rc.js",
+        "*.config.js",
+        "*.mjs",
+        "**.mjs",
+        "*.cjs",
+        "**.cjs"
+      ],
       "env": { "node": true }
-    },
-    {
-      "files": ["userscript/**","userscript/*"],
-      "extends":["plugin:@onedotprojects/recommended","plugin:@onedotprojects/browser"]
+      // },
+      // {
+      //   "files": ["userscript/**","userscript/*"],
+      //   "extends":["plugin:@onedotprojects/recommended","plugin:@onedotprojects/browser"]
     }
   ]
 }

@@ -12,7 +12,7 @@ export default async function runAddonUserscripts({ addonId, scripts, enabledLat
     warn: console.warnForAddon(addonId),
     error: console.errorForAddon(addonId),
   };
-  const addonObj = new Addon({ id: addonId, enabledLate },console);
+  const addonObj = new Addon({ id: addonId, enabledLate }, console);
   addonObj.auth._update(scratchAddons.session);
   const globalObj = Object.create(null);
   for (const scriptInfo of scripts) {
@@ -24,9 +24,7 @@ export default async function runAddonUserscripts({ addonId, scripts, enabledLat
       const msg = (key, placeholders) =>
         scratchAddons.l10n.get(key.startsWith("/") ? key.slice(1) : `${addonId}/${key}`, placeholders);
       msg.locale = scratchAddons.l10n.locale;
-      console.log(
-        `Running ${scriptUrl}, runAtComplete: ${runAtComplete}, enabledLate: ${enabledLate}`
-      );
+      console.log(`Running ${scriptUrl}, runAtComplete: ${runAtComplete}, enabledLate: ${enabledLate}`);
       module.default({
         addon: addonObj,
         global: globalObj,

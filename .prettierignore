@@ -1,7 +1,5 @@
 !**
-
 .git
-node_modules
 
 libraries/thirdparty/*
 
@@ -10,3 +8,9 @@ addons-l10n/*/*.json
 
 _locales/*/messages.json
 !_locales/en/messages.json
+
+userscript/addons-l10n/*/*.json
+!userscript/addons-l10n/en/*.json
+
+userscript/_locales/*/messages.json
+!userscript/_locales/en/messages.json

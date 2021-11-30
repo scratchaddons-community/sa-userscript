@@ -12,7 +12,8 @@ try {
 } catch {
   throw "Scratch Addons: not first party iframe";
 }
-if (document.documentElement instanceof SVGElement) throw "Scratch Addons: Top-level SVG document (this can be ignored)";
+if (document.documentElement instanceof SVGElement)
+  throw "Scratch Addons: Top-level SVG document (this can be ignored)";
 
 if (typeof scratchAddons === "object") {
   throw "Scratch Addons: extention running, stopping userscript (this can be ignored)";

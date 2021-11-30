@@ -1,4 +1,4 @@
-import chrome from "../libraries/common/chrome.js"
+import chrome from "../libraries/common/chrome.js";
 export default async function (translations = false) {
   const folderNames = [...new Set(await (await fetch(chrome.runtime.getURL("addons/addons.json"))).json())].filter(
     (folderName) => {

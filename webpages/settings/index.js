@@ -7,7 +7,8 @@ import addonGroupsFunc from "./data/addon-groups.js";
 import categoriesFunc from "./data/categories.js";
 import exampleManifest from "./data/example-manifest.js";
 import fuseOptions from "./data/fuse-options.js";
-import chrome from "../../libraries/common/chrome.js"
+
+import chrome from "../../libraries/common/chrome.js";
 import createConsole from "../../libraries/common/console.js";
 const console = createConsole("index");
 
