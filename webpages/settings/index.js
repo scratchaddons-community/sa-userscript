@@ -77,19 +77,28 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
     },
   });
 
-  i18nPromise.then(func);
-})();
+  await i18nPromise;
 
-async function func() {
-  const manifest = await chrome.runtime.getManifest();
+  const manifest =window.m= await chrome.runtime.getManifest();
 
   const addonGroups = await addonGroupsFunc();
   const categories = await categoriesFunc();
 
+  // const browserLevelPermissions = ["notifications"];
+  // if (typeof browser !== "undefined") browserLevelPermissions.push("clipboardWrite");
+  // let grantedOptionalPermissions = [];
+  // const updateGrantedPermissions = () =>
+  //   chrome.permissions.getAll(({ permissions }) => {
+  //     grantedOptionalPermissions = permissions.filter((p) => browserLevelPermissions.includes(p));
+  //   });
+  // updateGrantedPermissions();
+  // chrome.permissions.onAdded?.addListener(updateGrantedPermissions);
+  // chrome.permissions.onRemoved?.addListener(updateGrantedPermissions);
+
   const promisify =
     (callbackFn) =>
-    (...args) =>
-      new Promise((resolve) => callbackFn(...args, resolve));
+      (...args) =>
+        new Promise((resolve) => callbackFn(...args, resolve));
 
   let handleConfirmClicked = null;
 
@@ -98,7 +107,7 @@ async function func() {
     const storedSettings = await syncGet(["globalTheme", "addonSettings", "addonsEnabled"]);
     const serialized = {
       core: {
-        lightTheme: !!storedSettings.globalTheme,
+        lightTheme: storedSettings.globalTheme,
         version: manifest.version_name,
       },
       addons: {},
@@ -116,22 +125,37 @@ async function func() {
     const obj = JSON.parse(str);
     const syncGet = promisify(chrome.storage.sync.get.bind(chrome.storage.sync));
     const syncSet = promisify(chrome.storage.sync.set.bind(chrome.storage.sync));
-    const { addonSettings, addonsEnabled } = await syncGet(["addonSettings", "addonsEnabled"]);
+    const {addonSettings, addonsEnabled} = await syncGet(["addonSettings", "addonsEnabled"]);
+    // const pendingPermissions = {};
     for (const addonId of Object.keys(obj.addons)) {
       const addonValue = obj.addons[addonId];
       const addonManifest = manifests.find((m) => m._addonId === addonId);
       if (!addonManifest) continue;
+      // const permissionsRequired = addonManifest.permissions || [];
+      // const browserPermissionsRequired = permissionsRequired.filter((p) => browserLevelPermissions.includes(p));
+      // console.log(addonId, permissionsRequired, browserPermissionsRequired);
+      // if (addonValue.enabled && browserPermissionsRequired.length) {
+      //   pendingPermissions[addonId] = browserPermissionsRequired;
+      /* } else */ {
       addonsEnabled[addonId] = addonValue.enabled;
-
-      addonSettings[addonId] = Object.assign({}, addonSettings[addonId], addonValue.settings);
+      }
     }
-    if (handleConfirmClicked) confirmElem.removeEventListener("click", handleConfirmClicked, { once: true });
+    if (handleConfirmClicked) confirmElem.removeEventListener("click", handleConfirmClicked, {once: true});
     let resolvePromise = null;
     const resolveOnConfirmPromise = new Promise((resolve) => {
       resolvePromise = resolve;
     });
     handleConfirmClicked = async () => {
       handleConfirmClicked = null;
+      // if (Object.keys(pendingPermissions).length) {
+      //   const granted = await promisify(chrome.permissions.request.bind(chrome.permissions))({
+      //     permissions: Object.values(pendingPermissions).flat(),
+      //   });
+      //   console.log(pendingPermissions, granted);
+      //   Object.keys(pendingPermissions).forEach((addonId) => {
+      //     addonsEnabled[addonId] = granted;
+      //   });
+      // }
       await syncSet({
         globalTheme: !!obj.core.lightTheme,
         addonsEnabled,
@@ -140,11 +164,11 @@ async function func() {
       resolvePromise();
     };
     confirmElem.classList.remove("hidden-button");
-    confirmElem.addEventListener("click", handleConfirmClicked, { once: true });
+    confirmElem.addEventListener("click", handleConfirmClicked, {once: true});
     return resolveOnConfirmPromise;
   };
 
-  vue = window.vue = new Vue({
+  const vue = window.vue = new Vue({
     el: "body",
     data() {
       return {
@@ -169,6 +193,8 @@ async function func() {
         addonGroups: addonGroups.filter((g) => (isIframe ? g.iframeShow : g.fullscreenShow)),
         categories,
         searchMsg: this.msg("search"),
+        // browserLevelPermissions,
+        // grantedOptionalPermissions,
         addonListObjs: [],
         sidebarUrls: (() => {
           const uiLanguage = chrome.i18n.getUILanguage();
@@ -246,7 +272,7 @@ async function func() {
         return getDirection(chrome.i18n.getUILanguage());
       },
       openReview() {
-        // tODO
+        // TODO
         if (typeof browser !== "undefined") {
           window.open(`https://addons.mozilla.org/en-US/firefox/addon/scratch-messaging-extension/reviews/`);
         } else {
@@ -276,18 +302,18 @@ async function func() {
       stopPropagation(e) {
         e.stopPropagation();
       },
-      updateSettings(addon, { wait = 0, settingId = null } = {}) {
+      updateSettings(addon, {wait = 0, settingId = null} = {}) {
         const value = settingId && this.addonSettings[addon._addonId][settingId];
         setTimeout(() => {
           if (!settingId || this.addonSettings[addon._addonId][settingId] === value) {
             chrome.runtime.sendMessage({
-              changeAddonSettings: { addonId: addon._addonId, newSettings: this.addonSettings[addon._addonId] },
+              changeAddonSettings: {addonId: addon._addonId, newSettings: this.addonSettings[addon._addonId]},
             });
             console.log("Updated", this.addonSettings[addon._addonId]);
           }
         }, wait);
       },
-      closePickers(e, leaveOpen, { callCloseDropdowns = true } = {}) {
+      closePickers(e, leaveOpen, {callCloseDropdowns = true} = {}) {
         this.$emit("close-pickers", leaveOpen);
         if (callCloseDropdowns) this.closeResetDropdowns();
       },
@@ -296,7 +322,7 @@ async function func() {
       },
       exportSettings() {
         serializeSettings().then((serialized) => {
-          const blob = new Blob([serialized], { type: "application/json" });
+          const blob = new Blob([serialized], {type: "application/json"});
           downloadBlob("scratch-addons-settings.json", blob);
         });
       },
@@ -329,18 +355,17 @@ async function func() {
             alert(chrome.i18n.getMessage("importSuccess"));
             chrome.runtime.reload();
           },
-          { once: true }
+          {once: true}
         );
         document.body.appendChild(inputElem);
         inputElem.click();
       },
       openFullSettings() {
         window.open(
-          `${chrome.runtime.getURL("webpages/settings/index.html")}#addon-${
-            this.addonToEnable && this.addonToEnable._addonId
+          `${chrome.runtime.getURL("webpages/settings/index.html")}#addon-${this.addonToEnable && this.addonToEnable._addonId
           }`
         );
-        setTimeout(() => window.top.close(), 100);
+        setTimeout(() => window.parent.close(), 100);
       },
       hidePopup() {
         document.querySelector(".popup").style.animation = "closePopup 1.6s 1";
@@ -349,7 +374,7 @@ async function func() {
           () => {
             this.showPopupModal = false;
           },
-          { once: true }
+          {once: true}
         );
       },
       groupShownCount(group) {
@@ -399,6 +424,7 @@ async function func() {
       // Autofocus search bar
       // autofocus attribute doesn't work
       // `Blocked autofocusing on a <input> element in a cross-origin subframe.`
+      // if (isIframe || typeof browser !== "undefined")
       setTimeout(() => document.getElementById("searchBox")?.focus(), 0);
 
       const exampleAddonListItem = {
@@ -430,7 +456,7 @@ async function func() {
         void chrome.runtime.lastError;
         const addonsCurrentlyOnTab = res ? [...res.userscripts, ...res.userstyles] : [];
         const addonsPreviouslyOnTab = res ? res.disabledDynamicAddons : [];
-        resolve({ addonsCurrentlyOnTab, addonsPreviouslyOnTab });
+        resolve({addonsCurrentlyOnTab, addonsPreviouslyOnTab});
       });
     });
   };
@@ -438,7 +464,7 @@ async function func() {
   // Wait for scratchAddons to load
   await promisify(chrome.runtime.sendMessage)("waitForState");
 
-  chrome.runtime.sendMessage("getSettingsInfo", async ({ manifests, addonsEnabled, addonSettings }) => {
+  chrome.runtime.sendMessage("getSettingsInfo", async ({manifests, addonsEnabled, addonSettings}) => {
     vue.addonSettings = addonSettings;
     const cleanManifests = [];
     let iframeData;
@@ -448,17 +474,17 @@ async function func() {
     const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
     vue.manifests = [];
     let binaryNum = "";
-    for (const { manifest, addonId } of manifests) {
+    for (const {manifest, addonId} of manifests) {
       manifest._categories = [];
       manifest._categories[0] = manifest.tags.includes("popup")
         ? "popup"
         : manifest.tags.includes("easterEgg")
-        ? "easterEgg"
-        : manifest.tags.includes("theme")
-        ? "theme"
-        : manifest.tags.includes("community")
-        ? "community"
-        : "editor";
+          ? "easterEgg"
+          : manifest.tags.includes("theme")
+            ? "theme"
+            : manifest.tags.includes("community")
+              ? "community"
+              : "editor";
 
       const addCategoryIfTag = (arr) => {
         let count = 0;
@@ -617,9 +643,6 @@ async function func() {
           const addonId = hash.substring(7);
           const groupWithAddon = vue.addonGroups.find((group) => group.addonIds.includes(addonId));
           groupWithAddon.expanded = true;
-        }
-
-        if (browser) {
           setTimeout(() => {
             // Only required in Firefox
             window.location.hash = "";
@@ -644,7 +667,7 @@ async function func() {
   });
 
   document.title = chrome.i18n.getMessage("settingsTitle");
-  chrome.runtime.sendMessage({ title: document.title });
+  chrome.runtime.sendMessage({title: document.title});
 
   function resize() {
     if (window.innerWidth < 1100) {
@@ -657,7 +680,7 @@ async function func() {
       vue.switchPath = "../../images/icons/close.svg";
     }
   }
-  window.addEventListener("resize", resize);
+  window.onresize = resize;
   resize();
 
   // Konami code easter egg
@@ -681,4 +704,6 @@ async function func() {
       setTimeout(() => (vue.searchInputReal = ""), 0); // Allow konami code in autofocused search bar
     }
   });
-}
+
+  // chrome.runtime.sendMessage("checkPermissions");
+})();
