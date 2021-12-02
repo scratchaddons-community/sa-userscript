@@ -41,4 +41,4 @@ jobs:
           git config user.email "RedGuy12@users.noreply.github.com"
           git config user.name "RedGuy12"
           git commit -am "Update prerelease version";
-          git push userscript-release HEAD:userscript-release --force;
+          git push userscript-release --force;
