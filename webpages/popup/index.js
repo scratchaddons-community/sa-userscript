@@ -32,7 +32,7 @@ const vue = new Vue({
     popups: [],
     currentPopup: null,
     popupsWithIframes: [],
-    version: chrome.runtime.getManifest().version,
+    version: "...",
   },
   methods: {
     msg(message, ...params) {
@@ -66,7 +66,19 @@ const vue = new Vue({
       return vue.popups.find((addon) => addon._addonId === addonId).html;
     },
   },
+  computed: {
+    changelogLink() {
+      const uiLanguage = chrome.i18n.getUILanguage();
+      const localeSlash = uiLanguage.startsWith("en") ? "" : `${uiLanguage.split("-")[0]}/`;
+      const utm = `utm_source=userscript&utm_medium=popup&utm_campaign=v${this.version}`;
+      return `https://scratchaddons.com/${localeSlash}changelog/?${utm}`;
+    },
+  },
 });
+
+(async () => {
+  vue.version = (await chrome.runtime.getManifest()).version;
+})();
 
 chrome.runtime.sendMessage("getSettingsInfo", (res) => {
   // If order unspecified, addon goes first. All new popups should be added here.

@@ -9,8 +9,8 @@ const terserConfig = JSON.parse(readFileSync(resolve(process.cwd(), "./.terserrc
 
 getInDir({ ext: ".js" }).forEach(async (filePath) => {
   if (filePath.endsWith(".user.js")) return;
-  console.log(`Minifying ${filePath}`);
   const source = await readFile(filePath, "utf8").catch(console.error);
-  const minfied = (await minifyJs(source, terserConfig).catch(console.error)).code;
-  writeFile(filePath, minfied);
+  const minfied = (await minifyJs(source, terserConfig).catch(e=>console.log(filePath)).catch(console.error)).code;
+  await writeFile(filePath, minfied);
+  console.log(`Minified ${filePath}`);
 });

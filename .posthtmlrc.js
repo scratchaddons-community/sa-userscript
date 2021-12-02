@@ -1,7 +1,7 @@
 const postCssConfig = require("./postcss.config.js");
 
 module.exports = {
-  input: "**.html",
+  input: "**/*.html",
   skip: [],
   options: {
     sync: false,

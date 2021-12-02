@@ -79,7 +79,7 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
 
   await i18nPromise;
 
-  const manifest =window.m= await chrome.runtime.getManifest();
+  const manifest = await chrome.runtime.getManifest();
 
   const addonGroups = await addonGroupsFunc();
   const categories = await categoriesFunc();
