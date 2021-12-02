@@ -1,20 +1,21 @@
 // ==UserScript==
-// @name         Scratch Addons
-// @namespace    https://scratchaddons.com/
-// @version      0.0.1
-// @author
-// @description
-// @homepage     https://scratchaddons.com/
-// @icon         http://localhost:3000/images/icon.svg
-// @updateURL    http://localhost:3000/userscript/script.user.js
-// @supportURL   https://scratchaddons.com/feedback
-// @match        https://scratch.mit.edu/*
-// @require      http://localhost:3000/content-scripts/load-redux.js
-// @require      http://localhost:3000/content-scripts/prototype-handler.js
-// @require      http://localhost:3000/content-scripts/fix-console.js
-// @require      http://localhost:3000/libraries/common/cs/text-color.js
-// @run-at       document-start
-// @grant        none
+// @name        Scratch Addons
+// @description Scratch Addons provides new features and themes for the scratch.mit.edu website and project editor.
+// @match       https://scratch.mit.edu/*
+// @run-at      document-start
+// @weight      999
+// @require     https://redguy12.github.io/ScratchAddons/content-scripts/load-redux.js
+// @require     https://redguy12.github.io/ScratchAddons/content-scripts/prototype-handler.js
+// @require     https://redguy12.github.io/ScratchAddons/content-scripts/fix-console.js
+// @require     https://redguy12.github.io/ScratchAddons/libraries/common/cs/text-color.js
+// @version     1.23.0-prerelease
+// @updateURL   https://redguy12.github.io/ScratchAddons/userscript/script.user.js
+// @namespace   https://scratchaddons.com/
+// @author      scratchaddons.com
+// @homepage    https://scratchaddons.com
+// @icon        https://redguy12.github.io/ScratchAddons/images/icon.svg
+// @supportURL  https://scratchaddons.com/feedback
+// @grant       none
 // ==/UserScript==
 
 function updateAttrs(target, source) {
@@ -24,7 +25,7 @@ function updateAttrs(target, source) {
 }
 
 if (/^\/(scratch\-addons\-extension|scratch-addons|)\/settings\/?$/i.test(location.pathname)) {
-  fetch("http://localhost:3000/webpages/settings/scratch.html")
+  fetch("https://redguy12.github.io/ScratchAddons/webpages/settings/scratch.html")
     .then((r) => r.text())
     .then(async (html) => {
       const dom = new DOMParser().parseFromString(html, "text/html");
@@ -66,13 +67,13 @@ if (/^\/(scratch\-addons\-extension|scratch-addons|)\/settings\/?$/i.test(locati
 } else {
   document.documentElement.append(
     Object.assign(document.createElement("script"), {
-      src: "http://localhost:3000/webpages/check-unsupported.js",
+      src: "https://redguy12.github.io/ScratchAddons/webpages/check-unsupported.js",
       type: "module",
     })
   );
   document.documentElement.append(
     Object.assign(document.createElement("script"), {
-      src: "http://localhost:3000/content-scripts/cs.js",
+      src: "https://redguy12.github.io/ScratchAddons/content-scripts/cs.js",
       type: "module",
     })
   );

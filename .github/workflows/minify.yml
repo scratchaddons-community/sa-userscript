@@ -2,7 +2,7 @@ name: Minify source code for production
 on:
   workflow_dispatch:
   push:
-    branches: master
+    branches: userscript
 
 jobs:
   run:
@@ -21,13 +21,6 @@ jobs:
         with:
           node-version: 16
 
-      - name: Switch branches
-        run: |
-          git remote add release https://github.com/SA-Userscript/ScratchAddons-release.git;
-          git fetch release;
-          git branch -u release/release;
-          git checkout master -- .;
-
       - name: Install
         run: npm install terser@5.9.0 posthtml-cli@0.10.0 postcss-cli@9.0.1 posthtml-postcss@0.5.0 htmlnano@1.1.1 postcss-import@14.0.2 cssnano@5.0.8 autoprefixer@10.3.6 --global
 
@@ -45,9 +38,5 @@ jobs:
 
       - name: Commit
         run: |
-          echo userscript.scratchaddons.cf > CNAME;
-          git config user.email "83586655+wgytbot@users.noreply.github.com";
-          git config user.name "wgytbot";
-          git add CNAME;
           git commit -am "Update prerelease version";
-          git push release HEAD:release --force;
+          git push userscript-release HEAD:userscript-release --force;

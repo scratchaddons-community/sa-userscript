@@ -13,4 +13,4 @@ If you don't get a response within 48 hours, please create an issue in this repo
 
 ## Vulnerabilities Disclosed
 
-See our advisories that we have published for vulnerabilities that we have disclosed on [this page](https://github.com/SA-Userscript/ScratchAddons/security/advisories?state=published).
+See our advisories that we have published for vulnerabilities that we have disclosed on [this page](https://github.com/RedGuy12/ScratchAddons/security/advisories?state=published).
