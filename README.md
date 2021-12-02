@@ -7,7 +7,7 @@
 [![](https://img.shields.io/github/watchers/RedGuy12/ScratchAddons?color=blue&style=flat-square)](https://github.com/RedGuy12/ScratchAddons/watchers)
 [![](https://img.shields.io/github/issues/RedGuy12/ScratchAddons?color=green&style=flat-square)](https://github.com/RedGuy12/ScratchAddons/issues)
 [![](https://img.shields.io/github/issues-pr/RedGuy12/ScratchAddons?color=green&style=flat-square)](https://github.com/RedGuy12/ScratchAddons/pulls)
-[![](https://img.shields.io/github/license/RedGuy12/ScratchAddons?style=flat-square)](https://github.com/RedGuy12/ScratchAddons/blob/userscript/LICENSE) <!-- 2 spaces -->
+[![](https://img.shields.io/github/license/RedGuy12/ScratchAddons?style=flat-square)](https://github.com/RedGuy12/ScratchAddons/blob/userscript-release/LICENSE) <!-- 2 spaces -->
 [![](https://img.shields.io/github/v/release/RedGuy12/ScratchAddons?style=flat-square&logo=github&logoColor=white&label=version&color=181717)](https://github.com/RedGuy12/ScratchAddons/releases)
 [![](https://img.shields.io/github/downloads/RedGuy12/ScratchAddons/total?style=flat-square&logo=github&logoColor=white&label=downloads&color=181717)](https://github.com/RedGuy12/ScratchAddons/releases)
 [![](https://img.shields.io/badge/discuss-on_github-181717.svg?style=flat-square)](https://github.com/RedGuy12/ScratchAddons/discussions)
@@ -20,7 +20,7 @@ Scratch Addons Userscript is a userscript that has all the features of Scratch A
 
 ## Contribute
 
-If you found a bug, or want to suggest new features, please use the [issues tab](https://github.com/RedGuy12/ScratchAddons/issues). If you want to help with the code or add a new addon, fork this repository, and then create a [pull request](https://github.com/RedGuy12/ScratchAddons/pulls). Also, please read our [contributing guidelines](https://github.com/RedGuy12/ScratchAddons/blob/userscript/CONTRIBUTING.md).
+If you found a bug, or want to suggest new features, please use the [issues tab](https://github.com/RedGuy12/ScratchAddons/issues). If you want to help with the code or add a new addon, fork this repository, and then create a [pull request](https://github.com/RedGuy12/ScratchAddons/pulls). Also, please read our [contributing guidelines](https://github.com/RedGuy12/ScratchAddons/blob/userscript-release/CONTRIBUTING.md).
 
 ### How to test
 
@@ -71,6 +71,6 @@ git branch -D pull-from-upstream; # `pull-from-upstream` is the branch name
 
 ## License
 
-Scratch Addons is licensed under the terms of the [GNU General Public License v3.0](https://github.com/RedGuy12/ScratchAddons/blob/userscript/LICENSE).
+Scratch Addons is licensed under the terms of the [GNU General Public License v3.0](https://github.com/RedGuy12/ScratchAddons/blob/userscript-release/LICENSE).
 
-Other third-party libraries used are listed on [/libraries/README.md](https://github.com/RedGuy12/ScratchAddons/tree/userscript/libraries#readme).
+Other third-party libraries used are listed on [/libraries/README.md](https://github.com/RedGuy12/ScratchAddons/tree/userscript-release/libraries#readme).

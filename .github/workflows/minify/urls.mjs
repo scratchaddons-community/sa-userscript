@@ -1,4 +1,5 @@
-import { writeFile, readFile } from "fs/promises";
+// not used rn
+import {writeFile, readFile} from "fs/promises";
 import getInDir from "./getInDir.mjs";
 
 getInDir({}).forEach(async (filePath) => {
