@@ -24,6 +24,13 @@ function updateAttrs(target, source) {
   Array.from(source.attributes).forEach((attr) => target.setAttribute(attr.name, attr.value));
 }
 
+document.documentElement.append(
+  Object.assign(document.createElement("script"), {
+    src: "https://redguy12.github.io/ScratchAddons/webpages/check-unsupported.js",
+    type: "module",
+  })
+);
+
 if (/^\/(scratch\-addons\-extension|scratch-addons|)\/settings\/?$/i.test(location.pathname)) {
   fetch("https://redguy12.github.io/ScratchAddons/webpages/settings/scratch.html")
     .then((r) => r.text())
@@ -65,12 +72,6 @@ if (/^\/(scratch\-addons\-extension|scratch-addons|)\/settings\/?$/i.test(locati
       for (const run of deferred) await run();
     });
 } else {
-  document.documentElement.append(
-    Object.assign(document.createElement("script"), {
-      src: "https://redguy12.github.io/ScratchAddons/webpages/check-unsupported.js",
-      type: "module",
-    })
-  );
   document.documentElement.append(
     Object.assign(document.createElement("script"), {
       src: "https://redguy12.github.io/ScratchAddons/content-scripts/cs.js",

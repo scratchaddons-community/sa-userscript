@@ -202,16 +202,11 @@ const cs = {
   },
 };
 
-const comlinkPromise = loadScriptFromUrl("libraries/thirdparty/cs/comlink.js", false),
-  modulePromise = loadScriptFromUrl("content-scripts/inject/module.js", true);
-
-comlinkPromise.then(() =>
-  Comlink.expose(cs, Comlink.windowEndpoint(comlinkIframe1.contentWindow, comlinkIframe2.contentWindow))
-);
-modulePromise.then(loadState);
-Promise.all([comlinkPromise, modulePromise]).then(
-  () => (_page_ = Comlink.wrap(Comlink.windowEndpoint(comlinkIframe3.contentWindow, comlinkIframe4.contentWindow)))
-);
+loadScriptFromUrl("libraries/thirdparty/cs/comlink.js", false)
+  .then(() => Comlink.expose(cs, Comlink.windowEndpoint(comlinkIframe1.contentWindow, comlinkIframe2.contentWindow)))
+  .then(() => loadScriptFromUrl("content-scripts/inject/module.js", true))
+  .then(() => (_page_ = Comlink.wrap(Comlink.windowEndpoint(comlinkIframe3.contentWindow, comlinkIframe4.contentWindow))))
+  .then(loadState)
 
 let initialUrl = location.href;
 let path = new URL(initialUrl).pathname.substring(1);
