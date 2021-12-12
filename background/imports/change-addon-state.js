@@ -12,19 +12,19 @@ export default (addonId, newState) => {
   chrome.storage.sync.set({
     addonsEnabled: scratchAddons.localState.addonsEnabled._target,
   });
-  const { manifest } = scratchAddons.manifests.find((addon) => addon.addonId === addonId);
-  const { dynamicEnable, dynamicDisable } = manifest;
+  // const { manifest } = scratchAddons.manifests.find((addon) => addon.addonId === addonId);
+  // const { dynamicEnable, dynamicDisable } = manifest;
   if (newState) {
-    if (dynamicEnable || dynamicDisable) {
-      scratchAddons.localEvents.dispatchEvent(new CustomEvent("addonDynamicEnable", { detail: { addonId, manifest } }));
-    }
+    // if (dynamicEnable || dynamicDisable) {
+    //   scratchAddons.localEvents.dispatchEvent(new CustomEvent("addonDynamicEnable", { detail: { addonId, manifest } }));
+    // }
     // runPersistentScripts(addonId);
   } else {
-    if (dynamicDisable) {
-      scratchAddons.localEvents.dispatchEvent(
-        new CustomEvent("addonDynamicDisable", { detail: { addonId, manifest } })
-      );
-    }
+    // if (dynamicDisable) {
+    //   scratchAddons.localEvents.dispatchEvent(
+    //     new CustomEvent("addonDynamicDisable", { detail: { addonId, manifest } })
+    //   );
+    // }
     const addonObjs = scratchAddons.addonObjects.filter((addonObj) => addonObj.self.id === addonId);
     if (addonObjs) {
       addonObjs.forEach((addonObj) => {

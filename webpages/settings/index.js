@@ -97,8 +97,8 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
 
   const promisify =
     (callbackFn) =>
-      (...args) =>
-        new Promise((resolve) => callbackFn(...args, resolve));
+    (...args) =>
+      new Promise((resolve) => callbackFn(...args, resolve));
 
   let handleConfirmClicked = null;
 
@@ -125,7 +125,7 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
     const obj = JSON.parse(str);
     const syncGet = promisify(chrome.storage.sync.get.bind(chrome.storage.sync));
     const syncSet = promisify(chrome.storage.sync.set.bind(chrome.storage.sync));
-    const {addonSettings, addonsEnabled} = await syncGet(["addonSettings", "addonsEnabled"]);
+    const { addonSettings, addonsEnabled } = await syncGet(["addonSettings", "addonsEnabled"]);
     // const pendingPermissions = {};
     for (const addonId of Object.keys(obj.addons)) {
       const addonValue = obj.addons[addonId];
@@ -137,10 +137,10 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
       // if (addonValue.enabled && browserPermissionsRequired.length) {
       //   pendingPermissions[addonId] = browserPermissionsRequired;
       /* } else */ {
-      addonsEnabled[addonId] = addonValue.enabled;
+        addonsEnabled[addonId] = addonValue.enabled;
       }
     }
-    if (handleConfirmClicked) confirmElem.removeEventListener("click", handleConfirmClicked, {once: true});
+    if (handleConfirmClicked) confirmElem.removeEventListener("click", handleConfirmClicked, { once: true });
     let resolvePromise = null;
     const resolveOnConfirmPromise = new Promise((resolve) => {
       resolvePromise = resolve;
@@ -164,11 +164,11 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
       resolvePromise();
     };
     confirmElem.classList.remove("hidden-button");
-    confirmElem.addEventListener("click", handleConfirmClicked, {once: true});
+    confirmElem.addEventListener("click", handleConfirmClicked, { once: true });
     return resolveOnConfirmPromise;
   };
 
-  const vue = window.vue = new Vue({
+  const vue = (window.vue = new Vue({
     el: "body",
     data() {
       return {
@@ -190,7 +190,7 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
         addonToEnable: null,
         showPopupModal: false,
         isIframe,
-        addonGroups: addonGroups.filter((g) => (isIframe ? g.iframeShow : g.fullscreenShow)),
+        addonGroups: addonGroups, //.filter((g) => (isIframe ? g.iframeShow : g.fullscreenShow)),
         categories,
         searchMsg: this.msg("search"),
         // browserLevelPermissions,
@@ -302,18 +302,18 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
       stopPropagation(e) {
         e.stopPropagation();
       },
-      updateSettings(addon, {wait = 0, settingId = null} = {}) {
+      updateSettings(addon, { wait = 0, settingId = null } = {}) {
         const value = settingId && this.addonSettings[addon._addonId][settingId];
         setTimeout(() => {
           if (!settingId || this.addonSettings[addon._addonId][settingId] === value) {
             chrome.runtime.sendMessage({
-              changeAddonSettings: {addonId: addon._addonId, newSettings: this.addonSettings[addon._addonId]},
+              changeAddonSettings: { addonId: addon._addonId, newSettings: this.addonSettings[addon._addonId] },
             });
             console.log("Updated", this.addonSettings[addon._addonId]);
           }
         }, wait);
       },
-      closePickers(e, leaveOpen, {callCloseDropdowns = true} = {}) {
+      closePickers(e, leaveOpen, { callCloseDropdowns = true } = {}) {
         this.$emit("close-pickers", leaveOpen);
         if (callCloseDropdowns) this.closeResetDropdowns();
       },
@@ -322,7 +322,7 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
       },
       exportSettings() {
         serializeSettings().then((serialized) => {
-          const blob = new Blob([serialized], {type: "application/json"});
+          const blob = new Blob([serialized], { type: "application/json" });
           downloadBlob("scratch-addons-settings.json", blob);
         });
       },
@@ -355,14 +355,15 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
             alert(chrome.i18n.getMessage("importSuccess"));
             chrome.runtime.reload();
           },
-          {once: true}
+          { once: true }
         );
         document.body.appendChild(inputElem);
         inputElem.click();
       },
       openFullSettings() {
         window.open(
-          `${chrome.runtime.getURL("webpages/settings/index.html")}#addon-${this.addonToEnable && this.addonToEnable._addonId
+          `${chrome.runtime.getURL("webpages/settings/index.html")}#addon-${
+            this.addonToEnable && this.addonToEnable._addonId
           }`
         );
         setTimeout(() => window.parent.close(), 100);
@@ -374,7 +375,7 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
           () => {
             this.showPopupModal = false;
           },
-          {once: true}
+          { once: true }
         );
       },
       groupShownCount(group) {
@@ -447,7 +448,7 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
         }
       }, 0);
     },
-  });
+  }));
 
   const getRunningAddons = (manifests, addonsEnabled) => {
     return new Promise((resolve) => {
@@ -456,7 +457,7 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
         void chrome.runtime.lastError;
         const addonsCurrentlyOnTab = res ? [...res.userscripts, ...res.userstyles] : [];
         const addonsPreviouslyOnTab = res ? res.disabledDynamicAddons : [];
-        resolve({addonsCurrentlyOnTab, addonsPreviouslyOnTab});
+        resolve({ addonsCurrentlyOnTab, addonsPreviouslyOnTab });
       });
     });
   };
@@ -464,7 +465,7 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
   // Wait for scratchAddons to load
   await promisify(chrome.runtime.sendMessage)("waitForState");
 
-  chrome.runtime.sendMessage("getSettingsInfo", async ({manifests, addonsEnabled, addonSettings}) => {
+  chrome.runtime.sendMessage("getSettingsInfo", async ({ manifests, addonsEnabled, addonSettings }) => {
     vue.addonSettings = addonSettings;
     const cleanManifests = [];
     let iframeData;
@@ -474,17 +475,17 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
     const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
     vue.manifests = [];
     let binaryNum = "";
-    for (const {manifest, addonId} of manifests) {
+    for (const { manifest, addonId } of manifests) {
       manifest._categories = [];
       manifest._categories[0] = manifest.tags.includes("popup")
         ? "popup"
         : manifest.tags.includes("easterEgg")
-          ? "easterEgg"
-          : manifest.tags.includes("theme")
-            ? "theme"
-            : manifest.tags.includes("community")
-              ? "community"
-              : "editor";
+        ? "easterEgg"
+        : manifest.tags.includes("theme")
+        ? "theme"
+        : manifest.tags.includes("community")
+        ? "community"
+        : "editor";
 
       const addCategoryIfTag = (arr) => {
         let count = 0;
@@ -667,7 +668,7 @@ chrome.storage.sync.get(["globalTheme"], function ({ globalTheme = false }) {
   });
 
   document.title = chrome.i18n.getMessage("settingsTitle");
-  chrome.runtime.sendMessage({title: document.title});
+  chrome.runtime.sendMessage({ title: document.title });
 
   function resize() {
     if (window.innerWidth < 1100) {

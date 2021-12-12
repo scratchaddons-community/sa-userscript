@@ -1,4 +1,4 @@
-import chrome from "../libraries/common/chrome.js";
+import chrome, {parseJson} from "../libraries/common/chrome.js";
 import localStateProxy from "../background/imports/local-state.js";
 import loadManifests from "../background/load-addon-manifests.js";
 import globalStateProxy from "../background/imports/global-state.js";
@@ -19,7 +19,12 @@ if (typeof scratchAddons === "object") {
   throw "Scratch Addons: extention running, stopping userscript (this can be ignored)";
 }
 
-const addonListPromise = loadManifests(false),
+const addonListPromise = loadManifests({
+    translations: false,
+    include: Object.entries(parseJson(window.top.localStorage["SCRATCHADDONS__addonsEnabled"]))
+      .filter(([, value]) => value)
+      .map(([id]) => id),
+  }),
   i18nPromise = chrome.i18n.init();
 
 /*
@@ -205,8 +210,10 @@ const cs = {
 loadScriptFromUrl("libraries/thirdparty/cs/comlink.js", false)
   .then(() => Comlink.expose(cs, Comlink.windowEndpoint(comlinkIframe1.contentWindow, comlinkIframe2.contentWindow)))
   .then(() => loadScriptFromUrl("content-scripts/inject/module.js", true))
-  .then(() => (_page_ = Comlink.wrap(Comlink.windowEndpoint(comlinkIframe3.contentWindow, comlinkIframe4.contentWindow))))
-  .then(loadState)
+  .then(
+    () => (_page_ = Comlink.wrap(Comlink.windowEndpoint(comlinkIframe3.contentWindow, comlinkIframe4.contentWindow)))
+  )
+  .then(loadState);
 
 let initialUrl = location.href;
 let path = new URL(initialUrl).pathname.substring(1);

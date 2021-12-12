@@ -1,10 +1,7 @@
 import chrome from "../../libraries/common/chrome.js";
+// Only kept to avoid merge conflicts
 
-const i18nPromise = chrome.i18n.init();
-
-const lightThemeLink = document.createElement("link");
-lightThemeLink.setAttribute("rel", "stylesheet");
-lightThemeLink.setAttribute("href", "light.css");
+import globalTheme from "../../libraries/common/global-theme.js";
 
 const vue = new Vue({
   el: "body",
@@ -35,7 +32,7 @@ const promisify =
     new Promise((resolve) => callbackFn(...args, resolve));
 
 document.getElementById("permissionsBtn").addEventListener("click", async () => {
-  const manifest = await chrome.runtime.getManifest();
+  const manifest = chrome.runtime.getManifest();
   const origins = manifest.permissions.filter((url) => url.startsWith("https://"));
 
   const isAlreadyGranted = await promisify(chrome.permissions.contains)({ origins });

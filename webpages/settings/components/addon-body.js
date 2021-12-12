@@ -28,7 +28,7 @@ export default async function ({ template }) {
           community: "web",
           theme: "brush",
           easterEgg: "egg-easter",
-          popup: "popup",
+          // popup: "popup",
         };
         return `../../images/icons/${map[this.addon._icon]}.svg`;
       },

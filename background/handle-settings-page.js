@@ -32,12 +32,12 @@ export default function (request, sendResponse) {
       addonSettings: scratchAddons.globalState.addonSettings._target,
     });
 
-    const manifest = scratchAddons.manifests.find((addon) => addon.addonId === addonId).manifest;
-    const { updateUserstylesOnSettingsChange } = manifest;
-    if (updateUserstylesOnSettingsChange)
-      scratchAddons.localEvents.dispatchEvent(
-        new CustomEvent("updateUserstylesSettingsChange", { detail: { addonId, manifest } })
-      );
+    // const manifest = scratchAddons.manifests.find((addon) => addon.addonId === addonId).manifest;
+    // const { updateUserstylesOnSettingsChange } = manifest;
+    // if (updateUserstylesOnSettingsChange)
+    //   scratchAddons.localEvents.dispatchEvent(
+    //     new CustomEvent("updateUserstylesSettingsChange", { detail: { addonId, manifest } })
+    //   );
     return true;
   }
 }

@@ -9,6 +9,18 @@ window.__scratchAddonsChrome = {
   ...(window.__scratchAddonsChrome || {}),
 };
 
+export function parseJson(res) {
+  try {
+    return typeof res === "string"
+      ? res === "undefined" || res === "" || res.startsWith("[object ")
+        ? null
+        : JSON.parse(res)
+      : res;
+  } catch {
+    return null;
+  }
+}
+
 function waitForListeners() {
   return new Promise(function (resolve, reject) {
     if (__scratchAddonsChrome.listenersReady) return resolve();
@@ -39,12 +51,7 @@ const storage = {
       keys.map(async (key) => {
         // localStorage[key]
         const res = await promisify(sendMessage)({ getFromStorage: key });
-        return [
-          key,
-          typeof res === "string"
-            ? JSON.parse(res === "undefined" || res === "" || res.startsWith("[object") ? null : res)
-            : res,
-        ];
+        return [key, parseJson(res)];
       })
     ).then((res) => callback(Object.fromEntries(res)));
   },

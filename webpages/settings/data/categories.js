@@ -81,12 +81,12 @@ const categories = () => [
     icon: "web",
     name: chrome.i18n.getMessage("websiteThemes"),
   },
-  {
-    id: "popup",
-    icon: "popup",
-    name: chrome.i18n.getMessage("popupFeatures"),
-    marginBottom: true,
-  },
+  // {
+  //   id: "popup",
+  //   icon: "popup",
+  //   name: chrome.i18n.getMessage("popupFeatures"),
+  //   marginBottom: true,
+  // },
 ];
 
 export default async () => {

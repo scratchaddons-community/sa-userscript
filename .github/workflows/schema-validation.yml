@@ -3,10 +3,10 @@ name: Validate addon manifest
 on:
   push:
     paths:
-      - addons/*/addon.json
+      - userscript/addons/*/addon.json
   pull_request:
     paths:
-      - addons/*/addon.json
+      - userscript/addons/*/addon.json
   workflow_dispatch:
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
         id: changed
         uses: ScratchAddons/changed-files@master
         with:
-          pattern: '^addons\/.*\/addon.json$'
+          pattern: '^userscript\/addons\/.*\/addon.json$'
           repo-token: ${{ github.token }}
 
       - name: Validate .json with schema (changed)
@@ -41,4 +41,4 @@ jobs:
         uses: ScratchAddons/validate-json-action@master
         with:
           schema: https://raw.githubusercontent.com/ScratchAddons/manifest-schema/dist/schema.json
-          jsons: addons/*/addon.json
+          jsons: userscript/addons/*/addon.json

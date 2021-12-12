@@ -1,8 +1,8 @@
 import chrome from "../libraries/common/chrome.js";
-export default async function (translations = false) {
+export default async function ({ translations = false, include } = {}) {
   const folderNames = [...new Set(await (await fetch(chrome.runtime.getURL("addons/addons.json"))).json())].filter(
     (folderName) => {
-      return !folderName.startsWith("//");
+      return include ? include.includes(folderName) : !folderName.startsWith("//");
     }
   );
 
@@ -28,9 +28,9 @@ export default async function (translations = false) {
               for (const info of manifest.info || []) {
                 info.text = scratchAddons.l10n.get(`${folderName}/@info-${info.id}`, {}, info.text);
               }
-              if (manifest.popup) {
-                manifest.popup.name = scratchAddons.l10n.get(`${folderName}/@popup-name`, {}, manifest.popup.name);
-              }
+              // if (manifest.popup) {
+              //   manifest.popup.name = scratchAddons.l10n.get(`${folderName}/@popup-name`, {}, manifest.popup.name);
+              // }
               for (const preset of manifest.presets || []) {
                 for (const prop of ["name", "description"]) {
                   if (preset[prop]) {

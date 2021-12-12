@@ -12,14 +12,17 @@ const NO_MINIFY = [
   "/content-scripts/prototype-handler.js",
   "/content-scripts/fix-console.js",
   "/libraries/common/cs/text-color.js",
-  ".user.js"
-]
+  ".user.js",
+];
 
-getInDir({ext: ".js"}).forEach(async (filePath) => {
-
-  if (NO_MINIFY.some(pattern=>filePath.endsWith(pattern)))return
+getInDir({ ext: ".js" }).forEach(async (filePath) => {
+  if (NO_MINIFY.some((pattern) => filePath.endsWith(pattern))) return;
   const source = await readFile(filePath, "utf8").catch(console.error);
-  const minfied = (await minifyJs(source, terserConfig).catch(e=>console.log(filePath)).catch(console.error)).code;
+  const minfied = (
+    await minifyJs(source, terserConfig)
+      .catch((e) => console.log(filePath))
+      .catch(console.error)
+  ).code;
   await writeFile(filePath, minfied);
   console.log(`Minified ${filePath}`);
 });

@@ -21,8 +21,19 @@ getInDir({ ext: ".json" }).forEach(async (filePath) => {
     });
   }
 
+  // Strip unneeded entries from `addon.json`s
+  if (filePath.endsWith("addon.json")) {
+    parsed.$schema = undefined;
+    parsed.permissions = undefined;
+    parsed.persistentScripts = undefined;
+    parsed.popup = undefined;
+    parsed.dynamicDisable = undefined;
+    parsed.dynamicEnable = undefined;
+    parsed.updateUserstylesOnSettingsChange = undefined;
+  }
+
   const minfied = JSON.stringify(parsed);
-await writeFile(filePath, minfied);
+  await writeFile(filePath, minfied);
   console.log(`Minified ${filePath}`);
 });
 
