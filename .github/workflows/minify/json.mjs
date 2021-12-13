@@ -1,10 +1,23 @@
 import { writeFile, readFile } from "fs/promises";
 import getInDir from "./getInDir.mjs";
+import path from "path";
+
+function stripAddonMeta(addonJson) {
+  addonJson.$schema = undefined;
+  addonJson.permissions = undefined;
+  addonJson.persistentScripts = undefined;
+  addonJson.popup = undefined;
+  addonJson.dynamicDisable = undefined;
+  addonJson.dynamicEnable = undefined;
+  addonJson.updateUserstylesOnSettingsChange = undefined;
+  return addonJson
+}
+
 
 /* JSON */
 getInDir({ ext: ".json" }).forEach(async (filePath) => {
   const source = await readFile(filePath, "utf8").catch(console.error);
-  let parsed = JSON.parse(source);
+  let parsed= JSON.parse(source);
 
   // Strip translator helps
   if (filePath.includes("/_locales/")) {
@@ -16,20 +29,22 @@ getInDir({ ext: ".json" }).forEach(async (filePath) => {
 
   // Strip comments from `addons.json`
   if (filePath.endsWith("addons.json")) {
-    parsed = [...new Set(parsed)].filter((folderName) => {
-      return !folderName.startsWith("//");
-    });
+    parsed = await Promise.all(
+      [...new Set(parsed)]
+        .filter((folderName) => {
+          return !folderName.startsWith("//");
+        })
+        .map(async (id) => {
+          const addonJson = stripAddonMeta(JSON.parse(await readFile(path.resolve(filePath, "../" + id + "/addon.json"), "utf8")));
+
+          return [id, addonJson];
+        })
+    );
   }
 
   // Strip unneeded entries from `addon.json`s
   if (filePath.endsWith("addon.json")) {
-    parsed.$schema = undefined;
-    parsed.permissions = undefined;
-    parsed.persistentScripts = undefined;
-    parsed.popup = undefined;
-    parsed.dynamicDisable = undefined;
-    parsed.dynamicEnable = undefined;
-    parsed.updateUserstylesOnSettingsChange = undefined;
+    parsed=stripAddonMeta(parsed);
   }
 
   const minfied = JSON.stringify(parsed);
