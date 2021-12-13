@@ -16,7 +16,10 @@
     <link href="../../libraries/thirdparty/Sora.css" rel="stylesheet" />
     <script src="../../libraries/thirdparty/vue.js" defer></script>
     <script src="../../background/handle-licenses.js" defer></script>
-    <script src="./licenses.js" defer type="module"></script>
+    <script type="module">
+      import chrome from "../../libraries/common/chrome.js";
+      chrome.i18n.init().then(() => import("./licenses.js"));
+    </script>
   </head>
   <body class="licenses">
     <div class="navbar">

@@ -1,16 +1,8 @@
 import chrome from "../../libraries/common/chrome.js";
 
-//theme switching
-const lightThemeLink = document.createElement("link");
-lightThemeLink.setAttribute("rel", "stylesheet");
-lightThemeLink.setAttribute("href", "../styles/colors-light.css");
-chrome.storage.sync.get(["globalTheme"], function (r) {
-  let rr = false; //true = light, false = dark
-  if (r.globalTheme) rr = r.globalTheme;
-  if (rr) {
-    document.head.appendChild(lightThemeLink);
-  }
-});
+import globalTheme from "../../libraries/common/global-theme.js";
+
+globalTheme();
 
 function calculatePopupSize() {
   if (!window.innerWidth || !window.innerHeight) {
@@ -46,13 +38,6 @@ const vue = new Vue({
     },
     openSettingsPage() {
       chrome.runtime.openOptionsPage();
-      this.closePopup();
-    },
-    openChangelog() {
-      const uiLanguage = chrome.i18n.getUILanguage();
-      const localeSlash = uiLanguage.startsWith("en") ? "" : `${uiLanguage.split("-")[0]}/`;
-      const utm = `utm_source=userscript&utm_medium=popup&utm_campaign=v${chrome.runtime.getManifest().version}`;
-      window.open(`https://scratchaddons.com/${localeSlash}changelog/?${utm}`);
       this.closePopup();
     },
     setPopup(popup) {

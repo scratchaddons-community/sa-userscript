@@ -182,7 +182,7 @@ const cs = {
   copyImage(dataURL) {
     // Firefox only
     return new Promise((resolve, reject) => {
-      browser.runtime.sendMessage({ clipboardDataURL: dataURL }).then(
+      chrome.runtime.sendMessage({ clipboardDataURL: dataURL }).then(
         (res) => {
           resolve();
         },
@@ -344,7 +344,8 @@ function setCssVariables(addonSettings, addonsWithUserstyles) {
         hex = getColor(addonId, obj.source);
         let black = getColor(addonId, obj.black);
         let white = getColor(addonId, obj.white);
-        return textColorLib.textColor(hex, black, white, obj.threshold);
+        let threshold = getColor(addonId, obj.threshold);
+        return textColorLib.textColor(hex, black, white, threshold);
       }
       case "multiply": {
         hex = getColor(addonId, obj.source);
@@ -562,7 +563,7 @@ const showBanner = async () => {
   });
   if (!chrome.i18n.ready) await i18nPromise;
   const notifImageLink = Object.assign(document.createElement("a"), {
-    href: "https://www.youtube.com/watch?v=QnvgB5ILZCg",
+    href: "https://www.youtube.com/watch?v=9y4IsQLz3rk",
     target: "_blank",
     rel: "noopener",
     referrerPolicy: "strict-origin-when-cross-origin",
@@ -600,7 +601,7 @@ const showBanner = async () => {
   });
   const notifInnerText1 = Object.assign(document.createElement("span"), {
     style: NOTIF_TEXT_STYLE,
-    innerHTML: escapeHTML(chrome.i18n.getMessage("extensionUpdateInfo1_v1_21", DOLLARS)).replace(
+    innerHTML: escapeHTML(chrome.i18n.getMessage("extensionUpdateInfo1_v1_23", DOLLARS)).replace(
       /\$(\d+)/g,
       (_, i) =>
         [
@@ -619,7 +620,7 @@ const showBanner = async () => {
   });
   const notifInnerText2 = Object.assign(document.createElement("span"), {
     style: NOTIF_TEXT_STYLE,
-    textContent: chrome.i18n.getMessage("extensionUpdateInfo2_v1_21"),
+    textContent: chrome.i18n.getMessage("extensionUpdateInfo2_v1_23"),
   });
   const notifFooter = Object.assign(document.createElement("span"), {
     style: NOTIF_TEXT_STYLE,

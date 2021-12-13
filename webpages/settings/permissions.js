@@ -15,12 +15,9 @@ const vue = new Vue({
   },
 });
 
-chrome.storage.sync.get(["globalTheme"], function (r) {
-  let rr = false; //true = light, false = dark
-  if (r.globalTheme) rr = r.globalTheme;
-  if (rr) {
-    document.head.appendChild(lightThemeLink);
-    vue.theme = "../../images/screenshots/permissions-light.png";
+globalTheme().then(({ theme }) => {
+  if (theme) {
+    vue.screenshotPath = "../../images/screenshots/permissions-light.png";
   }
 });
 

@@ -56,7 +56,7 @@ This will usually be done by @RedGuy12. You shouldn't need to bother with this.
 
 ```sh
 git checkout -b pull-from-upstream; # pick any branch name
-git pull origin master; # `origin` is https://github.com/ScratchAddons/ScratchAddons.git
+git pull upstream master; # `upstream` is https://github.com/ScratchAddons/ScratchAddons.git
 # resolve conflicts, if any
 npx serve --cors --symlinks;
 # test
@@ -64,7 +64,7 @@ git add .; # if conflicts or other changes
 git commit;
 # write commit message
 git push fork pull-from-upstream; # `fork` is your fork; `pull-from-upstream` is the branch name
-# create PR to https://github.com/RedGuy12/ScratchAddons/
+# create PR to https://github.com/RedGuy12/ScratchAddons/tree/userscript
 # merge PR
 git branch -D pull-from-upstream; # `pull-from-upstream` is the branch name
 ```

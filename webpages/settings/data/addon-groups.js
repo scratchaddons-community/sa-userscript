@@ -1,32 +1,34 @@
 import chrome from "../../../libraries/common/chrome.js";
 
 const groups = () => [
+  /*
   // Only popup:
-  // {
-  //   id: "recentlyUsed",
-  //   name: chrome.i18n.getMessage("recentlyUsed"),
-  //   addonIds: [],
-  //   expanded: true,
-  //   iframeShow: true,
-  //   fullscreenShow: false,
-  // },
-  // {
-  //   id: "runningOnTab",
-  //   name: chrome.i18n.getMessage("runningOnThisPage"),
-  //   addonIds: [],
-  //   expanded: true,
-  //   iframeShow: true,
-  //   fullscreenShow: false,
-  // },
-  // {
-  //   // Needed to create addonListObjs items for non-enabled addons
-  //   id: "_iframeSearch",
-  //   name: "",
-  //   addonIds: [],
-  //   expanded: true,
-  //   iframeShow: true,
-  //   fullscreenShow: false,
-  // },
+  {
+    id: "recentlyUsed",
+    name: chrome.i18n.getMessage("recentlyUsed"),
+    addonIds: [],
+    expanded: true,
+    iframeShow: true,
+    fullscreenShow: false,
+  },
+  {
+    id: "runningOnTab",
+    name: chrome.i18n.getMessage("runningOnThisPage"),
+    addonIds: [],
+    expanded: true,
+    iframeShow: true,
+    fullscreenShow: false,
+  },
+  {
+    // Needed to create addonListObjs items for non-enabled addons
+    id: "_iframeSearch",
+    name: "",
+    addonIds: [],
+    expanded: true,
+    iframeShow: true,
+    fullscreenShow: false,
+  },
+  */
 
   {
     id: "featuredNew",
@@ -35,6 +37,7 @@ const groups = () => [
     expanded: true,
     // iframeShow: false,
     fullscreenShow: true,
+    customOrder: ["new", "updated"],
   },
   {
     id: "new",
@@ -43,6 +46,7 @@ const groups = () => [
     expanded: new URLSearchParams(window.location.search).get("source") === "updatenotif",
     // iframeShow: false,
     fullscreenShow: true,
+    customOrder: ["new", "updated"],
   },
   {
     id: "enabled",
