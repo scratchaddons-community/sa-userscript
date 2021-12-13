@@ -1,10 +1,11 @@
 import chrome from "../libraries/common/chrome.js";
-export default async function ({ translations = false, include } = {}) {
-  const folderNames = [...new Set(await (await fetch(chrome.runtime.getURL("addons/addons.json"))).json())].filter(
+export default async function ({ translations = false } = {}) {
+  const addons = [...new Set(await (await fetch(chrome.runtime.getURL("addons/addons.json"))).json())].filter(
     (folderName) => {
-      return include ? include.includes(folderName) : !folderName.startsWith("//");
+      return !folderName[0].startsWith("//");
     }
   );
+  const folderNames = addons.map(([folder]) => folder);
 
   if (translations && typeof scratchAddons === "object") await scratchAddons.l10n?.load(folderNames);
   const useDefault = typeof scratchAddons === "object" ? scratchAddons.l10n?.locale?.startsWith("en") ?? true : true;
@@ -13,9 +14,10 @@ export default async function ({ translations = false, include } = {}) {
 
   manifests.push(
     ...(await Promise.all(
-      folderNames.map(async (folderName) => {
-        return fetch(chrome.runtime.getURL(`addons/${folderName}/addon.json`))
-          .then((res) => res.json())
+      addons.map(async (addon) => {
+        const folderName = addon[0];
+        return new Promise((resolve) => resolve(addon[1]))
+          .then((res) => res) // to make the line longer so it wraps lol
           .then((manifest) => {
             if (translations && !useDefault) {
               manifest._english = {};

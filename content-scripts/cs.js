@@ -21,9 +21,6 @@ if (typeof scratchAddons === "object") {
 
 const addonListPromise = loadManifests({
     translations: false,
-    include: Object.entries(parseJson(window.top.localStorage["SCRATCHADDONS__addonsEnabled"]))
-      .filter(([, value]) => value)
-      .map(([id]) => id),
   }),
   i18nPromise = chrome.i18n.init();
 
