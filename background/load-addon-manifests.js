@@ -5,9 +5,8 @@ export default async function ({ translations = false } = {}) {
       return !folderName[0].startsWith("//");
     }
   );
-  const folderNames = addons.map(([folder]) => folder);
 
-  if (translations && typeof scratchAddons === "object") await scratchAddons.l10n?.load(folderNames);
+  if (translations && typeof scratchAddons === "object") await scratchAddons.l10n?.load(addons.map(([folder]) => folder));
   const useDefault = typeof scratchAddons === "object" ? scratchAddons.l10n?.locale?.startsWith("en") ?? true : true;
 
   const manifests = [];
