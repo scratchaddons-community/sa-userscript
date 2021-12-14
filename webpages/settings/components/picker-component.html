@@ -6,8 +6,7 @@
       :class="{'action-disabled': !addon._enabled, 'open': isOpen }"
       @click="toggle(addon, setting)"
     ></button>
-    <template v-if="loadColorPicker">
-      sus
+    <div v-if="loadColorPicker">
       <color-picker
         :value="value"
         id="picker"
@@ -17,6 +16,6 @@
         :no_alpha="noAlphaString"
         dir="ltr"
       ></color-picker>
-    </template>
+    </div>
   </div>
 </template>
