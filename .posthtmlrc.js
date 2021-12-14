@@ -12,7 +12,6 @@ module.exports = {
         end: "}}",
       },
     ],
-    quoteAllAttributes: false,
     replaceQuote: false,
     quoteStyle: 0,
     lowerCaseTags: true,
