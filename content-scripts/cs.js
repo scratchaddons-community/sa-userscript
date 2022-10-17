@@ -1,4 +1,4 @@
-import chrome, {parseJson} from "../libraries/common/chrome.js";
+import chrome, { parseJson } from "../libraries/common/chrome.js";
 import localStateProxy from "../background/imports/local-state.js";
 import loadManifests from "../background/load-addon-manifests.js";
 import globalStateProxy from "../background/imports/global-state.js";

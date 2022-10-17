@@ -10,14 +10,13 @@ function stripAddonMeta(addonJson) {
   addonJson.dynamicDisable = undefined;
   addonJson.dynamicEnable = undefined;
   addonJson.updateUserstylesOnSettingsChange = undefined;
-  return addonJson
+  return addonJson;
 }
-
 
 /* JSON */
 getInDir({ ext: ".json" }).forEach(async (filePath) => {
   const source = await readFile(filePath, "utf8").catch(console.error);
-  let parsed= JSON.parse(source);
+  let parsed = JSON.parse(source);
 
   // Strip translator helps
   if (filePath.includes("/_locales/")) {
@@ -35,7 +34,9 @@ getInDir({ ext: ".json" }).forEach(async (filePath) => {
           return !folderName.startsWith("//");
         })
         .map(async (id) => {
-          const addonJson = stripAddonMeta(JSON.parse(await readFile(path.resolve(filePath, "../" + id + "/addon.json"), "utf8")));
+          const addonJson = stripAddonMeta(
+            JSON.parse(await readFile(path.resolve(filePath, "../" + id + "/addon.json"), "utf8"))
+          );
 
           return [id, addonJson];
         })
@@ -44,7 +45,7 @@ getInDir({ ext: ".json" }).forEach(async (filePath) => {
 
   // Strip unneeded entries from `addon.json`s
   if (filePath.endsWith("addon.json")) {
-    parsed=stripAddonMeta(parsed);
+    parsed = stripAddonMeta(parsed);
   }
 
   const minfied = JSON.stringify(parsed);

@@ -1,5 +1,5 @@
 // unused file
-import browser from "../libraries/common/chrome.js"
+import browser from "../libraries/common/chrome.js";
 import createConsole from "../libraries/common/console.js";
 
 const console = createConsole("background");

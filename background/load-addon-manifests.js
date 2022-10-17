@@ -6,7 +6,8 @@ export default async function ({ translations = false } = {}) {
     }
   );
 
-  if (translations && typeof scratchAddons === "object") await scratchAddons.l10n?.load(addons.map(([folder]) => folder));
+  if (translations && typeof scratchAddons === "object")
+    await scratchAddons.l10n?.load(addons.map(([folder]) => folder));
   const useDefault = typeof scratchAddons === "object" ? scratchAddons.l10n?.locale?.startsWith("en") ?? true : true;
 
   const manifests = [];
