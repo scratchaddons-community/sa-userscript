@@ -42,4 +42,4 @@ jobs:
           git config user.name "RedGuy12"
           git commit -am "Update prerelease version";
           git fetch
-          git push origin HEAD:userscript-release --force;
+          git push origin HEAD:release --force;

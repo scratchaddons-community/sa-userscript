@@ -1,6 +1,6 @@
 # Contributing guidelines
 
-For anyone who knows [Git](https://git-scm.com) and JavaScript basics: feel free to contribute to this repository! Our code is open source. Be sure to follow our [code of conduct](https://github.com/RedGuy12/ScratchAddons/blob/userscript-release/CODE_OF_CONDUCT.md).
+For anyone who knows [Git](https://git-scm.com) and JavaScript basics: feel free to contribute to this repository! Our code is open source. Be sure to follow our [code of conduct](https://github.com/RedGuy12/ScratchAddons/blob/release/CODE_OF_CONDUCT.md).
 
 ## Filing [issues](https://docs.github.com/en/github/managing-your-work-on-github/about-issues)
 
