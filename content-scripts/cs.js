@@ -1,4 +1,4 @@
-import chrome from "../libraries/common/chrome.js"
+import chrome from "../libraries/common/chrome.js";
 try {
   if (window.parent.location.origin !== "https://scratch.mit.edu") throw "Scratch Addons: not first party iframe";
 } catch {
