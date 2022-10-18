@@ -9,6 +9,9 @@
     "browser": true
   },
   "globals": {
+    "chrome": "off",
+    "console": "off",
+
     // Scratch Addons-defined
     "scratchAddons": "writable",
     "__scratchAddonsTraps": "writable",
@@ -77,11 +80,12 @@
         "webpages/**/*.js"
       ],
       "env": {
-        "webextensions": true
+        "webextensions": false
       },
       "rules": {
         "no-eval": 2
-      }
+      },
+      "globals": { "chrome": "off", "console": "off" }
     },
     {
       "files": ["content-scripts/*.js"],
@@ -98,6 +102,21 @@
           }
         ]
       }
+    },
+    {
+      "files": [
+        ".github/**",
+        ".github/*",
+        "**rc.js",
+        "**.config.js",
+        "*rc.js",
+        "*.config.js",
+        "*.mjs",
+        "**.mjs",
+        "*.cjs",
+        "**.cjs"
+      ],
+      "env": { "node": true }
     }
   ]
 }

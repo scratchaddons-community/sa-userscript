@@ -10,6 +10,7 @@ assignees: ''
 
 Read before creating!
 
+- Make sure this issue is about the loader.
 - Avoid creating duplicates! Read the FAQ page and search through issues and discussions before creating one.
 - Try to make a simple but descriptive title, and include the detailed information below.
 - Make sure to use the latest version of Scratch Addons.

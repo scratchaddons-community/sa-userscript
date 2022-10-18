@@ -1,0 +1,25 @@
+{
+  "scratchAddonsThemeDescription": {
+    "message": "This allows you to switch between light and dark themes for this settings page."
+  },
+  "forumWarning": {
+    "message": "Message added by Scratch Addons: make sure the bug you're about to report still happens when all browser extensions and userscripts are disabled, including Scratch Addons. If you believe a bug is caused by Scratch Addons, please $1."
+  },
+  "forumWarningGeneral": {
+    "message": "Message from Scratch Addons: Scratch policy forbids discussion about browser extensions and userscripts, including Scratch Addons. Do not advertise Scratch Addons or any of its features. If you found a bug, please $1."
+  },
+  "extensionUpdate": {
+    "message": "Scratch Addons update"
+  },
+  "captureCommentError": {
+    "message": "Message added by Scratch Addons: it appears that your comment doesn't follow $1, which asks Scratchers not to advertise or name browser extensions or userscripts. This comment wasn't posted because it will probably result in your account getting muted from commenting for 5 minutes."
+  },
+  "extensionStoreDescription2": {
+    "message": "• Beautify every page on the Scratch website with the 3.0 style and options for dark mode and custom color themes.\n• Easily leave studios, promote or remove curators, and browse followers to invite.\n• Improve project management with the My Stuff search bar and the unshare button.\n• Enhance the project player with a pause button, 60FPS, and gamepad support.\n• Animate more easily with onion skinning, exact color picking, and costume search.\n• Supercharge your coding efficiency with block search, searchable dropdowns, block switching, single-grab, and copy/paste.\n• Stay tidy with the auto-hiding block palette and sprite folders.\n• Directly set and freeze project thumbnails to any image or GIF.\n• Bring back the cat blocks from April Fools.\n• Debug projects with logging, performance monitoring, and step-by-step execution.\n• And more with each update!",
+    "description": "Used in the description for the extension stores"
+  },
+  "extensionStoreDescription3": {
+    "message": "This extension is open source software licensed under GPL v3.\nTo contribute or check the source code: https://github.com/scratchaddons-community/sa-userscript\nFor more information, go to: ScratchAddons.com",
+    "description": "Used in the description for the extension stores. Do not translate \"GPL v3\" or the links."
+  }
+}

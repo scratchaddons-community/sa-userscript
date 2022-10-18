@@ -7,11 +7,12 @@ body:
       value: |
         ### Read before creating!
 
+        - Make sure this issue is about the loader. Anything to do with the addons themselves should go [here](https://github.com/ScratchAddons/ScratchAddons/issues/new/choose).
         - Avoid creating duplicates! Read the FAQ page and search through issues and discussions before creating one.
         - Try to make a simple but descriptive title, and include the detailed information below. This could save a lot of time and help us fix issues swiftly.
         - Make sure to use the latest version of Scratch Addons.
-        - For help, check our [FAQ page](https://scratchaddons.com/faq), open a [discussion](https://github.com/ScratchAddons/ScratchAddons/discussions) or ask on our [Discord server](https://discord.gg/R5NBqwMjNc).
-        - If you found a security vulnerability, please read our [security policy](https://github.com/ScratchAddons/ScratchAddons/security/policy).
+        - For help, check our [FAQ page](https://scratchaddons.com/faq), open a [discussion](https://github.com/scratchaddons-community/sa-userscript/discussions) or ask on our [Discord server](https://discord.gg/R5NBqwMjNc).
+        - If you found a security vulnerability, please read our [security policy](https://github.com/scratchaddons-community/sa-userscript/security/policy).
 
   - type: textarea
     id: description
