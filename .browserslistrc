@@ -1,1 +1,9 @@
-chrome > 0, edge > 0, and_chr > 0, firefox > 0, opera > 0, safari > 0 and last 1 year
+and_chr >= 80
+and_ff >= 86
+chrome >= 80
+edge >= 80
+firefox >= 86
+ios_saf >= 15.1
+opera >= 67
+safari >= 14
+

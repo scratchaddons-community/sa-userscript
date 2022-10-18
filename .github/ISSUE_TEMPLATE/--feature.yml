@@ -4,7 +4,7 @@ labels: ["status: needs triage", "type: enhancement"]
 body:
   - type: markdown
     attributes:
-      value: |
+      value: | 
         ### Read before creating!
 
         - Make sure this issue is about the loader. Anything to do with the addons themselves should go [here](https://github.com/ScratchAddons/ScratchAddons/issues/new/choose).

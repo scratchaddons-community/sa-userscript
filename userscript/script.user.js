@@ -1,6 +1,12 @@
 // ==UserScript==
 // @name        Scratch Addons
 // @description Scratch Addons provides new features and themes for the scratch.mit.edu website and project editor.
+// @author      scratchaddons.com
+// @version     1.29.0-prerelease
+// @icon        https://scratchaddons-community.github.io/sa-userscript/images/icon.svg
+// @homepage    https://scratchaddons.com
+// @supportURL  https://scratchaddons.com/feedback
+// @updateURL   https://scratchaddons-community.github.io/sa-userscript/userscript/script.user.js
 // @match       https://scratch.mit.edu/*
 // @run-at      document-start
 // @weight      999
@@ -8,14 +14,8 @@
 // @require     https://scratchaddons-community.github.io/sa-userscript/content-scripts/prototype-handler.js
 // @require     https://scratchaddons-community.github.io/sa-userscript/content-scripts/fix-console.js
 // @require     https://scratchaddons-community.github.io/sa-userscript/libraries/common/cs/text-color.js
-// @version     1.23.0-prerelease
-// @updateURL   https://scratchaddons-community.github.io/sa-userscript/userscript/script.user.js
-// @namespace   https://scratchaddons.com/
-// @author      scratchaddons.com
-// @homepage    https://scratchaddons.com
-// @icon        https://scratchaddons-community.github.io/sa-userscript/images/icon.svg
-// @supportURL  https://scratchaddons.com/feedback
 // @grant       none
+// @namespace   https://scratchaddons.com/
 // ==/UserScript==
 
 function updateAttrs(target, source) {
