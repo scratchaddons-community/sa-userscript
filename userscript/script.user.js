@@ -4,16 +4,16 @@
 // @match       https://scratch.mit.edu/*
 // @run-at      document-start
 // @weight      999
-// @require     https://redguy12.github.io/ScratchAddons/content-scripts/load-redux.js
-// @require     https://redguy12.github.io/ScratchAddons/content-scripts/prototype-handler.js
-// @require     https://redguy12.github.io/ScratchAddons/content-scripts/fix-console.js
-// @require     https://redguy12.github.io/ScratchAddons/libraries/common/cs/text-color.js
+// @require     https://scratchaddons-community.github.io/sa-userscript/content-scripts/load-redux.js
+// @require     https://scratchaddons-community.github.io/sa-userscript/content-scripts/prototype-handler.js
+// @require     https://scratchaddons-community.github.io/sa-userscript/content-scripts/fix-console.js
+// @require     https://scratchaddons-community.github.io/sa-userscript/libraries/common/cs/text-color.js
 // @version     1.23.0-prerelease
-// @updateURL   https://redguy12.github.io/ScratchAddons/userscript/script.user.js
+// @updateURL   https://scratchaddons-community.github.io/sa-userscript/userscript/script.user.js
 // @namespace   https://scratchaddons.com/
 // @author      scratchaddons.com
 // @homepage    https://scratchaddons.com
-// @icon        https://redguy12.github.io/ScratchAddons/images/icon.svg
+// @icon        https://scratchaddons-community.github.io/sa-userscript/images/icon.svg
 // @supportURL  https://scratchaddons.com/feedback
 // @grant       none
 // ==/UserScript==
@@ -26,13 +26,13 @@ function updateAttrs(target, source) {
 
 document.documentElement.append(
   Object.assign(document.createElement("script"), {
-    src: "https://redguy12.github.io/ScratchAddons/webpages/check-unsupported.js",
+    src: "https://scratchaddons-community.github.io/sa-userscript/webpages/check-unsupported.js",
     type: "module",
   })
 );
 
 if (/^\/(scratch\-addons\-extension|scratch-addons|)\/settings\/?$/i.test(location.pathname)) {
-  fetch("https://redguy12.github.io/ScratchAddons/webpages/settings/scratch.html")
+  fetch("https://scratchaddons-community.github.io/sa-userscript/webpages/settings/scratch.html")
     .then((r) => r.text())
     .then(async (html) => {
       const dom = new DOMParser().parseFromString(html, "text/html");
@@ -74,7 +74,7 @@ if (/^\/(scratch\-addons\-extension|scratch-addons|)\/settings\/?$/i.test(locati
 } else {
   document.documentElement.append(
     Object.assign(document.createElement("script"), {
-      src: "https://redguy12.github.io/ScratchAddons/content-scripts/cs.js",
+      src: "https://scratchaddons-community.github.io/sa-userscript/content-scripts/cs.js",
       type: "module",
     })
   );

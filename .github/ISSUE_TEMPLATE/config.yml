@@ -4,7 +4,7 @@ contact_links:
     url: https://github.com/ScratchAddons/ScratchAddons/issues/new/choose
     about: Get help, ask questions, request features, report bugs, and ectetera about the addons themselves. THIS REPO IS ONLY FOR THE USERSCRIPT ADDON LOADER.
   - name: 💬 GitHub Discussions
-    url: https://github.com/RedGuy12/ScratchAddons/discussions
+    url: https://github.com/scratchaddons-community/sa-userscript/discussions
     about: Ask a question, or just discuss about the userscript on our GitHub Discussions (our own forums)
   - name: 📝 Send feedback
     url: https://scratchaddons.com/feedback

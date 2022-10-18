@@ -1,9 +1,9 @@
 ---
 name: "\U0001F41B Bug"
-about: "Report a bug"
-title: ""
-labels: "type: bug, status: needs triage"
-assignees: ""
+about: 'Report a bug'
+title: ''
+labels: 'type: bug, status: needs triage'
+assignees: ''
 ---
 
 <!--
@@ -17,7 +17,7 @@ READ BEFORE CREATING!
 - Asking for help should be done on Discussions or our Discord server. Return to the last page for the links.
 
 FAQ: https://scratchaddons.com/faq
-Return to the last page: https://github.com/RedGuy12/ScratchAddons/issues/new/choose
+Return to the last page: https://github.com/scratchaddons-community/sa-userscript/issues/new/choose
 
 -->
 
@@ -29,9 +29,9 @@ Return to the last page: https://github.com/RedGuy12/ScratchAddons/issues/new/ch
 
 <!-- Provide an unambiguous set of steps to reproduce this bug, and/or a link to a live example. -->
 
-1.
-2.
-3.
+1. 
+2. 
+3. 
 
 ### Expected behaviour
 

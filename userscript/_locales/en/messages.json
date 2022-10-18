@@ -21,6 +21,6 @@
     "message": "Keep in mind, all features are togglable! To enable or disable them, ope the settings page by TODO."
   },
   "extensionStoreDescription5": {
-    "message": "This project is open source software licensed under GPL v3.\nTo contribute or check the source code: https://github.com/RedGuy12/ScratchAddons/tree/userscript\nFor more information, go to: ScratchAddons.com"
+    "message": "This project is open source software licensed under GPL v3.\nTo contribute or check the source code: https://github.com/scratchaddons-community/sa-userscript/tree/userscript\nFor more information, go to: ScratchAddons.com"
   }
 }

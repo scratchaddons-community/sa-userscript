@@ -117,10 +117,6 @@
         "**.cjs"
       ],
       "env": { "node": true }
-      // },
-      // {
-      //   "files": ["userscript/**","userscript/*"],
-      //   "extends":["plugin:@onedotprojects/recommended","plugin:@onedotprojects/browser"]
     }
   ]
 }

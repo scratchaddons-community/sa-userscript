@@ -1,9 +1,9 @@
 ---
 name: "✨ Feature"
-about: "Request for a new feature"
-title: ""
-labels: "type: enhancement, status: needs triage"
-assignees: ""
+about: 'Request for a new feature'
+title: ''
+labels: 'type: enhancement, status: needs triage'
+assignees: ''
 ---
 
 <!--
@@ -17,7 +17,7 @@ READ BEFORE CREATING!
 - Asking for help should be done on Discussions or our Discord server. Return to the last page for the links.
 
 FAQ: https://scratchaddons.com/faq
-Return to the last page: https://github.com/RedGuy12/ScratchAddons/issues/new/choose
+Return to the last page: https://github.com/scratchaddons-community/sa-userscript/issues/new/choose
 
 -->
 

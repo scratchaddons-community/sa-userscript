@@ -3,10 +3,10 @@ name: Validate addon manifest
 on:
   push:
     paths:
-      - userscript/addons/*/addon.json
+      - addons/*/addon.json
   pull_request:
     paths:
-      - userscript/addons/*/addon.json
+      - addons/*/addon.json
   workflow_dispatch:
 
 jobs:
@@ -41,4 +41,4 @@ jobs:
         uses: ScratchAddons/validate-json-action@master
         with:
           schema: https://raw.githubusercontent.com/ScratchAddons/manifest-schema/dist/schema.json
-          jsons: userscript/addons/*/addon.json
+          jsons: addons/*/addon.json
