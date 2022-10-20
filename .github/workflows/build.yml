@@ -49,6 +49,7 @@ jobs:
         run: |
           git config user.email "RedGuy12@users.noreply.github.com"
           git config user.name "RedGuy12"
-          git commit -am "Update prerelease version";
+          git add .
+          git commit -m "Update prerelease version";
           git fetch
           git push origin HEAD:release --force;
