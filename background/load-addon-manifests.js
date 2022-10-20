@@ -50,7 +50,7 @@ const localizeSettings = (addonId, setting, tableId) => {
     if (addonId.startsWith("//")) continue;
     let manifest;
     try {
-      manifest = manifests[addonId]
+      manifest = manifests[addonId];
     } catch (ex) {
       console.error(`Failed to load addon manifest for ${addonId}, crashing:`, ex);
       chrome.tabs.create({

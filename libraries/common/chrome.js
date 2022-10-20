@@ -141,7 +141,7 @@ export default {
       return manifest;
     },
     reload() {
-      sendMessage("reload page")
+      sendMessage("reload page");
     },
     getURL,
     sendMessage,
