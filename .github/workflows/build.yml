@@ -22,7 +22,7 @@ jobs:
           node-version: 16
 
       - name: Install
-        run: npm install terser@5.15.1 posthtml-cli@0.10.0 postcss-cli@10.0.0 posthtml-postcss@0.5.0 htmlnano@2.02 cssnano@5.1.0 autoprefixer@10.4.12
+        run: npm install terser@5.15.1 posthtml-cli@0.10.0 postcss-cli@10.0.0 posthtml-postcss@0.5.0 htmlnano@2.0.2 cssnano@5.1.0 autoprefixer@10.4.12
 
       - name: Terser
         run: node .github/workflows/minify/terser.mjs
