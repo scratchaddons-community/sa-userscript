@@ -226,7 +226,7 @@ export default {
 };
 
 function getURL(url) {
-  const { href } = new URL("../../" + url, import.meta.url);
+  const { href } = new URL("../../" + (url.startsWith("/") ? url.substring(1) : url), import.meta.url);
   return href;
 }
 
