@@ -10,7 +10,10 @@ const terserConfig = JSON.parse(await readFile(resolve(dir, "../../../.terserrc"
 const manifest = JSON.parse(await readFile(resolve(dir, "../../../manifest.json")));
 const locales = JSON.parse(await readFile(resolve(dir, "../../../_locales/en/messages.json")));
 const rev = (await readFile(".git/HEAD")).toString().trim();
-const commit = rev.indexOf(":") === -1 ? rev : (await readFile(".git/" + rev.substring(5))).toString().trim();
+const commit = (rev.indexOf(":") === -1 ? rev : (await readFile(".git/" + rev.substring(5))).toString().trim()).slice(
+  0,
+  7
+);
 
 const NO_MINIFY = [
   "/content-scripts/load-redux.js",
@@ -31,8 +34,8 @@ getInDir({ ext: ".js" }).forEach(async (filePath) => {
         .replaceAll("__MSG_extensionVersionName__", manifest.version_name.replace("-", `-${commit}-`))
         .replaceAll(
           "__MSG_extensionIcon__",
-          `https://sa-userscript-dev.cf${
-            manifest.version_name.includes("-") ? manifest.browser_action.default_icon : "/images/icon.png"
+          `https://sa-userscript-dev.cf/${
+            manifest.version_name.includes("-") ? manifest.browser_action.default_icon : "images/icon.png"
           }`
         )
     );

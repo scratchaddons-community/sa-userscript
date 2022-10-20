@@ -2,15 +2,15 @@
 
 # Welcome to Scratch Addons Userscript's repository!
 
-[![](https://img.shields.io/github/stars/scratchaddons-community/sa-userscript?color=blue&style=flat-square)](https://github.com/scratchaddons-community/sa-userscript/stargazers)
-[![](https://img.shields.io/github/forks/scratchaddons-community/sa-userscript?color=blue&style=flat-square)](https://github.com/scratchaddons-community/sa-userscript/network/members)
-[![](https://img.shields.io/github/watchers/scratchaddons-community/sa-userscript?color=blue&style=flat-square)](https://github.com/scratchaddons-community/sa-userscript/watchers)
-[![](https://img.shields.io/github/issues/scratchaddons-community/sa-userscript?color=green&style=flat-square)](https://github.com/scratchaddons-community/sa-userscript/issues)
-[![](https://img.shields.io/github/issues-pr/scratchaddons-community/sa-userscript?color=green&style=flat-square)](https://github.com/scratchaddons-community/sa-userscript/pulls)
-[![](https://img.shields.io/github/license/scratchaddons-community/sa-userscript?style=flat-square)](https://github.com/scratchaddons-community/sa-userscript/blob/userscript/LICENSE) <!-- 2 spaces -->
-[![](https://img.shields.io/github/v/userscript/scratchaddons-community/sa-userscript?style=flat-square&logo=github&logoColor=white&label=version&color=181717)](https://github.com/scratchaddons-community/sa-userscript/releases)
-[![](https://img.shields.io/github/downloads/scratchaddons-community/sa-userscript/total?style=flat-square&logo=github&logoColor=white&label=downloads&color=181717)](https://github.com/scratchaddons-community/sa-userscript/releases)
-[![](https://img.shields.io/badge/discuss-on_github-181717.svg?style=flat-square)](https://github.com/scratchaddons-community/sa-userscript/discussions)
+[![](https://img.shields.io/github/stars/scratchaddons-community/userscript?color=blue&style=flat-square)](https://github.com/scratchaddons-community/userscript/stargazers)
+[![](https://img.shields.io/github/forks/scratchaddons-community/userscript?color=blue&style=flat-square)](https://github.com/scratchaddons-community/userscript/network/members)
+[![](https://img.shields.io/github/watchers/scratchaddons-community/userscript?color=blue&style=flat-square)](https://github.com/scratchaddons-community/userscript/watchers)
+[![](https://img.shields.io/github/issues/scratchaddons-community/userscript?color=green&style=flat-square)](https://github.com/scratchaddons-community/userscript/issues)
+[![](https://img.shields.io/github/issues-pr/scratchaddons-community/userscript?color=green&style=flat-square)](https://github.com/scratchaddons-community/userscript/pulls)
+[![](https://img.shields.io/github/license/scratchaddons-community/userscript?style=flat-square)](https://github.com/scratchaddons-community/userscript/blob/userscript/LICENSE) <!-- 2 spaces -->
+[![](https://img.shields.io/github/v/userscript/scratchaddons-community/userscript?style=flat-square&logo=github&logoColor=white&label=version&color=181717)](https://github.com/scratchaddons-community/userscript/releases)
+[![](https://img.shields.io/github/downloads/scratchaddons-community/userscript/total?style=flat-square&logo=github&logoColor=white&label=downloads&color=181717)](https://github.com/scratchaddons-community/userscript/releases)
+[![](https://img.shields.io/badge/discuss-on_github-181717.svg?style=flat-square)](https://github.com/scratchaddons-community/userscript/discussions)
 [![](https://img.shields.io/badge/chat-on_discord-7289da.svg?style=flat-square)](https://discord.gg/R5NBqwMjNc)
 [![](https://img.shields.io/badge/website-scratchaddons.com-ff7b26.svg?style=flat-square)](https://scratchaddons.com)
 
@@ -20,14 +20,14 @@ Scratch Addons Userscript is a userscript that has most, if not all, of the feat
 
 ## Contribute
 
-If you found a bug, or want to suggest new features, please use the [issues tab](https://github.com/scratchaddons-community/sa-userscript/issues). If you want to help with the code or add a new addon, fork this repository, and then create a [pull request](https://github.com/scratchaddons-community/sa-userscript/pulls). Also, please read our [contributing guidelines](https://github.com/scratchaddons-community/sa-userscript/blob/userscript/CONTRIBUTING.md).
+If you found a bug, or want to suggest new features, please use the [issues tab](https://github.com/scratchaddons-community/userscript/issues). If you want to help with the code or add a new addon, fork this repository, and then create a [pull request](https://github.com/scratchaddons-community/userscript/pulls). Also, please read our [contributing guidelines](https://github.com/scratchaddons-community/userscript/blob/userscript/CONTRIBUTING.md).
 
 ### Set up
 
 1. Clone the source code
 
 ```sh
-git clone https://github.com/scratchaddons-community/sa-userscript.git;
+git clone https://github.com/scratchaddons-community/userscript.git;
 cd ScratchAddons;
 ```
 
@@ -44,12 +44,12 @@ npm install serve --global;
 ### Testing
 
 1. Run `npx serve --cors;` in the terminal.
-2. Update [the userscript](http://scratchaddons-community.github.io/sa-userscript/userscript/script.user.js) on your device.
+2. Update [the userscript](http://scratchaddons-community.github.io/userscript/userscript/script.user.js) on your device.
 
 Scratch Addons will now be running as a userscript. You may or may not have to redo those steps depending on which files you have changed.
 
 ## License
 
-Scratch Addons is licensed under the terms of the [GNU General Public License v3.0](https://github.com/scratchaddons-community/sa-userscript/blob/userscript/LICENSE).
+Scratch Addons is licensed under the terms of the [GNU General Public License v3.0](https://github.com/scratchaddons-community/userscript/blob/userscript/LICENSE).
 
-Other third-party libraries used are listed on [/libraries/README.md](https://github.com/scratchaddons-community/sa-userscript/tree/userscript/libraries#readme).
+Other third-party libraries used are listed on [/libraries/README.md](https://github.com/scratchaddons-community/userscript/tree/userscript/libraries#readme).

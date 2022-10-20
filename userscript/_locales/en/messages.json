@@ -19,7 +19,7 @@
     "description": "Used in the description for the extension stores"
   },
   "extensionStoreDescription3": {
-    "message": "This extension is open source software licensed under GPL v3.\nTo contribute or check the source code: https://github.com/scratchaddons-community/sa-userscript\nFor more information, go to: ScratchAddons.com",
+    "message": "This extension is open source software licensed under GPL v3.\nTo contribute or check the source code: https://github.com/scratchaddons-community/userscript\nFor more information, go to: ScratchAddons.com",
     "description": "Used in the description for the extension stores. Do not translate \"GPL v3\" or the links."
   }
 }
