@@ -1,7 +1,7 @@
 const { readFileSync } = require("fs");
 const { resolve } = require("path");
 const postCssConfig = require("./postcss.config.js");
-const terserConfig = JSON.parse(readFileSync(resolve(__dirname, "../../../.terserrc")));
+const terserConfig = JSON.parse(readFileSync(resolve(__dirname, "./.terserrc")));
 
 module.exports = {
   input: "**/*.html",
