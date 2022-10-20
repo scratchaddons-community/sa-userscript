@@ -1,3 +1,5 @@
+import chrome from "../../../libraries/common/chrome.js";
+
 export default function () {
   const prerelease = chrome.runtime.getManifest().version_name.includes("-prerelease");
   if (prerelease) {

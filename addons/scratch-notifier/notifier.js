@@ -1,5 +1,5 @@
-/* global chrome */
 import { updateBadge } from "../../background/message-cache.js";
+import chrome from "../../libraries/common/chrome.js";
 import { markAsRead } from "../../libraries/common/message-cache.js";
 import createNotification from "../../libraries/common/notification-util.js";
 import commentEmojis from "./comment-emojis.js";

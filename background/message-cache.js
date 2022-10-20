@@ -1,5 +1,6 @@
 import * as MessageCache from "../libraries/common/message-cache.js";
 import { notifyNewMessages } from "../addons/scratch-notifier/notifier.js";
+import chrome from "../libraries/common/chrome.js";
 
 let ready = false;
 let duringBadgeUpdate = false;

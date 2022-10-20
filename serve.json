@@ -1,1 +1,1 @@
-{ "cleanUrls": false }
+{ "cleanUrls": true, "directoryListing": false, "trailingSlash": true }

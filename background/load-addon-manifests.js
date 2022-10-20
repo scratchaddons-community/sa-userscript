@@ -1,3 +1,5 @@
+import chrome from "../libraries/common/chrome.js";
+
 const localizeSettings = (addonId, setting, tableId) => {
   const settingId = tableId ? `${tableId}-${setting.id}` : setting.id;
 
@@ -40,17 +42,15 @@ const localizeSettings = (addonId, setting, tableId) => {
     });
   });
 
-  const addonIds = await (await fetch("/addons/addons.json")).json();
-  addonIds.forEach((addonId, i) => {
-    if (addonIds.lastIndexOf(addonId) !== i) throw new Error(`Duplicated value "${addonId}" in /addons/addons.json`);
-  });
-  await scratchAddons.l10n.load(addonIds);
+  const manifests = await (await fetch(chrome.runtime.getURL("/addons/manifests.json"))).json();
+
+  await scratchAddons.l10n.load(Object.keys(manifests));
   const useDefault = forceEnglish || scratchAddons.l10n.locale.startsWith("en");
-  for (const addonId of addonIds) {
+  for (const addonId in manifests) {
     if (addonId.startsWith("//")) continue;
     let manifest;
     try {
-      manifest = await (await fetch(`/addons/${addonId}/addon.json`)).json();
+      manifest = manifests[addonId]
     } catch (ex) {
       console.error(`Failed to load addon manifest for ${addonId}, crashing:`, ex);
       chrome.tabs.create({

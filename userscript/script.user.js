@@ -24,13 +24,6 @@ function updateAttrs(target, source) {
   Array.from(source.attributes).forEach((attr) => target.setAttribute(attr.name, attr.value));
 }
 
-document.documentElement.append(
-  Object.assign(document.createElement("script"), {
-    src: "https://scratchaddons-community.github.io/sa-userscript/webpages/check-unsupported.js",
-    type: "module",
-  })
-);
-
 if (/^\/(scratch\-addons\-extension|scratch-addons|)\/settings\/?$/i.test(location.pathname)) {
   fetch("https://scratchaddons-community.github.io/sa-userscript/webpages/settings/scratch.html")
     .then((r) => r.text())

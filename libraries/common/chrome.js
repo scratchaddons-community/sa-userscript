@@ -1,10 +1,14 @@
-window.__scratchAddonsChrome = {
-  listenersReady: false,
-  nextMsgId: 0,
-  manifest: undefined,
-  messages: undefined,
-  ...(window.__scratchAddonsChrome || {}),
-};
+import "../../libraries/thirdparty/cs/comlink.js";
+
+const info = window.info ||
+  (window !== window.parent && Comlink.wrap(Comlink.windowEndpoint(window.parent))) || {
+    listeners: [],
+    alarms: {},
+    alarmListeners: [],
+  };
+
+let nextMsgId = 0,
+  listenersReady = window === window.parent;
 
 export function parseJson(res) {
   try {
@@ -18,38 +22,20 @@ export function parseJson(res) {
   }
 }
 
-function waitForListeners() {
-  return new Promise(function (resolve, reject) {
-    if (__scratchAddonsChrome.listenersReady) return resolve();
-    const listener = (e) => {
-      if (
-        (e.source === window || e.source === window.top || e.source === window.parent) &&
-        e.data === "listeners ready"
-      ) {
-        __scratchAddonsChrome.listenersReady = true;
-        resolve();
-        window.removeEventListener("message", listener);
-      }
-    };
-    window.addEventListener("message", listener);
-    window.parent.postMessage({ message: "areListenersReady" }, "*");
-  });
-}
-
 const promisify =
   (callbackFn) =>
   (...args) =>
     new Promise((resolve) => callbackFn(...args, resolve));
 
 const storage = {
-  get(keys, callback) {
-    return Promise.all(
-      keys.map(async (key) => {
+  async get(keys, callback) {
+    const res = await Promise.all(
+      (typeof keys === "string" ? [keys] : keys).map(async (key) => {
         // localStorage[key]
-        const res = await promisify(sendMessage)({ getFromStorage: key });
-        return [key, parseJson(res)];
+        return [key, parseJson(await promisify(sendMessage)({ getFromStorage: key }))];
       })
-    ).then((res) => callback(Object.fromEntries(res)));
+    );
+    return callback(Object.fromEntries(res));
   },
   async set(keys, callback = () => {}) {
     await Promise.all(
@@ -62,60 +48,89 @@ const storage = {
   },
 };
 
-function sendMessage(message, callback) {
-  waitForListeners().then(() => {
-    const id = __scratchAddonsChrome.nextMsgId++;
-    window.parent.postMessage({ id, message }, "*");
-    if (callback) {
-      const listener = (event) => {
-        if (event.source === window.parent && event.data.reqId === id + "r") {
-          window.removeEventListener("message", listener);
-          callback(event.data.res);
-        }
+async function sendMessage(message, callback) {
+  if (!listenersReady) {
+    window.parent.postMessage({ message: "areListenersReady" }, "*");
+
+    await new Promise(function (resolve) {
+      const listener = (e) => {
+        if (e.source !== window.parent || e.data !== "listeners ready") return;
+
+        listenersReady = true;
+        resolve();
+        window.removeEventListener("message", listener);
       };
+
       window.addEventListener("message", listener);
-    }
-  });
+    });
+  }
+
+  const id = nextMsgId++;
+
+  const length = await info.listeners.length;
+  for (let i = 0; i < length; i++) {
+    if (await info.listeners[i](message, undefined, Comlink.proxy(callback || (() => {})))) return;
+  }
+
+  window.parent.postMessage({ id, message }, "*");
+  if (callback) {
+    const listener = (event) => {
+      if (event.source === window.parent && event.data.reqId === id + "r") {
+        window.removeEventListener("message", listener);
+        callback(event.data.res);
+      }
+    };
+    window.addEventListener("message", listener);
+  }
 }
 
-if (!__scratchAddonsChrome.messages) {
-  const ui = navigator.language.toLowerCase().split("-");
+const ui = navigator.language.toLowerCase().split("-");
 
-  // Start with the chosen language
-  const locales = [ui[0] + (ui[1] ? "_" + ui[1].toUpperCase() : "")];
+// Start with the chosen language
+const locales = [ui[0] + (ui[1] ? "_" + ui[1].toUpperCase() : "")];
 
-  // Remove country code
-  if (ui[1]) locales.push(ui[0]);
+// Remove country code
+if (ui[1]) locales.push(ui[0]);
 
-  // If non-Brazillian Portugese is chosen, add Brazilian as a fallback.
-  if (ui[0] === "pt" && ui[1] !== "br") locales.push("pt_BR");
+// If non-Brazillian Portugese is chosen, add Brazilian as a fallback.
+if (ui[0] === "pt" && ui[1] !== "br") locales.push("pt_BR");
 
-  // Add English as a fallback
-  if (!locales.includes("en")) locales.push("en");
-  locales.splice(locales.indexOf("en") + 1);
+// Add English as a fallback
+if (!locales.includes("en")) locales.push("en");
+locales.splice(locales.indexOf("en") + 1);
 
-  const localePromises = locales
-    .map((locale) => {
-      let res;
-      return fetch(getURL("_locales/" + locale + "/messages.json"))
-        .then((resp) => {
-          res = resp;
-          return resp.json();
-        })
-        .catch((e) => {
-          if (res?.status !== 404) throw e;
-        });
-    })
-    .reverse();
+const localePromises = locales
+  .map(async (locale) => {
+    const resp = await fetch(getURL("_locales/" + locale + "/messages.json"));
+    return resp.status === 200 ? await resp.json() : {};
+  })
+  .reverse();
 
-  __scratchAddonsChrome.messages = Object.assign({}, ...(await Promise.all(localePromises)));
+const messages = Object.assign({}, ...(await Promise.all(localePromises)));
+
+const response = await fetch(getURL("manifest.json"));
+const manifest = {
+  ...(await response.json()),
+  name: getMessage("extensionName"),
+  description: getMessage("extensionDescription"),
+};
+
+function getMessage(message, placeholders = []) {
+  if (typeof placeholders === "string") placeholders = [placeholders];
+
+  const string = messages[message]?.message;
+
+  if (typeof string !== "string") throw new ReferenceError("Could not find message with key", message);
+
+  return string
+    .replace(/\$(\d+)/g, (_, dollar) => placeholders[dollar - 1])
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-if (!__scratchAddonsChrome.manifest) {
-  const response = await fetch(getURL("manifest.json"));
-  __scratchAddonsChrome.manifest = await response.json();
-}
-
+/** @type {typeof chrome} */
 export default {
   ...(window.browser || {}),
   ...(window.chrome || {}),
@@ -123,13 +138,19 @@ export default {
   storage: { sync: storage, local: storage },
   runtime: {
     getManifest() {
-      if (__scratchAddonsChrome.manifest) return __scratchAddonsChrome.manifest;
+      return manifest;
     },
     reload() {
-      location.reload();
+      sendMessage("reload page")
     },
     getURL,
     sendMessage,
+    onMessage: {
+      async addListener(callback) {
+        console.log(location.href);
+        await info.listeners.push(callback);
+      },
+    },
     lastError: undefined,
     openOptionsPage() {
       sendMessage({ updatePageUrl: "https://scratch.mit.edu/scratch-addons-extention/settings" });
@@ -137,23 +158,71 @@ export default {
     },
   },
   i18n: {
-    ready: !!__scratchAddonsChrome.messages,
     getUILanguage() {
       return navigator.language;
     },
-    getMessage(message, placeholders = []) {
-      if (!this.ready)
-        throw new ReferenceError("Call `await .i18n.init()` before `.i18n.getMessage(message, placeholders)`!");
-      if (typeof placeholders === "string") placeholders = [placeholders];
+    getMessage,
+  },
+  permissions: {
+    contains(_, callback) {
+      callback?.(false);
+    },
+    getAll(callback) {
+      callback?.({ origins: ["https://scratch.mit.edu/*"], permissions: ["cookies", "storage", "clipboardWrite"] });
+    },
+    remove(_, callback) {
+      callback?.(true);
+    },
+    request(_, callback) {
+      callback?.(false);
+    },
+    onAdded: { addListener() {} },
+    onRemoved: { addListener() {} },
+  },
+  alarms: {
+    clear(name = "", callback) {
+      info.alarms[name] = undefined;
+      callback?.(true);
+    },
+    clearAll(callback) {
+      info.alarms = {};
+      callback?.(true);
+    },
+    create(name = "", alarmInfo) {
+      async function loop() {
+        const length = await info.alarmListeners.length;
+        for (let i = 0; i < length; i++) {
+          if (await info.alarmListeners[i](name)) return;
+        }
+      }
 
-      return __scratchAddonsChrome.messages[message].message
-        .replace(/\$(\d+)/g, (_, dollar) => placeholders[dollar - 1])
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/['`‘]/g, "&#8217;")
-        .replace(/\.{3}/g, "…");
+      const fun = async () => {
+        await loop();
+        if (alarmInfo.periodInMinutes) info.alarms[name] = setInterval(() => loop(), alarmInfo.periodInMinutes);
+      };
+
+      const initDelay = alarmInfo.delayInMinutes * 60_000 || alarmInfo.when - Date.now() || 0;
+      if (initDelay > 60_000) info.alarms[name] = setTimeout(fun, initDelay);
+      else fun();
+    },
+    get(name = "", callback) {
+      callback?.({ name });
+    },
+    async getAll(callback) {
+      callback?.(Object.keys(await info.alarms).map((name) => ({ name })));
+    },
+    onAlarm: {
+      async addListener(callback) {
+        await info.alarmListeners.push(callback);
+      },
+    },
+  },
+  tabs: {
+    create(createProperties) {
+      if (createProperties.url) window.location.href = createProperties.url;
+    },
+    query(_, callback) {
+      callback?.([]);
     },
   },
 };
@@ -162,3 +231,11 @@ function getURL(url) {
   const { href } = new URL("../../" + url, import.meta.url);
   return href;
 }
+
+window.__scratchAddonsChrome = chrome;
+
+window.info = info;
+
+const iframe = document.querySelector("iframe");
+
+if (iframe) Comlink.expose(info, Comlink.windowEndpoint(iframe.contentWindow));

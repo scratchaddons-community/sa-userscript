@@ -9,13 +9,9 @@ import exampleManifest from "./data/example-manifest.js";
 import fuseOptions from "./data/fuse-options.js";
 import globalTheme from "../../libraries/common/global-theme.js";
 import minifySettings from "../../libraries/common/minify-settings.js";
+import chrome from "../../../libraries/common/chrome.js";
 
 let isIframe = false;
-if (window.parent !== window) {
-  // We're in a popup!
-  document.body.classList.add("iframe");
-  isIframe = true;
-}
 
 let vue;
 let fuse;

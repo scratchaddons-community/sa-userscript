@@ -1,3 +1,5 @@
+import chrome from "./chrome.js";
+
 export class HTTPError extends Error {
   constructor(message, code) {
     super(message);

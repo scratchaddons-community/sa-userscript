@@ -1,3 +1,4 @@
+import chrome from "../../../libraries/common/chrome.js";
 import tags from "../data/tags.js";
 
 const isIframe = window.parent !== window;

@@ -20,28 +20,11 @@
         padding: 0;
         margin: 0;
         border: none;
+        overflow: hidden;
       }
     </style>
     <script type="module">
-      const scripts = [
-        [
-          { src: "../set-lang.js", defer: true, async: true, type: "module" },
-          { src: "../../background/declare-scratchaddons-object.js", type: "module" },
-        ],
-        [
-          { src: "./scratch.js", defer: true, type: "module" },
-          { src: "../../background/load-manifests.js", type: "module" },
-          { src: "../../background/get-addon-settings.js", defer: true, type: "module" },
-        ],
-      ];
-      const elements = scripts[0].map((script) => Object.assign(document.createElement("script"), script));
-
-      elements[elements.length - 1].addEventListener("load", () => {
-        const elements2 = scripts[1].map((script) => Object.assign(document.createElement("script"), script));
-        document.head.append(...elements2);
-      });
-
-      document.head.append(...elements);
+      document.head.append(Object.assign(document.createElement("script"), { src: "./scratch.js", type: "module" }));
     </script>
   </head>
   <body>

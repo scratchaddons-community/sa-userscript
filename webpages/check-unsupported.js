@@ -1,15 +1,3 @@
-import checkIfUnsupported, { url as getURL } from "../background/handle-unsupported-version.js";
+import chrome from "../../../libraries/common/chrome.js";
 
-const url = getURL();
-
-if (checkIfUnsupported()) {
-  try {
-    window.top.location.href = url;
-  } catch {}
-  try {
-    window.parent.location.href = url;
-  } catch {}
-  try {
-    window.location.href = url;
-  } catch {}
-}
+chrome.runtime.sendMessage("checkIfUnsupported");

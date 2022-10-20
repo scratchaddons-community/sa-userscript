@@ -1,4 +1,5 @@
 import { updateBadge } from "../message-cache.js";
+import chrome from "../../libraries/common/chrome.js";
 
 /**
  * Changes addon state (enabled/disabled), and executes the addons if enabled,

@@ -1,3 +1,4 @@
+import chrome from "../libraries/common/chrome.js";
 import minifySettings from "../libraries/common/minify-settings.js";
 
 /**

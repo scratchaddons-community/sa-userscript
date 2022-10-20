@@ -25,10 +25,13 @@ jobs:
         run: npm install terser@5.9.0 posthtml-cli@0.10.0 postcss-cli@9.0.1 posthtml-postcss@0.5.0 htmlnano@1.1.1 postcss-import@14.0.2 cssnano@5.0.8 autoprefixer@10.3.6
 
       - name: Terser
-        run: node .github/workflows/minify/terser.mjs --trace-warnings --harmony
+        run: node .github/workflows/minify/terser.mjs
 
       - name: JSON.stringify
-        run: node .github/workflows/minify/json.mjs --trace-warnings --harmony
+        run: node .github/workflows/minify/json.mjs
+
+      - name: Bundle
+        run: node .github/workflows/minify/build.mjs
 
       - name: PostCSS
         run: npx postcss-cli -r --env="production" "**.css"

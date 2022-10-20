@@ -10,7 +10,6 @@
   },
   "globals": {
     "chrome": "off",
-    "console": "off",
 
     // Scratch Addons-defined
     "scratchAddons": "writable",
@@ -85,7 +84,7 @@
       "rules": {
         "no-eval": 2
       },
-      "globals": { "chrome": "off", "console": "off" }
+      "globals": { "chrome": "off" }
     },
     {
       "files": ["content-scripts/*.js"],

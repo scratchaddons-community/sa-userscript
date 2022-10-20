@@ -1,6 +1,7 @@
 import changeAddonState from "./imports/change-addon-state.js";
 import minifySettings from "../libraries/common/minify-settings.js";
 import { updateBadge } from "./message-cache.js";
+import chrome from "../libraries/common/chrome.js";
 
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   // Message used to load popups as well

@@ -3,6 +3,8 @@
 // Content scripts cannot modify global state, but they can always read from it.
 // Exception: authentication info is local state, but is stored here for historical reasons.
 
+import chrome from "../../libraries/common/chrome.js";
+
 const _globalState = {
   auth: {
     isLoggedIn: false,

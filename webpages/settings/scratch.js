@@ -1,9 +1,10 @@
-import handleSettings from "../../background/handle-settings-page.js";
-import handleL10n from "../../background/handle-l10n.js";
+import "../../background/declare-scratchaddons-object.js";
+import "../../background/load-addon-manifests.js";
+import "../../background/get-addon-settings.js";
+import "../set-lang.js";
+import "../../background/handle-settings-page.js";
 
 const iframe = document.querySelector("iframe");
-
-scratchAddons.localState.ready.i18n = scratchAddons.localState.ready.auth = true; // Not used nor loaded on this page
 
 window.addEventListener("message", async (event) => {
   if (![iframe.contentWindow, window].includes(event.source) || event.data.reqId || !event.data?.message) return;
@@ -14,7 +15,7 @@ window.addEventListener("message", async (event) => {
 
   const data = event.data.message;
 
-  if (handleSettings(data, sendResponse) || handleL10n(data, sendResponse)) return;
+  if (data === "reload page") location.reload();
 
   if (data.getFromStorage) return sendResponse(window.localStorage[`SCRATCHADDONS__${data.getFromStorage}`]);
 
@@ -39,8 +40,5 @@ window.addEventListener("message", async (event) => {
 
   return sendResponse();
 });
-
-scratchAddons.localState.ready.listeners = true;
-scratchAddons.localEvents.dispatchEvent(new CustomEvent("listeners ready"));
 
 iframe.contentWindow.postMessage("listeners ready", "*");
