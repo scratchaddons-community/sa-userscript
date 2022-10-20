@@ -1,4 +1,4 @@
-<img src="https://scratchaddons-community.github.io/sa-userscript/images/icon.svg" alt="Scratch Addons logo" align="right" width="128px"></img>
+<img src="https://sa-userscript-dev.cf/images/icon.svg" alt="Scratch Addons logo" align="right" width="128px"></img>
 
 # Welcome to Scratch Addons Userscript's repository!
 
@@ -22,9 +22,7 @@ Scratch Addons Userscript is a userscript that has most, if not all, of the feat
 
 If you found a bug, or want to suggest new features, please use the [issues tab](https://github.com/scratchaddons-community/sa-userscript/issues). If you want to help with the code or add a new addon, fork this repository, and then create a [pull request](https://github.com/scratchaddons-community/sa-userscript/pulls). Also, please read our [contributing guidelines](https://github.com/scratchaddons-community/sa-userscript/blob/userscript/CONTRIBUTING.md).
 
-### How to test
-
-#### Project one-time setup
+### Set up
 
 1. Clone the source code
 
@@ -43,31 +41,12 @@ npm install serve --global;
 5. Add the following redirect: ![](https://media.discordapp.net/attachments/889246380068077608/896438233217531955/unknown.png?width=675&height=585)
 6. Install a userscript manager browser extension like [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo).
 
-#### Run the server to test
+### Testing
 
 1. Run `npx serve --cors;` in the terminal.
 2. Update [the userscript](http://scratchaddons-community.github.io/sa-userscript/userscript/script.user.js) on your device.
 
 Scratch Addons will now be running as a userscript. You may or may not have to redo those steps depending on which files you have changed.
-
-### How to pull from upstream
-
-This will usually be done by @RedGuy12. You shouldn't need to bother with this.
-
-```sh
-git checkout -b pull-from-upstream; # pick any branch name
-git pull upstream master; # `upstream` is https://github.com/ScratchAddons/ScratchAddons.git
-# resolve conflicts, if any
-npx serve --cors;
-# test
-git add .; # if conflicts or other changes
-git commit;
-# write commit message
-git push fork pull-from-upstream; # `fork` is your fork; `pull-from-upstream` is the branch name
-# create PR to https://github.com/scratchaddons-community/sa-userscript/tree/userscript
-# merge PR
-git branch -D pull-from-upstream; # `pull-from-upstream` is the branch name
-```
 
 ## License
 

@@ -1,19 +1,19 @@
 // ==UserScript==
-// @name        Scratch Addons
-// @description Scratch Addons provides new features and themes for the scratch.mit.edu website and project editor.
+// @name        __MSG_extensionName__
+// @description __MSG_extensionDescription__
 // @author      scratchaddons.com
-// @version     1.29.0-prerelease
-// @icon        https://scratchaddons-community.github.io/sa-userscript/images/icon.svg
+// @version     __MSG_extensionVersionName__
+// @icon        __MSG_extensionIcon__
 // @homepage    https://scratchaddons.com
 // @supportURL  https://scratchaddons.com/feedback
-// @updateURL   https://scratchaddons-community.github.io/sa-userscript/userscript/script.user.js
+// @updateURL   https://sa-userscript-dev.cf/userscript/script.user.js
 // @match       https://scratch.mit.edu/*
 // @run-at      document-start
 // @weight      999
-// @require     https://scratchaddons-community.github.io/sa-userscript/content-scripts/load-redux.js
-// @require     https://scratchaddons-community.github.io/sa-userscript/content-scripts/prototype-handler.js
-// @require     https://scratchaddons-community.github.io/sa-userscript/content-scripts/fix-console.js
-// @require     https://scratchaddons-community.github.io/sa-userscript/libraries/common/cs/text-color.js
+// @require     https://sa-userscript-dev.cf/content-scripts/load-redux.js
+// @require     https://sa-userscript-dev.cf/content-scripts/prototype-handler.js
+// @require     https://sa-userscript-dev.cf/content-scripts/fix-console.js
+// @require     https://sa-userscript-dev.cf/libraries/common/cs/text-color.js
 // @grant       none
 // @namespace   https://scratchaddons.com/
 // ==/UserScript==
@@ -25,7 +25,7 @@ function updateAttrs(target, source) {
 }
 
 if (/^\/(scratch\-addons\-extension|scratch-addons|)\/settings\/?$/i.test(location.pathname)) {
-  fetch("https://scratchaddons-community.github.io/sa-userscript/webpages/settings/scratch.html")
+  fetch("https://sa-userscript-dev.cf/webpages/settings/scratch.html")
     .then((r) => r.text())
     .then(async (html) => {
       const dom = new DOMParser().parseFromString(html, "text/html");
@@ -67,7 +67,7 @@ if (/^\/(scratch\-addons\-extension|scratch-addons|)\/settings\/?$/i.test(locati
 } else {
   document.documentElement.append(
     Object.assign(document.createElement("script"), {
-      src: "https://scratchaddons-community.github.io/sa-userscript/content-scripts/cs.js",
+      src: "https://sa-userscript-dev.cf/content-scripts/cs.js",
       type: "module",
     })
   );

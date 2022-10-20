@@ -1,11 +1,16 @@
 import { minify as minifyJs } from "terser";
 import { writeFile, readFile } from "fs/promises";
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
 import getInDir from "./getInDir.mjs";
+import { fileURLToPath } from "url";
 
 /* Javascript */
-const terserConfig = JSON.parse(readFileSync(resolve(process.cwd(), "./.terserrc")));
+const dir = dirname(fileURLToPath(import.meta.url));
+const terserConfig = JSON.parse(await readFile(resolve(dir, "../../../.terserrc")));
+const manifest = JSON.parse(await readFile(resolve(dir, "../../../manifest.json")));
+const locales = JSON.parse(await readFile(resolve(dir, "../../../_locales/en/messages.json")));
+const rev = (await readFile(".git/HEAD")).toString().trim();
+const commit = rev.indexOf(":") === -1 ? rev : (await readFile(".git/" + rev.substring(5))).toString().trim();
 
 const NO_MINIFY = [
   "/content-scripts/load-redux.js",
@@ -16,6 +21,23 @@ const NO_MINIFY = [
 ];
 
 getInDir({ ext: ".js" }).forEach(async (filePath) => {
+  if (filePath.endsWith(".user.js")) {
+    const source = await readFile(filePath, "utf8").catch(console.error);
+    await writeFile(
+      filePath,
+      source
+        .replaceAll("__MSG_extensionName__", locales.extensionName.message)
+        .replaceAll("__MSG_extensionDescription__", locales.extensionDescription.message)
+        .replaceAll("__MSG_extensionVersionName__", manifest.version_name.replace("-", `-${commit}-`))
+        .replaceAll(
+          "__MSG_extensionIcon__",
+          `https://sa-userscript-dev.cf${
+            manifest.version_name.includes("-") ? manifest.browser_action.default_icon : "/images/icon.png"
+          }`
+        )
+    );
+    console.log(`Minified ${filePath}`);
+  }
   if (NO_MINIFY.some((pattern) => filePath.endsWith(pattern))) return;
   const source = await readFile(filePath, "utf8").catch(console.error);
   const minfied = (

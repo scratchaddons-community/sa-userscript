@@ -103,19 +103,8 @@
       }
     },
     {
-      "files": [
-        ".github/**",
-        ".github/*",
-        "**rc.js",
-        "**.config.js",
-        "*rc.js",
-        "*.config.js",
-        "*.mjs",
-        "**.mjs",
-        "*.cjs",
-        "**.cjs"
-      ],
-      "env": { "node": true }
+      "files": [".github/**", "**rc.js", "**.config.js", "**.mjs", "**.cjs"],
+      "env": { "node": true, "browser": false, "es2022": true }
     }
   ]
 }

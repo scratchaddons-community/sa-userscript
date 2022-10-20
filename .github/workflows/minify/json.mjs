@@ -29,10 +29,9 @@ getInDir({ ext: ".json" }).forEach(async (filePath) => {
   // Strip comments from `addons.json`
   if (filePath.endsWith("addons.json")) {
     parsed = await Promise.all(
-      [...new Set(parsed)]
-        .filter((folderName) => {
-          return !folderName.startsWith("//");
-        })
+      [...new Set(parsed)].filter((folderName) => {
+        return !folderName.startsWith("//");
+      })
     );
   }
 
