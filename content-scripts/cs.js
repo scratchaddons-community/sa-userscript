@@ -1,4 +1,9 @@
-import chrome from "../libraries/common/chrome.js";
+import chrome from "../libraries/common/chrome.js"
+import "../../background/declare-scratchaddons-object.js";
+import "../../background/load-addon-manifests.js";
+import "../../background/get-addon-settings.js";
+import "../background/get-userscripts.js"
+
 try {
   if (window.parent.location.origin !== "https://scratch.mit.edu") throw "Scratch Addons: not first party iframe";
 } catch {
@@ -91,7 +96,7 @@ const cs = {
   copyImage(dataURL) {
     // Firefox only
     return new Promise((resolve, reject) => {
-      browser.runtime.sendMessage({ clipboardDataURL: dataURL }).then(
+      chrome.runtime.sendMessage({ clipboardDataURL: dataURL }).then(
         (res) => {
           resolve();
         },
@@ -567,7 +572,7 @@ function forumWarning(key) {
     let reportLink = document.createElement("a");
     const uiLanguage = chrome.i18n.getUILanguage();
     const localeSlash = uiLanguage.startsWith("en") ? "" : `${uiLanguage.split("-")[0]}/`;
-    const utm = `utm_source=extension&utm_medium=forumwarning&utm_campaign=v${chrome.runtime.getManifest().version}`;
+    const utm = `utm_source=userscript&utm_medium=forumwarning&utm_campaign=v${chrome.runtime.getManifest().version}`;
     reportLink.href = `https://scratchaddons.com/${localeSlash}feedback/?ext_version=${
       chrome.runtime.getManifest().version
     }&${utm}`;

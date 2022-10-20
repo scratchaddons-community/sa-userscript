@@ -70,7 +70,7 @@ async function sendMessage(message, callback) {
   const length = await info.listeners.length;
   for (let i = 0; i < length; i++) {
     if (
-      (await info.listeners[i](
+      (await info.listeners[i]?.(
         message,
         undefined,
         Comlink.proxy((...args) => {
@@ -82,6 +82,15 @@ async function sendMessage(message, callback) {
     )
       return;
   }
+
+  if (message.getFromStorage) return callback(window.localStorage[`SCRATCHADDONS__${message.getFromStorage}`]);
+
+  if (message.setInStorage) {
+    window.localStorage[`SCRATCHADDONS__${message.setInStorage[0]}`] = JSON.stringify(message.setInStorage[1]);
+    return callback();
+  }
+
+  if (message === "reload page") return location.reload();
 
   window.parent.postMessage({ id, message }, "*");
 
@@ -153,8 +162,11 @@ export default {
     sendMessage,
     onMessage: {
       async addListener(callback) {
-        console.log(location.href);
         await info.listeners.push(callback);
+      },
+      async removeListener(callback) {
+        const index = await info.listeners.indexOf(callback);
+        if (index > -1) info.listeners[index] = undefined;
       },
     },
     lastError: undefined,
@@ -230,6 +242,10 @@ export default {
     query(_, callback) {
       callback?.([]);
     },
+  },
+  webRequest: {
+    onBeforeRequest: { addListener() {} },
+    onResponseStarted: { addListener() {} },
   },
 };
 

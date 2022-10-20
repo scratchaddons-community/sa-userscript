@@ -15,15 +15,6 @@ window.addEventListener("message", async (event) => {
 
   const data = event.data.message;
 
-  if (data === "reload page") location.reload();
-
-  if (data.getFromStorage) return sendResponse(window.localStorage[`SCRATCHADDONS__${data.getFromStorage}`]);
-
-  if (data.setInStorage) {
-    window.localStorage[`SCRATCHADDONS__${data.setInStorage[0]}`] = JSON.stringify(data.setInStorage[1]);
-    return sendResponse();
-  }
-
   if (data.title) {
     document.title = data.title;
 
@@ -37,8 +28,6 @@ window.addEventListener("message", async (event) => {
   }
 
   if (data === "areListenersReady") return event.source.postMessage("listeners ready", event.origin);
-
-  return sendResponse();
 });
 
 iframe.contentWindow.postMessage("listeners ready", "*");

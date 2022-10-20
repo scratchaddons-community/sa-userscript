@@ -5,7 +5,7 @@
 // @version     __MSG_extensionVersionName__
 // @icon        __MSG_extensionIcon__
 // @homepage    https://scratchaddons.com
-// @supportURL  https://scratchaddons.com/feedback
+// @supportURL  https://scratchaddons.com/feedback?ext_version=__MSG_extensionVersionName__&utm_source=userscript&utm_medium=supportURL&utm_campaign=v__MSG_extensionVersionName__
 // @updateURL   https://sa-userscript-dev.cf/userscript/script.user.js
 // @downloadURL https://sa-userscript-dev.cf/userscript/script.user.js
 // @match       https://scratch.mit.edu/*

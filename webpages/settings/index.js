@@ -169,7 +169,7 @@ let fuse;
           const localeSlash = uiLanguage.startsWith("en") ? "" : `${uiLanguage.split("-")[0]}/`;
           const version = chrome.runtime.getManifest().version;
           const versionName = chrome.runtime.getManifest().version_name;
-          const utm = `utm_source=extension&utm_medium=settingspage&utm_campaign=v${version}`;
+          const utm = `utm_source=userscript&utm_medium=settingspage&utm_campaign=v${version}`;
           return {
             contributors: `https://scratchaddons.com/${localeSlash}credits?${utm}`,
             feedback: `https://scratchaddons.com/${localeSlash}feedback/?ext_version=${versionName}&${utm}`,

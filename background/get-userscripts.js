@@ -1,3 +1,4 @@
+import chrome from "../libraries/common/chrome.js";
 import changeAddonState from "./imports/change-addon-state.js";
 import { getMissingOptionalPermissions } from "./imports/util.js";
 

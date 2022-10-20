@@ -1,3 +1,5 @@
+import chrome from "../../libraries/common/chrome.js";
+
 const browserLevelPermissions = ["notifications"];
 if (typeof browser !== "undefined") browserLevelPermissions.push("clipboardWrite");
 
