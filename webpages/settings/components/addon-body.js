@@ -1,4 +1,6 @@
-const isIframe = window.parent !== window;
+import chrome from "../../../libraries/common/chrome.js";
+
+const isIframe = false;
 
 export default async function ({ template }) {
   const AddonBody = Vue.extend({

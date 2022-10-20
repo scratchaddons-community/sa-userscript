@@ -1,7 +1,7 @@
 import chrome from "../../../libraries/common/chrome.js";
 import tags from "../data/tags.js";
 
-const isIframe = window.parent !== window;
+const isIframe = false;
 
 export default async function ({ template }) {
   const AddonTag = Vue.extend({

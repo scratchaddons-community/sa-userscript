@@ -1,3 +1,4 @@
+import chrome from "../../libraries/common/chrome.js";
 import globalTheme from "../../libraries/common/global-theme.js";
 
 const vue = new Vue({

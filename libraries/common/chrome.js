@@ -49,6 +49,11 @@ const storage = {
 };
 
 async function sendMessage(message, callback) {
+  let called = false;
+  function cb(...args) {
+    called = true;
+    callback?.(...args);
+  }
   if (!listenersReady) {
     window.parent.postMessage({ message: "areListenersReady" }, "*");
 
@@ -66,22 +71,20 @@ async function sendMessage(message, callback) {
   }
 
   const id = nextMsgId++;
-
   const length = await info.listeners.length;
   for (let i = 0; i < length; i++) {
-    if (await info.listeners[i](message, undefined, Comlink.proxy(callback || (() => {})))) return;
+    if ((await info.listeners[i](message, undefined, Comlink.proxy(cb || (() => {})))) || called) return;
   }
 
   window.parent.postMessage({ id, message }, "*");
-  if (callback) {
-    const listener = (event) => {
-      if (event.source === window.parent && event.data.reqId === id + "r") {
-        window.removeEventListener("message", listener);
-        callback(event.data.res);
-      }
-    };
-    window.addEventListener("message", listener);
-  }
+
+  const listener = (event) => {
+    if (event.source === window.parent && event.data.reqId === id + "r") {
+      window.removeEventListener("message", listener);
+      cb(event.data.res);
+    }
+  };
+  window.addEventListener("message", listener);
 }
 
 const ui = navigator.language.toLowerCase().split("-");
@@ -122,12 +125,7 @@ function getMessage(message, placeholders = []) {
 
   if (typeof string !== "string") throw new ReferenceError("Could not find message with key", message);
 
-  return string
-    .replace(/\$(\d+)/g, (_, dollar) => placeholders[dollar - 1])
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return string.replace(/\$(\d+)/g, (_, dollar) => placeholders[dollar - 1]);
 }
 
 /** @type {typeof chrome} */

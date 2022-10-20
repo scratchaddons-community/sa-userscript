@@ -10,7 +10,7 @@ import chrome from "../../libraries/common/chrome.js";
 export default (addonId, newState) => {
   scratchAddons.localState.addonsEnabled[addonId] = newState;
   chrome.storage.sync.set({
-    addonsEnabled: scratchAddons.localState.addonsEnabled,
+    addonsEnabled: scratchAddons.localState._target.addonsEnabled,
   });
   const { manifest } = scratchAddons.manifests.find((addon) => addon.addonId === addonId);
   const { dynamicEnable, dynamicDisable } = manifest;
