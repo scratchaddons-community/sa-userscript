@@ -1,8 +1,8 @@
-import chrome from "../libraries/common/chrome.js"
+import chrome from "../libraries/common/chrome.js";
 import "../../background/declare-scratchaddons-object.js";
 import "../../background/load-addon-manifests.js";
 import "../../background/get-addon-settings.js";
-import "../background/get-userscripts.js"
+import "../background/get-userscripts.js";
 
 try {
   if (window.parent.location.origin !== "https://scratch.mit.edu") throw "Scratch Addons: not first party iframe";
