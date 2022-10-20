@@ -33,13 +33,6 @@ getInDir({ ext: ".json" }).forEach(async (filePath) => {
         .filter((folderName) => {
           return !folderName.startsWith("//");
         })
-        .map(async (id) => {
-          const addonJson = stripAddonMeta(
-            JSON.parse(await readFile(path.resolve(filePath, "../" + id + "/addon.json"), "utf8"))
-          );
-
-          return [id, addonJson];
-        })
     );
   }
 
