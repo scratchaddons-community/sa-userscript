@@ -1,5 +1,5 @@
 const postCssConfig = require("./postcss.config.js");
-const terserConfig = require("./.terserrc")
+const terserConfig = require("./.terserrc");
 
 module.exports = {
   input: "**/*.html",
@@ -25,7 +25,7 @@ module.exports = {
       removeEmptyAttributes: false,
       minifyCss: false,
       minifyConditionalComments: true,
-      minifyJs:terserConfig,
+      minifyJs: terserConfig,
       removeRedundantAttributes: true,
       mergeStyles: true,
       sortAttributesWithLists: true,
