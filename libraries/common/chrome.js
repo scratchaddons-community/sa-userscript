@@ -50,10 +50,6 @@ const storage = {
 
 async function sendMessage(message, callback) {
   let called = false;
-  function cb(...args) {
-    called = true;
-    callback?.(...args);
-  }
   if (!listenersReady) {
     window.parent.postMessage({ message: "areListenersReady" }, "*");
 
@@ -73,7 +69,18 @@ async function sendMessage(message, callback) {
   const id = nextMsgId++;
   const length = await info.listeners.length;
   for (let i = 0; i < length; i++) {
-    if ((await info.listeners[i](message, undefined, Comlink.proxy(cb || (() => {})))) || called) return;
+    if (
+      (await info.listeners[i](
+        message,
+        undefined,
+        Comlink.proxy((...args) => {
+          called = true;
+          callback?.(...args);
+        })
+      )) ||
+      called
+    )
+      return;
   }
 
   window.parent.postMessage({ id, message }, "*");
@@ -81,7 +88,8 @@ async function sendMessage(message, callback) {
   const listener = (event) => {
     if (event.source === window.parent && event.data.reqId === id + "r") {
       window.removeEventListener("message", listener);
-      cb(event.data.res);
+      called = true;
+      callback?.(event.data.res);
     }
   };
   window.addEventListener("message", listener);
