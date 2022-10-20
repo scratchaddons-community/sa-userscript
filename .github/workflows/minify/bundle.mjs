@@ -6,7 +6,7 @@ const dir = dirname(fileURLToPath(import.meta.url));
 
 const addonIds =
 	JSON.parse(await readFile(
-		resolve(dir, "../../../addons/addons.json")), "utf8").filter(
+		resolve(dir, "../../../addons/addons.json"), "utf8")).filter(
 			(addonId) => !addonId.startsWith("//")
 		);
 

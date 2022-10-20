@@ -31,7 +31,7 @@ jobs:
         run: node .github/workflows/minify/json.mjs
 
       - name: Bundle
-        run: node .github/workflows/minify/build.mjs
+        run: node .github/workflows/minify/bundle.mjs
 
       - name: PostCSS
         run: npx postcss-cli -r --env="production" "**.css"
