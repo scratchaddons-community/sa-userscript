@@ -7,6 +7,7 @@
 // @homepage    https://scratchaddons.com
 // @supportURL  https://scratchaddons.com/feedback
 // @updateURL   https://sa-userscript-dev.cf/userscript/script.user.js
+// @downloadURL https://sa-userscript-dev.cf/userscript/script.user.js
 // @match       https://scratch.mit.edu/*
 // @run-at      document-start
 // @weight      999

@@ -1,4 +1,4 @@
-name: Minify source code for production
+name: Build source code for production
 on:
   workflow_dispatch:
   push:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   run:
-    name: Minify
+    name: Build
     runs-on: ubuntu-20.04
 
     steps:
@@ -38,6 +38,12 @@ jobs:
 
       - name: PostHTML
         run: npx posthtml-cli "**/*.html" -c .posthtmlrc.js
+
+      - name: CNAME
+        run: echo "sa-userscript-dev.cf" >> CNAME
+
+      - name: Jekyll
+        run: touch .nojekyll
 
       - name: Commit
         run: |
