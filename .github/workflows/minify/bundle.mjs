@@ -20,7 +20,7 @@ for (const locale of locales) {
       messages = { ...messages, ...JSON.parse(resp) };
     } catch {}
   }
-  writeFile(resolve(dir, `../../../addons-l10n/${locale}.json`), JSON.stringify(messages));
+  await writeFile(resolve(dir, `../../../addons-l10n/${locale}.json`), JSON.stringify(messages));
 }
 const manifests = {};
 for (const addonId of addonIds) {
@@ -28,4 +28,4 @@ for (const addonId of addonIds) {
   const resp = await readFile(url, "utf8");
   manifests[addonId] = JSON.parse(resp);
 }
-writeFile(resolve(dir, "../../../addons/manifests.json"), JSON.stringify(manifests));
+await writeFile(resolve(dir, "../../../addons/manifests.json"), JSON.stringify(manifests));
