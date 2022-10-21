@@ -1,6 +1,6 @@
 import "../../libraries/thirdparty/cs/comlink.js";
 
-const info = window.info ||
+const info = window.__scratchAddonsChromeInfo ||
   (window !== window.parent && Comlink.wrap(Comlink.windowEndpoint(window.parent))) || {
     listeners: [],
     alarms: {},
@@ -254,9 +254,7 @@ function getURL(url) {
   return href;
 }
 
-window.__scratchAddonsChrome = chrome;
-
-window.info = info;
+window.__scratchAddonsChromeInfo = info;
 
 const iframe = document.querySelector("iframe");
 
