@@ -1,7 +1,6 @@
 import runAddonUserscripts from "./run-userscript.js";
 import Localization from "./l10n.js";
 
-window.scratchAddons = {};
 scratchAddons.classNames = { loaded: false };
 scratchAddons.eventTargets = {
   auth: [],
