@@ -1,446 +1,71 @@
-import GamepadLib from "./gamepadlib.js";
-
-export default async function ({ addon, global, console, msg }) {
-  const vm = addon.tab.traps.vm;
-
-  // Wait for the project to finish loading. Renderer and scripts will not be fully available until this happens.
-  await new Promise((resolve) => {
-    if (vm.editingTarget) return resolve();
-    vm.runtime.once("PROJECT_LOADED", resolve);
-  });
-
-  const vmStarted = () => vm.runtime._steppingInterval !== null;
-
-  const scratchKeyToKey = (key) => {
-    switch (key) {
-      case "right arrow":
-        return "ArrowRight";
-      case "up arrow":
-        return "ArrowUp";
-      case "left arrow":
-        return "ArrowLeft";
-      case "down arrow":
-        return "ArrowDown";
-      case "enter":
-        return "Enter";
-      case "space":
-        return " ";
-    }
-    return key.toLowerCase().charAt(0);
-  };
-  const getKeysUsedByProject = () => {
-    const allBlocks = [vm.runtime.getTargetForStage(), ...vm.runtime.targets]
-      .filter((i) => i.isOriginal)
-      .map((i) => i.blocks);
-    const result = new Set();
-    for (const blocks of allBlocks) {
-      for (const block of Object.values(blocks._blocks)) {
-        if (block.opcode === "event_whenkeypressed" || block.opcode === "sensing_keyoptions") {
-          // For blocks like "key (my variable) pressed?", the sensing_keyoptions still exists but has a null parent.
-          if (block.opcode === "sensing_keyoptions" && !block.parent) {
-            continue;
-          }
-          const key = block.fields.KEY_OPTION.value;
-          result.add(scratchKeyToKey(key));
-        }
-      }
-    }
-    return result;
-  };
-
-  const GAMEPAD_CONFIG_MAGIC = " // _gamepad_";
-  const findOptionsComment = () => {
-    const target = vm.runtime.getTargetForStage();
-    const comments = target.comments;
-    for (const comment of Object.values(comments)) {
-      if (comment.text.includes(GAMEPAD_CONFIG_MAGIC)) {
-        return comment;
-      }
-    }
-    return null;
-  };
-  const parseOptionsComment = () => {
-    const comment = findOptionsComment();
-    if (!comment) {
-      return null;
-    }
-    const lineWithMagic = comment.text.split("\n").find((i) => i.endsWith(GAMEPAD_CONFIG_MAGIC));
-    if (!lineWithMagic) {
-      console.warn("Gamepad comment does not contain valid line");
-      return null;
-    }
-    const jsonText = lineWithMagic.substr(0, lineWithMagic.length - GAMEPAD_CONFIG_MAGIC.length);
-    let parsed;
-    try {
-      parsed = JSON.parse(jsonText);
-      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.buttons) || !Array.isArray(parsed.axes)) {
-        throw new Error("Invalid data");
-      }
-    } catch (e) {
-      console.warn("Gamepad comment has invalid JSON", e);
-      return null;
-    }
-    return parsed;
-  };
-
-  GamepadLib.setConsole(console);
-  const gamepad = new GamepadLib();
-
-  gamepad.getHintsLazily = () => {
-    const parsedOptions = parseOptionsComment();
-    if (parsedOptions) {
-      return {
-        importedSettings: parsedOptions,
-      };
-    }
-    return {
-      usedKeys: getKeysUsedByProject(),
-    };
-  };
-  vm.runtime.on("PROJECT_LOADED", () => {
-    gamepad.resetControls();
-  });
-
-  if (addon.settings.get("hide")) {
-    await new Promise((resolve) => {
-      const end = () => {
-        addon.settings.removeEventListener("change", listener);
-        resolve();
-      };
-      const listener = () => {
-        if (!addon.settings.get("hide")) {
-          end();
-        }
-      };
-      gamepad.gamepadConnected().then(end);
-      addon.settings.addEventListener("change", listener);
-    });
-  }
-
-  const renderer = vm.runtime.renderer;
-  const width = renderer._xRight - renderer._xLeft;
-  const height = renderer._yTop - renderer._yBottom;
-  const canvas = renderer.canvas;
-
-  const container = document.createElement("div");
-  container.className = "sa-gamepad-container";
-  addon.tab.displayNoneWhileDisabled(container, { display: "flex" });
-  const buttonContainer = document.createElement("span");
-  buttonContainer.className = addon.tab.scratchClass("button_outlined-button", "stage-header_stage-button");
-  const buttonContent = document.createElement("div");
-  buttonContent.className = addon.tab.scratchClass("button_content");
-  const buttonImage = document.createElement("img");
-  buttonImage.className = addon.tab.scratchClass("stage-header_stage-button-icon");
-  buttonImage.draggable = false;
-  buttonImage.src = addon.self.dir + "/gamepad.svg";
-  buttonContent.appendChild(buttonImage);
-  buttonContainer.appendChild(buttonContent);
-  container.appendChild(buttonContainer);
-
-  let editor;
-  let shouldStoreSettingsInProject = false;
-  const didChangeProject = () => {
-    vm.runtime.emitProjectChanged();
-    if (vm.editingTarget === vm.runtime.getTargetForStage()) {
-      vm.emitWorkspaceUpdate();
-    }
-  };
-  const storeMappings = () => {
-    const exported = editor.export();
-    if (!exported) {
-      console.warn("Could not export gamepad settings");
-      return;
-    }
-    const text = `${msg("config-header")}\n${JSON.stringify(exported)}${GAMEPAD_CONFIG_MAGIC}`;
-    const existingComment = findOptionsComment();
-    if (existingComment) {
-      existingComment.text = text;
-    } else {
-      const target = vm.runtime.getTargetForStage();
-      target.createComment(
-        // comment ID, just has to be a random string
-        Math.random() + "",
-        // block ID
-        null,
-        // text
-        text,
-        // x, y, width, height
-        50,
-        50,
-        350,
-        150,
-        // minimized
-        false
-      );
-    }
-    didChangeProject();
-  };
-  const removeStoredMappings = () => {
-    const comment = findOptionsComment();
-    if (comment) {
-      const target = vm.runtime.getTargetForStage();
-      delete target.comments[comment.id];
-      didChangeProject();
-    }
-  };
-  const handleGamepadMappingChanged = () => {
-    if (shouldStoreSettingsInProject) {
-      storeMappings();
-    }
-  };
-  const handleStoreSettingsCheckboxChanged = (e) => {
-    shouldStoreSettingsInProject = !!e.target.checked;
-    if (shouldStoreSettingsInProject) {
-      storeMappings();
-    } else {
-      removeStoredMappings();
-    }
-  };
-  const handleEditorControllerChanged = () => {
-    document.body.classList.toggle("sa-gamepad-has-controller", editor.hasControllerSelected());
-    handleGamepadMappingChanged();
-  };
-  buttonContainer.addEventListener("click", () => {
-    if (!editor) {
-      editor = gamepad.editor();
-      editor.msg = msg;
-      editor.addEventListener("mapping-changed", handleGamepadMappingChanged);
-      editor.addEventListener("gamepad-changed", handleEditorControllerChanged);
-    }
-    const editorEl = editor.generateEditor();
-    handleEditorControllerChanged();
-
-    const { backdrop, container, content, closeButton, remove } = addon.tab.createModal(msg("settings"), {
-      isOpen: true,
-      useEditorClasses: true,
-    });
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && !e.target.closest("[data-accepting-input]")) {
-        remove();
-      }
-    };
-    backdrop.addEventListener("click", remove);
-    window.addEventListener("keydown", handleKeyDown);
-    addon.self.addEventListener("disabled", remove);
-
-    backdrop.classList.add("sa-gamepad-popup-outer");
-    container.classList.add("sa-gamepad-popup");
-
-    closeButton.tabIndex = "0";
-    closeButton.setAttribute("role", "button");
-    closeButton.addEventListener("click", remove);
-    closeButton.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        remove();
-      }
-    });
-
-    content.classList.add("sa-gamepad-popup-content");
-    if (GamepadLib.browserHasBrokenGamepadAPI()) {
-      const warning = document.createElement("div");
-      warning.textContent = msg("browser-support");
-      warning.className = "sa-gamepad-browser-support-warning";
-      content.appendChild(warning);
-    }
-    content.appendChild(editorEl);
-
-    const extraOptionsContainer = document.createElement("div");
-    extraOptionsContainer.className = "sa-gamepad-extra-options";
-    content.appendChild(extraOptionsContainer);
-
-    const mappingsWereResetOrCleared = () => {
-      editor.updateAllContent();
-      storeSettingsCheckbox.checked = false;
-      shouldStoreSettingsInProject = false;
-    };
-
-    const resetButton = document.createElement("button");
-    resetButton.className = "sa-gamepad-reset-button";
-    resetButton.textContent = msg("reset");
-    resetButton.addEventListener("click", () => {
-      gamepad.resetControls();
-      mappingsWereResetOrCleared();
-    });
-    extraOptionsContainer.appendChild(resetButton);
-
-    const clearButton = document.createElement("button");
-    clearButton.className = "sa-gamepad-reset-button";
-    clearButton.textContent = msg("clear");
-    clearButton.addEventListener("click", () => {
-      gamepad.clearControls();
-      mappingsWereResetOrCleared();
-    });
-    extraOptionsContainer.appendChild(clearButton);
-
-    const storeSettingsLabel = document.createElement("label");
-    storeSettingsLabel.className = "sa-gamepad-store-settings";
-    storeSettingsLabel.textContent = msg("store-in-project");
-    const storeSettingsCheckbox = document.createElement("input");
-    storeSettingsCheckbox.type = "checkbox";
-    storeSettingsCheckbox.checked = shouldStoreSettingsInProject;
-    storeSettingsCheckbox.addEventListener("change", handleStoreSettingsCheckboxChanged);
-    storeSettingsLabel.prepend(storeSettingsCheckbox);
-    extraOptionsContainer.appendChild(storeSettingsLabel);
-
-    editor.focus();
-  });
-
-  if (addon.tab.redux.state && addon.tab.redux.state.scratchGui.stageSize.stageSize === "small") {
-    document.body.classList.add("sa-gamepad-small");
-  }
-  document.addEventListener(
-    "click",
-    (e) => {
-      if (e.target.closest("[class*='stage-header_stage-button-first']:not(.sa-hide-stage-button)")) {
-        document.body.classList.add("sa-gamepad-small");
-      } else if (
-        e.target.closest("[class*='stage-header_stage-button-last']") ||
-        e.target.closest(".sa-hide-stage-button")
-      ) {
-        document.body.classList.remove("sa-gamepad-small");
-      }
-    },
-    { capture: true }
-  );
-
-  const virtualCursorElement = document.createElement("img");
-  virtualCursorElement.hidden = true;
-  virtualCursorElement.className = "sa-gamepad-cursor";
-  virtualCursorElement.src = addon.self.dir + "/cursor.png";
-  addon.self.addEventListener("disabled", () => {
-    virtualCursorElement.hidden = true;
-  });
-
-  let hideCursorTimeout;
-
-  const hideRealCursor = () => {
-    document.body.classList.add("sa-gamepad-hide-cursor");
-  };
-  const showRealCursor = () => {
-    document.body.classList.remove("sa-gamepad-hide-cursor");
-  };
-  const virtualCursorSetVisible = (visible) => {
-    virtualCursorElement.hidden = !visible;
-    clearTimeout(hideCursorTimeout);
-    if (visible) {
-      hideRealCursor();
-      hideCursorTimeout = setTimeout(virtualCursorHide, 8000);
-    }
-  };
-  const virtualCursorHide = () => {
-    virtualCursorSetVisible(false);
-  };
-  const virtualCursorSetDown = (down) => {
-    virtualCursorSetVisible(true);
-    virtualCursorElement.classList.toggle("sa-gamepad-cursor-down", down);
-  };
-  const virtualCursorSetPosition = (x, y) => {
-    virtualCursorSetVisible(true);
-    const CURSOR_SIZE = 6;
-    const stageX = width / 2 + x - CURSOR_SIZE / 2;
-    const stageY = height / 2 - y - CURSOR_SIZE / 2;
-    virtualCursorElement.style.transform = `translate(${stageX}px, ${stageY}px)`;
-  };
-
-  document.addEventListener("mousemove", () => {
-    virtualCursorSetVisible(false);
-    showRealCursor();
-  });
-
-  let getCanvasSize;
-  // Support modern ResizeObserver and slow getBoundingClientRect version for improved browser support (matters for TurboWarp)
-  if (window.ResizeObserver) {
-    let canvasWidth = width;
-    let canvasHeight = height;
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        canvasWidth = entry.contentRect.width;
-        canvasHeight = entry.contentRect.height;
-      }
-    });
-    resizeObserver.observe(canvas);
-    getCanvasSize = () => [canvasWidth, canvasHeight];
-  } else {
-    getCanvasSize = () => {
-      const rect = canvas.getBoundingClientRect();
-      return [rect.width, rect.height];
-    };
-  }
-
-  // Both in Scratch space
-  let virtualX = 0;
-  let virtualY = 0;
-  const postMouseData = (data) => {
-    if (addon.self.disabled || !vmStarted()) return;
-    const [rectWidth, rectHeight] = getCanvasSize();
-    vm.postIOData("mouse", {
-      ...data,
-      canvasWidth: rectWidth,
-      canvasHeight: rectHeight,
-      x: (virtualX + width / 2) * (rectWidth / width),
-      y: (height / 2 - virtualY) * (rectHeight / height),
-    });
-  };
-  const postKeyboardData = (key, isDown) => {
-    if (addon.self.disabled || !vmStarted()) return;
-    vm.postIOData("keyboard", {
-      key,
-      isDown,
-    });
-  };
-  const handleGamepadButtonDown = (e) => postKeyboardData(e.detail, true);
-  const handleGamepadButtonUp = (e) => postKeyboardData(e.detail, false);
-  const handleGamepadMouseDown = () => {
-    virtualCursorSetDown(true);
-    postMouseData({
-      isDown: true,
-    });
-  };
-  const handleGamepadMouseUp = () => {
-    virtualCursorSetDown(false);
-    postMouseData({
-      isDown: false,
-    });
-  };
-  const handleGamepadMouseMove = (e) => {
-    virtualX = e.detail.x;
-    virtualY = e.detail.y;
-    virtualCursorSetPosition(virtualX, virtualY);
-    postMouseData({});
-  };
-
-  gamepad.virtualCursor.maxX = renderer._xRight;
-  gamepad.virtualCursor.minX = renderer._xLeft;
-  gamepad.virtualCursor.maxY = renderer._yTop;
-  gamepad.virtualCursor.minY = renderer._yBottom;
-  gamepad.addEventListener("keydown", handleGamepadButtonDown);
-  gamepad.addEventListener("keyup", handleGamepadButtonUp);
-  gamepad.addEventListener("mousedown", handleGamepadMouseDown);
-  gamepad.addEventListener("mouseup", handleGamepadMouseUp);
-  gamepad.addEventListener("mousemove", handleGamepadMouseMove);
-
-  while (true) {
-    const target = await addon.tab.waitForElement(
-      '[class^="stage-header_stage-size-row"], [class^="stage-header_stage-menu-wrapper"] > [class^="button_outlined-button"]',
-      {
-        markAsSeen: true,
-        reduxEvents: [
-          "scratch-gui/mode/SET_PLAYER",
-          "scratch-gui/mode/SET_FULL_SCREEN",
-          "fontsLoaded/SET_FONTS_LOADED",
-          "scratch-gui/locales/SELECT_LOCALE",
-        ],
-      }
-    );
-    container.dataset.editorMode = addon.tab.editorMode;
-    if (target.className.includes("stage-size-row")) {
-      addon.tab.appendToSharedSpace({ space: "stageHeader", element: container, order: 1 });
-    } else {
-      addon.tab.appendToSharedSpace({ space: "fullscreenStageHeader", element: container, order: 0 });
-    }
-
-    const monitorListScaler = document.querySelector("[class^='monitor-list_monitor-list-scaler']");
-    monitorListScaler.appendChild(virtualCursorElement);
-  }
-}
+import e from"./gamepadlib.js"
+export default async function({addon:t,console:n,msg:o}){const a=t.tab.traps.vm
+await new Promise((e=>{if(a.editingTarget)return e()
+a.runtime.once("PROJECT_LOADED",e)}))
+const s=()=>null!==a.runtime._steppingInterval,r=e=>{switch(e){case"right arrow":return"ArrowRight"
+case"up arrow":return"ArrowUp"
+case"left arrow":return"ArrowLeft"
+case"down arrow":return"ArrowDown"
+case"enter":return"Enter"
+case"space":return" "}return e.toLowerCase().charAt(0)},c=()=>{const e=[a.runtime.getTargetForStage(),...a.runtime.targets].filter((e=>e.isOriginal)).map((e=>e.blocks)),t=new Set
+for(const n of e)for(const e of Object.values(n._blocks))if("event_whenkeypressed"===e.opcode||"sensing_keyoptions"===e.opcode){if("sensing_keyoptions"===e.opcode&&!e.parent)continue
+t.add(r(e.fields.KEY_OPTION.value))}return t},d=" // _gamepad_",u=()=>{const e=a.runtime.getTargetForStage().comments
+for(const t of Object.values(e))if(t.text.includes(d))return t
+return null}
+e.setConsole(n)
+const i=new e
+i.getHintsLazily=()=>{const e=(()=>{const e=u()
+if(!e)return null
+const t=e.text.split("\n").find((e=>e.endsWith(d)))
+if(!t)return n.warn("Gamepad comment does not contain valid line"),null
+const o=t.substr(0,t.length-d.length)
+let a
+try{if(a=JSON.parse(o),!a||"object"!=typeof a||!Array.isArray(a.buttons)||!Array.isArray(a.axes))throw new Error("Invalid data")}catch(e){return n.warn("Gamepad comment has invalid JSON",e),null}return a})()
+return e?{importedSettings:e}:{usedKeys:c()}},a.runtime.on("PROJECT_LOADED",(()=>{i.resetControls()})),t.settings.get("hide")&&await new Promise((e=>{const n=()=>{t.settings.removeEventListener("change",o),e()},o=()=>{t.settings.get("hide")||n()}
+i.gamepadConnected().then(n),t.settings.addEventListener("change",o)}))
+const m=a.runtime.renderer,l=m._xRight-m._xLeft,p=m._yTop-m._yBottom,g=m.canvas,w=document.createElement("div")
+w.className="sa-gamepad-container",t.tab.displayNoneWhileDisabled(w,{display:"flex"})
+const h=document.createElement("span")
+h.className=t.tab.scratchClass("button_outlined-button","stage-header_stage-button")
+const f=document.createElement("div")
+f.className=t.tab.scratchClass("button_content")
+const b=document.createElement("img")
+let _
+b.className=t.tab.scratchClass("stage-header_stage-button-icon"),b.draggable=0,b.src=t.self.dir+"/gamepad.svg",f.appendChild(b),h.appendChild(f),w.appendChild(h)
+let E=0
+const k=()=>{a.runtime.emitProjectChanged(),a.editingTarget===a.runtime.getTargetForStage()&&a.emitWorkspaceUpdate()},v=()=>{const e=_.export()
+if(!e)return void n.warn("Could not export gamepad settings")
+const t=`${o("config-header")}\n${JSON.stringify(e)} // _gamepad_`,s=u()
+s?s.text=t:a.runtime.getTargetForStage().createComment(Math.random()+"",null,t,50,50,350,150,0),k()},y=()=>{E&&v()},O=e=>{E=!!e.target.checked,E?v():(()=>{const e=u()
+e&&(delete a.runtime.getTargetForStage().comments[e.id],k())})()},S=()=>{document.body.classList.toggle("sa-gamepad-has-controller",_.hasControllerSelected()),y()}
+h.addEventListener("click",(()=>{_||(_=i.editor(),_.msg=o,_.addEventListener("mapping-changed",y),_.addEventListener("gamepad-changed",S))
+const n=_.generateEditor()
+S()
+const{backdrop:a,container:s,content:r,closeButton:c,remove:d}=t.tab.createModal(o("settings"),{isOpen:1,useEditorClasses:1})
+if(a.addEventListener("click",d),window.addEventListener("keydown",(e=>{"Escape"!==e.key||e.target.closest("[data-accepting-input]")||d()})),t.self.addEventListener("disabled",d),a.classList.add("sa-gamepad-popup-outer"),s.classList.add("sa-gamepad-popup"),c.tabIndex="0",c.setAttribute("role","button"),c.addEventListener("click",d),c.addEventListener("keydown",(e=>{"Enter"!==e.key&&" "!==e.key||d()})),r.classList.add("sa-gamepad-popup-content"),e.browserHasBrokenGamepadAPI()){const e=document.createElement("div")
+e.textContent=o("browser-support"),e.className="sa-gamepad-browser-support-warning",r.appendChild(e)}r.appendChild(n)
+const u=document.createElement("div")
+u.className="sa-gamepad-extra-options",r.appendChild(u)
+const m=()=>{_.updateAllContent(),w.checked=0,E=0},l=document.createElement("button")
+l.className="sa-gamepad-reset-button",l.textContent=o("reset"),l.addEventListener("click",(()=>{i.resetControls(),m()})),u.appendChild(l)
+const p=document.createElement("button")
+p.className="sa-gamepad-reset-button",p.textContent=o("clear"),p.addEventListener("click",(()=>{i.clearControls(),m()})),u.appendChild(p)
+const g=document.createElement("label")
+g.className="sa-gamepad-store-settings",g.textContent=o("store-in-project")
+const w=document.createElement("input")
+w.type="checkbox",w.checked=E,w.addEventListener("change",O),g.prepend(w),u.appendChild(g),_.focus()})),t.tab.redux.state&&"small"===t.tab.redux.state.scratchGui.stageSize.stageSize&&document.body.classList.add("sa-gamepad-small"),document.addEventListener("click",(e=>{e.target.closest("[class*='stage-header_stage-button-first']:not(.sa-hide-stage-button)")?document.body.classList.add("sa-gamepad-small"):(e.target.closest("[class*='stage-header_stage-button-last']")||e.target.closest(".sa-hide-stage-button"))&&document.body.classList.remove("sa-gamepad-small")}),{capture:1})
+const A=document.createElement("img")
+let L
+A.hidden=1,A.className="sa-gamepad-cursor",A.src=t.self.dir+"/cursor.png",t.self.addEventListener("disabled",(()=>{A.hidden=1}))
+const D=e=>{A.hidden=!e,clearTimeout(L),e&&(document.body.classList.add("sa-gamepad-hide-cursor"),L=setTimeout(x,8e3))},x=()=>{D(0)},T=e=>{D(1),A.classList.toggle("sa-gamepad-cursor-down",e)}
+let C
+if(document.addEventListener("mousemove",(()=>{D(0),document.body.classList.remove("sa-gamepad-hide-cursor")})),window.ResizeObserver){let e=l,t=p
+new ResizeObserver((n=>{for(const o of n)e=o.contentRect.width,t=o.contentRect.height})).observe(g),C=()=>[e,t]}else C=()=>{const e=g.getBoundingClientRect()
+return[e.width,e.height]}
+let R=0,j=0
+const J=e=>{if(t.self.disabled||!s())return
+const[n,o]=C()
+a.postIOData("mouse",{...e,canvasWidth:n,canvasHeight:o,x:(R+l/2)*(n/l),y:o/p*(p/2-j)})},N=(e,n)=>{!t.self.disabled&&s()&&a.postIOData("keyboard",{key:e,isDown:n})}
+for(i.virtualCursor.maxX=m._xRight,i.virtualCursor.minX=m._xLeft,i.virtualCursor.maxY=m._yTop,i.virtualCursor.minY=m._yBottom,i.addEventListener("keydown",(e=>N(e.detail,1))),i.addEventListener("keyup",(e=>N(e.detail,0))),i.addEventListener("mousedown",(()=>{T(1),J({isDown:1})})),i.addEventListener("mouseup",(()=>{T(0),J({isDown:0})})),i.addEventListener("mousemove",(e=>{var t,n
+R=e.detail.x,j=e.detail.y,t=R,n=j,D(1),A.style.transform=`translate(${l/2+t-3}px, ${p/2-n-3}px)`,J({})}));;){const e=await t.tab.waitForElement('[class^="stage-header_stage-size-row"], [class^="stage-header_stage-menu-wrapper"] > [class^="button_outlined-button"]',{markAsSeen:1,reduxEvents:["scratch-gui/mode/SET_PLAYER","scratch-gui/mode/SET_FULL_SCREEN","fontsLoaded/SET_FONTS_LOADED","scratch-gui/locales/SELECT_LOCALE"]})
+w.dataset.editorMode=t.tab.editorMode,e.className.includes("stage-size-row")?t.tab.appendToSharedSpace({space:"stageHeader",element:w,order:1}):t.tab.appendToSharedSpace({space:"fullscreenStageHeader",element:w,order:0}),document.querySelector("[class^='monitor-list_monitor-list-scaler']").appendChild(A)}}

@@ -1,40 +1,8 @@
-import chrome from "../../../libraries/common/chrome.js";
-
-export default function () {
-  const prerelease = chrome.runtime.getManifest().version_name.includes("-prerelease");
-  if (prerelease) {
-    const blue = getComputedStyle(document.documentElement).getPropertyValue("--blue");
-    document.documentElement.style.setProperty("--brand-orange", blue);
-    const favicon = document.getElementById("favicon");
-    if (favicon) favicon.href = chrome.runtime.getURL("/images/icon-blue.png");
-  }
-  const lightThemeLink = document.createElement("link");
-  lightThemeLink.setAttribute("rel", "stylesheet");
-  lightThemeLink.setAttribute("href", chrome.runtime.getURL("/webpages/styles/colors-light.css"));
-  lightThemeLink.setAttribute("data-below-vue-components", "");
-  lightThemeLink.media = "not all";
-  document.head.appendChild(lightThemeLink);
-  return new Promise((resolve) => {
-    chrome.storage.sync.get(["globalTheme"], ({ globalTheme = false }) => {
-      // true = light, false = dark
-      if (globalTheme === true) {
-        lightThemeLink.removeAttribute("media");
-      }
-      let theme = globalTheme;
-      resolve({
-        theme: globalTheme,
-        setGlobalTheme(mode) {
-          if (mode === theme) return;
-          chrome.storage.sync.set({ globalTheme: mode }, () => {
-            if (mode === true) {
-              lightThemeLink.removeAttribute("media");
-            } else {
-              lightThemeLink.media = "not all";
-            }
-          });
-          theme = mode;
-        },
-      });
-    });
-  });
-}
+import chrome from"../../../libraries/common/chrome.js"
+export default function(){if(chrome.runtime.getManifest().version_name.includes("-prerelease")){const e=getComputedStyle(document.documentElement).getPropertyValue("--blue")
+document.documentElement.style.setProperty("--brand-orange",e)
+const o=document.getElementById("favicon")
+o&&(o.href=chrome.runtime.getURL("/images/icon-blue.png"))}const e=document.createElement("link")
+return e.setAttribute("rel","stylesheet"),e.setAttribute("href",chrome.runtime.getURL("/webpages/styles/colors-light.css")),e.setAttribute("data-below-vue-components",""),e.media="not all",document.head.appendChild(e),new Promise((o=>{chrome.storage.sync.get(["globalTheme"],(({globalTheme:t=0})=>{1==t&&e.removeAttribute("media")
+let l=t
+o({theme:t,setGlobalTheme(o){o!==l&&(chrome.storage.sync.set({globalTheme:o},(()=>{1==o?e.removeAttribute("media"):e.media="not all"})),l=o)}})}))}))}

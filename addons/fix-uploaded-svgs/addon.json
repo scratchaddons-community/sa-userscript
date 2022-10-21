@@ -1,16 +1,1 @@
-{
-  "name": "SVG uploads fix",
-  "description": "Fixes a bug in the Scratch editor that makes uploaded SVG files created with some image editors, such as Affinity Designer, broken.",
-  "userscripts": [
-    {
-      "url": "userscript.js",
-      "matches": ["projects"],
-      "runAtComplete": false
-    }
-  ],
-  "dynamicEnable": true,
-  "dynamicDisable": true,
-  "versionAdded": "1.4.0",
-  "tags": ["editor", "costumeEditor"],
-  "enabledByDefault": false
-}
+{"name":"SVG uploads fix","description":"Fixes a bug in the Scratch editor that makes uploaded SVG files created with some image editors, such as Affinity Designer, broken.","userscripts":[{"url":"userscript.js","matches":["projects"],"runAtComplete":false}],"versionAdded":"1.4.0","tags":["editor","costumeEditor"],"enabledByDefault":false}

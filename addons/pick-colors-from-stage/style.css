@@ -1,3 +1,1 @@
-.sa-stage-color-picker-picking [class^="stage_color-picker-background_"] {
-  display: none;
-}
+.sa-stage-color-picker-picking [class^=stage_color-picker-background_]{display:none}

@@ -1,47 +1,13 @@
-import changeAddonState from "./imports/change-addon-state.js";
-import minifySettings from "../libraries/common/minify-settings.js";
-import { updateBadge } from "./message-cache.js";
-import chrome from "../libraries/common/chrome.js";
-
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  // Message used to load popups as well
-  if (request === "getSettingsInfo") {
-    const sendRes = () =>
-      sendResponse({
-        manifests: scratchAddons.manifests,
-        // Firefox breaks if we send proxies
-        addonsEnabled: scratchAddons.localState._target.addonsEnabled,
-        addonSettings: scratchAddons.globalState._target.addonSettings,
-      });
-    // Data might have not loaded yet, or be partial.
-    // Only respond when all data is ready
-    if (scratchAddons.localState.allReady) {
-      sendRes();
-    } else {
-      scratchAddons.localEvents.addEventListener("ready", sendRes);
-      return true;
-    }
-  } else if (request.changeEnabledState) {
-    const { addonId, newState } = request.changeEnabledState;
-    changeAddonState(addonId, newState);
-  } else if (request.changeAddonSettings) {
-    const { addonId, newSettings } = request.changeAddonSettings;
-    scratchAddons.globalState.addonSettings[addonId] = newSettings;
-    const prerelease = chrome.runtime.getManifest().version_name.endsWith("-prerelease");
-    chrome.storage.sync.set({
-      // Store target so arrays don't become objects
-      addonSettings: minifySettings(
-        scratchAddons.globalState.addonSettings._target,
-        prerelease ? null : scratchAddons.manifests
-      ),
-    });
-
-    const manifest = scratchAddons.manifests.find((addon) => addon.addonId === addonId).manifest;
-    const { updateUserstylesOnSettingsChange } = manifest;
-    if (updateUserstylesOnSettingsChange)
-      scratchAddons.localEvents.dispatchEvent(
-        new CustomEvent("updateUserstylesSettingsChange", { detail: { addonId, manifest, newSettings } })
-      );
-    if (addonId === "msg-count-badge") updateBadge(scratchAddons.cookieStoreId);
-  }
-});
+import s from"./imports/change-addon-state.js"
+import t from"../libraries/common/minify-settings.js"
+import{updateBadge as n}from"./message-cache.js"
+import chrome from"../libraries/common/chrome.js"
+chrome.runtime.onMessage.addListener((function(e,d,o){if("getSettingsInfo"===e){const s=()=>o({manifests:scratchAddons.manifests,addonsEnabled:scratchAddons.localState._target.addonsEnabled,addonSettings:scratchAddons.globalState._target.addonSettings})
+if(!scratchAddons.localState.allReady)return scratchAddons.localEvents.addEventListener("ready",s),1
+s()}else if(e.changeEnabledState){const{addonId:t,newState:n}=e.changeEnabledState
+s(t,n)}else if(e.changeAddonSettings){const{addonId:s,newSettings:d}=e.changeAddonSettings
+scratchAddons.globalState.addonSettings[s]=d
+const o=chrome.runtime.getManifest().version_name.endsWith("-prerelease")
+chrome.storage.sync.set({addonSettings:t(scratchAddons.globalState.addonSettings._target,o?null:scratchAddons.manifests)})
+const a=scratchAddons.manifests.find((t=>t.addonId===s)).manifest,{updateUserstylesOnSettingsChange:c}=a
+c&&scratchAddons.localEvents.dispatchEvent(new CustomEvent("updateUserstylesSettingsChange",{detail:{addonId:s,manifest:a,newSettings:d}})),"msg-count-badge"===s&&n(scratchAddons.cookieStoreId)}}))

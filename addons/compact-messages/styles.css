@@ -1,7 +1,1 @@
-.social-message {
-  padding: calc(1px * var(--compactMessages-message_padding));
-}
-
-.comment-text {
-  padding: calc(1px * var(--compactMessages-comment_padding));
-}
+.social-message{padding:calc(1px*var(--compactMessages-message_padding))}.comment-text{padding:calc(1px*var(--compactMessages-comment_padding))}

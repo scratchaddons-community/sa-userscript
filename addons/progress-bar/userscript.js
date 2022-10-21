@@ -1,247 +1,29 @@
-export default async function ({ addon, global, console, msg }) {
-  const useTopBar = addon.settings.get("topbar");
-
-  const barOuter = document.createElement("div");
-  barOuter.className = "u-progress-bar-outer";
-  const barInner = document.createElement("div");
-  barInner.className = "u-progress-bar-inner";
-  barOuter.appendChild(barInner);
-
-  if (useTopBar) {
-    barOuter.classList.add("u-progress-bar-top");
-    barOuter.style.opacity = "0";
-    addon.tab.waitForElement("body").then(() => document.body.appendChild(barOuter));
-  } else {
-    barOuter.classList.add("u-progress-bar-integrated");
-  }
-  addon.tab.displayNoneWhileDisabled(barOuter, { display: "flex" });
-
-  // We track the loading phase so that we can detect when the phase changed to reset and move the progress bar accordingly.
-  const NONE = "none";
-  const LOAD_JSON = "load-json";
-  const LOAD_ASSETS = "load-assets";
-  const SAVE_JSON = "save-json";
-  const SAVE_ASSETS = "save-assets";
-  const COPY = "copy";
-  const REMIX = "remix";
-  let loadingPhase = NONE;
-
-  let totalTasks = 0;
-  let finishedTasks = 0;
-
-  let resetTimeout;
-
-  function setProgress(progress) {
-    if (progress < 0) progress = 0;
-    if (progress > 1) progress = 1;
-    if (useTopBar) {
-      // The bar is always at least 10% visible to give an indication of something happening, even at 0% progress.
-      barInner.style.width = 10 + progress * 90 + "%";
-      if (progress === 1) {
-        barOuter.style.opacity = "0";
-        // Reset the progress bar back to 0 width once the animation has completed.
-        // This makes it so that the progress bar won't play a transition of going from 100% to 0% the next time the bar is shown.
-        clearTimeout(resetTimeout);
-        resetTimeout = setTimeout(resetProgressWidth, 500);
-      } else {
-        barOuter.style.opacity = "1";
-      }
-    } else {
-      barInner.style.width = progress * 100 + "%";
-      if (loadingPhase === LOAD_ASSETS) {
-        loadingCaption.innerText = msg("loading-assets", {
-          loaded: finishedTasks,
-          loading: totalTasks,
-        });
-      }
-    }
-    if (progress === 1) {
-      loadingPhase = NONE;
-      stopObserver();
-    }
-  }
-
-  function setLoadingPhase(newPhase) {
-    if (loadingPhase === newPhase) {
-      return;
-    }
-    loadingPhase = newPhase;
-    setProgress(0);
-    inject();
-    startObserver();
-    totalTasks = 0;
-    finishedTasks = 0;
-  }
-
-  function updateTasks() {
-    setProgress(finishedTasks / totalTasks);
-  }
-
-  function resetProgressWidth() {
-    barInner.style.width = "0";
-  }
-
-  const loadingCaption = document.createElement("div");
-  loadingCaption.innerText = msg("loading-project");
-  loadingCaption.className = "u-progress-bar-caption";
-
-  const PROJECT_REGEX = /^https:\/\/projects\.scratch\.mit\.edu\/\d+/;
-  const ASSET_REGEX = /^https:\/\/assets\.scratch\.mit\.edu\//;
-
-  // Scratch uses fetch() to download the project JSON and upload project assets.
-  const originalFetch = window.fetch;
-  window.fetch = (url, opts) => {
-    if (!addon.self.disabled && typeof url === "string" && opts && typeof opts.method === "string") {
-      if (opts.method.toLowerCase() === "get" && PROJECT_REGEX.test(url)) {
-        // This is a request to get the project JSON.
-        // Fetch does not support progress monitoring, so we use XMLHttpRequest instead.
-        setLoadingPhase(LOAD_JSON);
-        return new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.responseType = "blob";
-          xhr.onload = () =>
-            resolve(
-              new Response(xhr.response, {
-                status: xhr.status,
-                statusText: xhr.statusText,
-              })
-            );
-          xhr.onerror = () => reject(new Error("xhr failed"));
-          xhr.onloadend = () => setProgress(1);
-          xhr.onprogress = (e) => {
-            if (e.lengthComputable) {
-              setProgress(e.loaded / e.total);
-            }
-          };
-          xhr.open("GET", url);
-          xhr.send();
-        });
-      }
-      if (opts.method.toLowerCase() === "post" && ASSET_REGEX.test(url)) {
-        // This is a request to upload an asset.
-        // Sadly, it doesn't seem to be possible to monitor upload progress on these requests, even with XHR, as the asset endpoint
-        // returns 405 Method Not Allowed when an OPTIONS preflight request is made, which is required when we put listeners on `xhr.upload`
-        // As a result, this won't display a useful progress bar when uploading a single large asset, but it will still display a useful
-        // progress bar in the case of uploading many assets at once.
-        setLoadingPhase(SAVE_ASSETS);
-        totalTasks++;
-        updateTasks();
-        return originalFetch(url, opts).then((response) => {
-          finishedTasks++;
-          updateTasks();
-          return response;
-        });
-      }
-    }
-
-    return originalFetch(url, opts);
-  };
-
-  // Scratch uses XMLHttpRequest to upload the project JSON.
-  const originalOpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function (...args) {
-    const method = args[0];
-    const url = args[1];
-    if (!addon.self.disabled && typeof method === "string" && typeof url === "string") {
-      if ((method.toLowerCase() === "put" || method.toLowerCase() === "post") && PROJECT_REGEX.test(url)) {
-        const searchParams = new URLSearchParams(url);
-        // This is a request to save, remix, or copy a project.
-        if (searchParams.has("is_remix")) {
-          setLoadingPhase(REMIX);
-        } else if (searchParams.has("is_copy")) {
-          setLoadingPhase(COPY);
-        } else {
-          setLoadingPhase(SAVE_JSON);
-        }
-        this.upload.addEventListener("loadend", (e) => {
-          setProgress(1);
-        });
-        this.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) {
-            setProgress(e.loaded / e.total);
-          }
-        });
-      }
-    }
-
-    originalOpen.apply(this, args);
-  };
-
-  // Scratch uses a Worker to fetch project assets.
-  // As the worker may be constructed before we run, we have to patch postMessage to monitor message passing.
-  let foundWorker = false;
-  const originalPostMessage = Worker.prototype.postMessage;
-  Worker.prototype.postMessage = function (message, options) {
-    if (!addon.self.disabled && message && typeof message.id === "string" && typeof message.url === "string") {
-      // This is a message passed to the worker to start an asset download.
-      setLoadingPhase(LOAD_ASSETS);
-      totalTasks++;
-      updateTasks();
-
-      // Add our own message handler once for this worker to monitor when assets have finished loading.
-      if (!foundWorker) {
-        foundWorker = true;
-        this.addEventListener("message", (e) => {
-          const data = e.data;
-          if (Array.isArray(data)) {
-            finishedTasks += data.length;
-            updateTasks();
-          }
-        });
-      }
-    }
-
-    originalPostMessage.call(this, message, options);
-  };
-
-  function inject() {
-    // When the progress bar is already in the document, we do not need to do anything.
-    if (document.querySelector(".u-progress-bar-outer")) {
-      return;
-    }
-
-    const loaderMessageContainerOuter = document.querySelector('[class^="loader_message-container-outer"]');
-    if (loaderMessageContainerOuter) {
-      loaderMessageContainerOuter.hidden = true;
-      loaderMessageContainerOuter.parentElement.appendChild(loadingCaption);
-      loaderMessageContainerOuter.parentElement.appendChild(barOuter);
-      return;
-    }
-
-    const spinner = document.querySelector('[class^="inline-message_spinner"]');
-    if (spinner) {
-      const container = spinner.parentElement.querySelector("span");
-      container.appendChild(barOuter);
-      return;
-    }
-
-    const remixButton = document.querySelector(".remix-button.remixing");
-    if (remixButton) {
-      remixButton.appendChild(barOuter);
-      return;
-    }
-
-    const alertMessage = document.querySelector('[class^="alert_alert-message"] span');
-    if (alertMessage) {
-      alertMessage.appendChild(barOuter);
-      return;
-    }
-  }
-
-  const mutationObserver = new MutationObserver(inject);
-
-  async function startObserver() {
-    if (useTopBar) return;
-    await addon.tab.waitForElement("body");
-    inject();
-    mutationObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  }
-
-  function stopObserver() {
-    if (useTopBar) return;
-    mutationObserver.disconnect();
-  }
-}
+export default async function({addon:t,msg:s}){function e(t){0>t&&(t=0),t>1&&(t=1),a?(u.style.width=10+90*t+"%",1===t?(c.style.opacity="0",clearTimeout(f),f=setTimeout(r,500)):c.style.opacity="1"):(u.style.width=100*t+"%",m===p&&(b.innerText=s("loading-assets",{loaded:l,loading:g}))),1===t&&(m=d,a||R.disconnect())}function n(s){m!==s&&(m=s,e(0),i(),async function(){a||(await t.tab.waitForElement("body"),i(),R.observe(document.body,{childList:1,subtree:1}))}(),g=0,l=0)}function o(){e(l/g)}function r(){u.style.width="0"}function i(){if(document.querySelector(".u-progress-bar-outer"))return
+const t=document.querySelector('[class^="loader_message-container-outer"]')
+if(t)return t.hidden=1,t.parentElement.appendChild(b),void t.parentElement.appendChild(c)
+const s=document.querySelector('[class^="inline-message_spinner"]')
+if(s)return void s.parentElement.querySelector("span").appendChild(c)
+const e=document.querySelector(".remix-button.remixing")
+if(e)return void e.appendChild(c)
+const n=document.querySelector('[class^="alert_alert-message"] span')
+n&&n.appendChild(c)}const a=t.settings.get("topbar"),c=document.createElement("div")
+c.className="u-progress-bar-outer"
+const u=document.createElement("div")
+u.className="u-progress-bar-inner",c.appendChild(u),a?(c.classList.add("u-progress-bar-top"),c.style.opacity="0",t.tab.waitForElement("body").then((()=>document.body.appendChild(c)))):c.classList.add("u-progress-bar-integrated"),t.tab.displayNoneWhileDisabled(c,{display:"flex"})
+const d="none",p="load-assets"
+let f,m=d,g=0,l=0
+const b=document.createElement("div")
+b.innerText=s("loading-project"),b.className="u-progress-bar-caption"
+const y=/^https:\/\/projects\.scratch\.mit\.edu\/\d+/,h=/^https:\/\/assets\.scratch\.mit\.edu\//,w=window.fetch
+window.fetch=(s,r)=>{if(!t.self.disabled&&"string"==typeof s&&r&&"string"==typeof r.method){if("get"===r.method.toLowerCase()&&y.test(s))return n("load-json"),new Promise(((t,n)=>{const o=new XMLHttpRequest
+o.responseType="blob",o.onload=()=>t(new Response(o.response,{status:o.status,statusText:o.statusText})),o.onerror=()=>n(new Error("xhr failed")),o.onloadend=()=>e(1),o.onprogress=t=>{t.lengthComputable&&e(t.loaded/t.total)},o.open("GET",s),o.send()}))
+if("post"===r.method.toLowerCase()&&h.test(s))return n("save-assets"),g++,o(),w(s,r).then((t=>(l++,o(),t)))}return w(s,r)}
+const v=XMLHttpRequest.prototype.open
+XMLHttpRequest.prototype.open=function(...s){const o=s[0],r=s[1]
+if(!t.self.disabled&&"string"==typeof o&&"string"==typeof r&&("put"===o.toLowerCase()||"post"===o.toLowerCase())&&y.test(r)){const t=new URLSearchParams(r)
+t.has("is_remix")?n("remix"):t.has("is_copy")?n("copy"):n("save-json"),this.upload.addEventListener("loadend",(()=>{e(1)})),this.upload.addEventListener("progress",(t=>{t.lengthComputable&&e(t.loaded/t.total)}))}v.apply(this,s)}
+let x=0
+const L=Worker.prototype.postMessage
+Worker.prototype.postMessage=function(s,e){!t.self.disabled&&s&&"string"==typeof s.id&&"string"==typeof s.url&&(n(p),g++,o(),x||(x=1,this.addEventListener("message",(t=>{const s=t.data
+Array.isArray(s)&&(l+=s.length,o())})))),L.call(this,s,e)}
+const R=new MutationObserver(i)}

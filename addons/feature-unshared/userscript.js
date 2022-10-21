@@ -1,11 +1,3 @@
-export default async function ({ addon, global, console }) {
-  const xhrOpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function (method, url, ...args) {
-    if (!addon.self.disabled && url && url.startsWith("/site-api/projects/shared/")) {
-      const urlUrl = new URL(location.origin + url);
-      urlUrl.pathname = urlUrl.pathname.replace(/shared\/[\w-]+/, "all");
-      url = urlUrl.toString();
-    }
-    return xhrOpen.call(this, method, url, ...args);
-  };
-}
+export default async function({addon:t}){const e=XMLHttpRequest.prototype.open
+XMLHttpRequest.prototype.open=function(n,s,...o){if(!t.self.disabled&&s&&s.startsWith("/site-api/projects/shared/")){const t=new URL(location.origin+s)
+t.pathname=t.pathname.replace(/shared\/[\w-]+/,"all"),s=t.toString()}return e.call(this,n,s,...o)}}

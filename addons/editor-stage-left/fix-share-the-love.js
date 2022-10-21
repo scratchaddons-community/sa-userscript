@@ -1,21 +1,5 @@
-export default async function ({ addon, global, console }) {
-  const ScratchBlocks = await addon.tab.traps.getBlockly();
-  const resize = () => {
-    const workspace = Blockly.getMainWorkspace();
-    if (workspace) window.dispatchEvent(new Event("resize"));
-  };
-  addon.self.addEventListener("disabled", resize);
-  addon.self.addEventListener("reenabled", resize);
-  const originalGetClientRect = ScratchBlocks.VerticalFlyout.prototype.getClientRect;
-  ScratchBlocks.VerticalFlyout.prototype.getClientRect = function () {
-    const rect = originalGetClientRect.call(this);
-    if (!rect || addon.self.disabled) return rect;
-    // undo the effect of BIG_NUM in https://github.com/LLK/scratch-blocks/blob/ab26fa2960643fa38fbc7b91ca2956be66055070/core/flyout_vertical.js#L739
-    if (this.toolboxPosition_ === ScratchBlocks.TOOLBOX_AT_LEFT) {
-      rect.left += 1000000000;
-    }
-    rect.width -= 1000000000;
-    return rect;
-  };
-  if (addon.self.enabledLate) resize();
-}
+export default async function({addon:n}){const e=await n.tab.traps.getBlockly(),t=()=>{Blockly.getMainWorkspace()&&window.dispatchEvent(new Event("resize"))}
+n.self.addEventListener("disabled",t),n.self.addEventListener("reenabled",t)
+const o=e.VerticalFlyout.prototype.getClientRect
+e.VerticalFlyout.prototype.getClientRect=function(){const t=o.call(this)
+return!t||n.self.disabled||(this.toolboxPosition_===e.TOOLBOX_AT_LEFT&&(t.left+=1e9),t.width-=1e9),t},n.self.enabledLate&&t()}

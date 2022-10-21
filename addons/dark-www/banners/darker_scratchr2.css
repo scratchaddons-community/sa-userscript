@@ -1,8 +1,1 @@
-#brdheader,
-.blockpost div.box {
-  background-color: #064734 !important;
-}
-.blockpost div.box,
-.blockpost .box-head {
-  border-top-color: #064734 !important;
-}
+#brdheader,.blockpost div.box{background-color:#064734!important}.blockpost .box-head,.blockpost div.box{border-top-color:#064734!important}

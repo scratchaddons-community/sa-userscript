@@ -1,375 +1,76 @@
-import { updateBadge } from "../../background/message-cache.js";
-import chrome from "../../libraries/common/chrome.js";
-import { markAsRead } from "../../libraries/common/message-cache.js";
-import createNotification from "../../libraries/common/notification-util.js";
-import commentEmojis from "./comment-emojis.js";
-
-const emojis = {
-  addcomment: "comment",
-  forumpost: "forum",
-  loveproject: "heart",
-  favoriteproject: "star",
-  followuser: "follow",
-  curatorinvite: "studio-add",
-  remixproject: "remix",
-  studioactivity: "studio",
-  becomeownerstudio: "adminusers",
-  becomehoststudio: "users",
-};
-
-function openDatabase() {
-  return idb.openDB("notifier", 1, {
-    upgrade(d) {
-      d.createObjectStore("urls");
-    },
-  });
-}
-
-export async function purgeDatabase() {
-  const db = await openDatabase();
-  try {
-    await db.clear("urls");
-  } finally {
-    await db.close();
-  }
-}
-
-// Call in try-finally
-async function cleanupDatabase(db) {
-  const tx = db.transaction("urls", "readwrite");
-  const items = await tx.store.getAllKeys();
-  for (const key of items) {
-    const time = Number(key.match(/\w+__(\d+)/)[1]);
-    if (time + 3 * 24 * 60 * 60 * 1000 < Date.now()) {
-      await tx.store.delete(key);
-    }
-  }
-  await tx.done;
-}
-
-async function notifyMessage({
-  emoji,
-  messageType,
-  actor,
-  fragment,
-  commentee,
-  commentUrl,
-  title,
-  element_id,
-  parent_title,
-  admin_actor,
-}) {
-  const msg = (key, params) => scratchAddons.l10n.get(`scratch-notifier/${key}`, params, `scratch-messaging/${key}`);
-  const settings = scratchAddons.globalState.addonSettings["scratch-notifier"] || {};
-  let text = "";
-  let url;
-  if (messageType.startsWith("addcomment/")) {
-    url = commentUrl;
-    if (title.length > 20) title = `${title.substring(0, 17).trimEnd()}...`;
-    var notificationTitle;
-    switch (messageType.split("/")[1]) {
-      case "ownProjectNewComment":
-        notificationTitle = msg("notif-own-project", { actor, title });
-        text = fragment;
-        break;
-      case "projectReplyToSelf":
-        notificationTitle = msg("notif-project-reply", { actor, title });
-        text = fragment;
-        break;
-      case "ownProjectReplyToOther":
-        notificationTitle = msg("notif-own-project-reply", { actor, commentee, title });
-        text = fragment;
-        break;
-      case "ownProfileNewComment":
-        notificationTitle = msg("notif-profile", { actor });
-        text = fragment;
-        break;
-      case "ownProfileReplyToSelf":
-        notificationTitle = msg("notif-own-profile-reply", { actor });
-        text = fragment;
-        break;
-      case "ownProfileReplyToOther":
-        notificationTitle = msg("notif-own-profile-reply-other", { actor, commentee });
-        text = fragment;
-        break;
-      case "otherProfileReplyToSelf":
-        notificationTitle = msg("notif-profile-reply", { actor, title });
-        text = fragment;
-        break;
-      case "studio":
-        notificationTitle = msg("notif-studio-reply", { actor, title });
-        text = fragment;
-        break;
-      default:
-        notificationTitle = msg("notif-comment");
-        break;
-    }
-  } else {
-    switch (messageType) {
-      case "forumpost":
-        notificationTitle = msg("notif-forum", { title });
-        url = `https://scratch.mit.edu/discuss/topic/${element_id}/unread/`;
-        break;
-      case "loveproject":
-        notificationTitle = msg("notif-love", { actor, title });
-        url = `https://scratch.mit.edu/users/${actor}/`;
-        break;
-      case "favoriteproject":
-        notificationTitle = msg("notif-fav", { actor, title });
-        url = `https://scratch.mit.edu/users/${actor}/`;
-        break;
-      case "followuser":
-        notificationTitle = msg("notif-follow", { actor });
-        url = `https://scratch.mit.edu/users/${actor}/`;
-        break;
-      case "curatorinvite":
-        notificationTitle = msg("notif-invite", { actor, title });
-        url = `https://scratch.mit.edu/studios/${element_id}/curators/`;
-        break;
-      case "becomeownerstudio":
-        notificationTitle = msg("notif-promotion", { actor, title });
-        url = `https://scratch.mit.edu/studios/${element_id}/curators/`;
-        break;
-      case "becomehoststudio":
-        notificationTitle = msg("notif-host", { actor: admin_actor ? msg("st") : actor, title });
-        url = `https://scratch.mit.edu/studios/${element_id}/`;
-        break;
-      case "remixproject":
-        notificationTitle = msg("notif-remix", { actor, parent_title, title });
-        url = `https://scratch.mit.edu/projects/${element_id}/`;
-        break;
-      case "studioactivity":
-        notificationTitle = msg("notif-studio", { title });
-        url = `https://scratch.mit.edu/studios/${element_id}/activity`;
-        break;
-      default:
-        notificationTitle = msg("notif-generic");
-        break;
-    }
-  }
-
-  const soundSetting = settings.notification_sound;
-
-  const notifId = await createNotification({
-    base: "notifier",
-    type: "basic",
-    title: notificationTitle,
-    iconUrl: emoji ? `../../images/icons/${emoji}.svg` : "/images/icon.png",
-    message: text,
-    buttons: [
-      {
-        title: msg("open"),
-      },
-      {
-        title: msg("clear"),
-      },
-    ],
-    silent: soundSetting === "system-default" ? false : true,
-  });
-  if (!notifId) return;
-  const db = await openDatabase();
-  try {
-    await db.put("urls", url, notifId);
-  } finally {
-    await db.close();
-  }
-}
-
-const registerHandler = () => {
-  chrome.notifications.onClicked.addListener(async (notifId) => {
-    if (!notifId.startsWith("notifier")) return;
-    chrome.notifications.clear(notifId);
-    if (scratchAddons.globalState.addonSettings["scratch-notifier"]?.mark_as_read_when_clicked === true) {
-      try {
-        await markAsRead(scratchAddons.globalState.auth.csrfToken);
-        updateBadge(scratchAddons.cookieStoreId);
-      } catch (e) {
-        console.error("Marking message as read failed:", e);
-      }
-    }
-    const db = await openDatabase();
-    try {
-      const url = await db.get("urls", notifId);
-      if (url) chrome.tabs.create({ url });
-      await cleanupDatabase(db);
-      await db.delete("urls", notifId);
-    } finally {
-      await db.close();
-    }
-  });
-
-  chrome.notifications.onButtonClicked.addListener(async (notifId, buttonIndex) => {
-    if (!notifId.startsWith("notifier")) return;
-    chrome.notifications.clear(notifId);
-    if (buttonIndex === 0) openMessagesPage();
-    else {
-      try {
-        await markAsRead(scratchAddons.globalState.auth.csrfToken);
-        updateBadge(scratchAddons.cookieStoreId);
-      } catch (e) {
-        console.error("Marking message as read failed:", e);
-      }
-    }
-    const db = await openDatabase();
-    try {
-      await cleanupDatabase(db);
-      await db.delete("urls", notifId);
-    } finally {
-      await db.close();
-    }
-  });
-
-  chrome.notifications.onClosed.addListener(async (notifId) => {
-    if (!notifId.startsWith("notifier")) return;
-    const db = await openDatabase();
-    try {
-      await cleanupDatabase(db);
-      await db.delete("urls", notifId);
-    } finally {
-      await db.close();
-    }
-  });
-};
-// chrome.notifications is only available if permission is granted.
-if (chrome.notifications) registerHandler();
-else {
-  chrome.permissions.onAdded.addListener((permissions) => {
-    if (permissions.permissions?.includes("notifications")) registerHandler();
-  });
-}
-
-async function openMessagesPage() {
-  chrome.tabs.query(
-    {
-      url: "https://scratch.mit.edu/messages*",
-    },
-    (tabs) => {
-      if (tabs[0]) {
-        chrome.windows.update(tabs[0].windowId, {
-          focused: true,
-        });
-        chrome.tabs.update(tabs[0].id, {
-          active: true,
-          url: "https://scratch.mit.edu/messages/",
-        });
-      } else {
-        chrome.tabs.create({
-          url: "https://scratch.mit.edu/messages/",
-        });
-      }
-      updateBadge(scratchAddons.cookieStoreId);
-    }
-  );
-}
-
-export function notifyNewMessages(messages) {
-  const settings = scratchAddons.globalState.addonSettings["scratch-notifier"] || {};
-  const username = scratchAddons.globalState.auth.username;
-  if (messages === null || messages.length === 0 || scratchAddons.muted) return;
-  messages = messages.slice(0, 20);
-  let anyNotified = false;
-  for (const message of messages) {
-    let messageType = message.type;
-    let commentUrl;
-    if (message.type === "addcomment") {
-      messageType += "/";
-      if (message.comment_type === 0) {
-        // Project comment
-        const replyFor = message.commentee_username;
-        if (replyFor === null) messageType += "ownProjectNewComment";
-        else if (replyFor === username) messageType += "projectReplyToSelf";
-        else messageType += "ownProjectReplyToOther";
-        commentUrl = `https://scratch.mit.edu/projects/${message.comment_obj_id}/#comments-${message.comment_id}`;
-      } else if (message.comment_type === 1) {
-        const profile = message.comment_obj_title;
-        const replyFor = message.commentee_username;
-        if (profile === username) {
-          if (replyFor === null) messageType += "ownProfileNewComment";
-          else if (replyFor === username) messageType += "ownProfileReplyToSelf";
-          else messageType += "ownProfileReplyToOther";
-        } else {
-          messageType += "otherProfileReplyToSelf";
-        }
-        commentUrl = `https://scratch.mit.edu/users/${message.comment_obj_title}/#comments-${message.comment_id}`;
-      } else if (message.comment_type === 2) {
-        messageType += "studio";
-        commentUrl = `https://scratch.mit.edu/studios/${message.comment_obj_id}/comments/#comments-${message.comment_id}`;
-      }
-    }
-
-    // Return if this notification type is muted
-    if (message.type === "addcomment") {
-      if (messageType === "addcomment/ownProjectNewComment" || messageType === "addcomment/ownProjectReplyToOther") {
-        if (settings.commentsonmyprojects_notifications === false) continue;
-      } else {
-        if (settings.commentsforme_notifications === false) continue;
-      }
-    } else {
-      try {
-        if (settings[`${message.type}_notifications`] === false) continue;
-      } catch {
-        // If setting doesn't exist
-        console.warn(`Unexpected message type: ${message.type}`);
-        continue;
-      }
-    }
-
-    const messageInfo = {
-      emoji: emojis[message.type],
-      messageType,
-      actor: message.actor_username,
-      admin_actor: message.admin_actor || false, // Host transfer only
-      fragment: htmlToText(message.comment_fragment), // Comments only
-      commentee: message.commentee_username, // Comments only
-      commentUrl, // Comments only
-      title:
-        message.comment_obj_title ||
-        message.topic_title ||
-        message.title ||
-        message.project_title ||
-        message.gallery_title,
-      element_id: message.comment_id || message.gallery_id || message.project_id || message.topic_id,
-      parent_title: message.parent_title, // Remixes only
-    };
-    if (!anyNotified && settings.notification_sound === "addons-ping") {
-      new Audio(chrome.runtime.getURL("./addons/scratch-notifier/ping.mp3")).play();
-    }
-    // Play the sound only once
-    anyNotified = true;
-    notifyMessage(messageInfo);
-  }
-}
-
-// Popups might fetch new messages.
-// They will send the notifier the new messages, where we can send notifications.
-chrome.runtime.onMessage.addListener((message) => {
-  if (
-    scratchAddons.localState.addonsEnabled["scratch-notifier"] &&
-    message?.notifyNewMessages &&
-    message.notifyNewMessages.store === scratchAddons.cookieStoreId
-  ) {
-    notifyNewMessages(message.notifyNewMessages.messages);
-  }
-});
-
-function htmlToText(html) {
-  if (html === undefined) return;
-  const txt = document.createElement("textarea");
-  txt.innerHTML = html;
-  let value = txt.value;
-  const matches = value.match(/<img([\w\W]+?)[\/]?>/g);
-  if (matches) {
-    for (const match of matches) {
-      const src = match.match(/\<img.+src\=(?:\"|\')(.+?)(?:\"|\')(?:.+?)\>/)[1];
-      const splitString = src.split("/");
-      const imageName = splitString[splitString.length - 1];
-      if (commentEmojis[imageName]) {
-        value = value.replace(match, commentEmojis[imageName]);
-      }
-    }
-  }
-  value = value.replace(/<[^>]*>?/gm, ""); // Remove remaining HTML tags
-  value = value.replace(/\n/g, " ").trim(); // Remove newlines
-  if (html.length === 250) value += "..."; // Add ellipsis if shortened
-  return value;
-}
+function t(){return idb.openDB("notifier",1,{upgrade(t){t.createObjectStore("urls")}})}async function e(t){const e=t.transaction("urls","readwrite"),o=await e.store.getAllKeys()
+for(const t of o)Number(t.match(/\w+__(\d+)/)[1])+2592e5<Date.now()&&await e.store.delete(t)
+await e.done}async function o({emoji:e,messageType:o,actor:s,fragment:i,commentee:r,commentUrl:c,title:n,element_id:l,parent_title:m,admin_actor:f}){const d=(t,e)=>scratchAddons.l10n.get(`scratch-notifier/${t}`,e,`scratch-messaging/${t}`),u=scratchAddons.globalState.addonSettings["scratch-notifier"]||{}
+let p,h=""
+var w
+if(o.startsWith("addcomment/"))switch(p=c,n.length>20&&(n=`${n.substring(0,17).trimEnd()}...`),o.split("/")[1]){case"ownProjectNewComment":w=d("notif-own-project",{actor:s,title:n}),h=i
+break
+case"projectReplyToSelf":w=d("notif-project-reply",{actor:s,title:n}),h=i
+break
+case"ownProjectReplyToOther":w=d("notif-own-project-reply",{actor:s,commentee:r,title:n}),h=i
+break
+case"ownProfileNewComment":w=d("notif-profile",{actor:s}),h=i
+break
+case"ownProfileReplyToSelf":w=d("notif-own-profile-reply",{actor:s}),h=i
+break
+case"ownProfileReplyToOther":w=d("notif-own-profile-reply-other",{actor:s,commentee:r}),h=i
+break
+case"otherProfileReplyToSelf":w=d("notif-profile-reply",{actor:s,title:n}),h=i
+break
+case"studio":w=d("notif-studio-reply",{actor:s,title:n}),h=i
+break
+default:w=d("notif-comment")}else switch(o){case"forumpost":w=d("notif-forum",{title:n}),p=`https://scratch.mit.edu/discuss/topic/${l}/unread/`
+break
+case"loveproject":w=d("notif-love",{actor:s,title:n}),p=`https://scratch.mit.edu/users/${s}/`
+break
+case"favoriteproject":w=d("notif-fav",{actor:s,title:n}),p=`https://scratch.mit.edu/users/${s}/`
+break
+case"followuser":w=d("notif-follow",{actor:s}),p=`https://scratch.mit.edu/users/${s}/`
+break
+case"curatorinvite":w=d("notif-invite",{actor:s,title:n}),p=`https://scratch.mit.edu/studios/${l}/curators/`
+break
+case"becomeownerstudio":w=d("notif-promotion",{actor:s,title:n}),p=`https://scratch.mit.edu/studios/${l}/curators/`
+break
+case"becomehoststudio":w=d("notif-host",{actor:f?d("st"):s,title:n}),p=`https://scratch.mit.edu/studios/${l}/`
+break
+case"remixproject":w=d("notif-remix",{actor:s,parent_title:m,title:n}),p=`https://scratch.mit.edu/projects/${l}/`
+break
+case"studioactivity":w=d("notif-studio",{title:n}),p=`https://scratch.mit.edu/studios/${l}/activity`
+break
+default:w=d("notif-generic")}const y=u.notification_sound,g=await a({base:"notifier",type:"basic",title:w,iconUrl:e?`../../images/icons/${e}.svg`:"/images/icon.png",message:h,buttons:[{title:d("open")},{title:d("clear")}],silent:"system-default"===y?0:1})
+if(!g)return
+const b=await t()
+try{await b.put("urls",p,g)}finally{await b.close()}}function s(t){if(void 0===t)return
+const e=document.createElement("textarea")
+e.innerHTML=t
+let o=e.value
+const s=o.match(/<img([\w\W]+?)[\/]?>/g)
+if(s)for(const t of s){const e=t.match(/\<img.+src\=(?:\"|\')(.+?)(?:\"|\')(?:.+?)\>/)[1].split("/"),s=e[e.length-1]
+c[s]&&(o=o.replace(t,c[s]))}return o=o.replace(/<[^>]*>?/gm,""),o=o.replace(/\n/g," ").trim(),250===t.length&&(o+="..."),o}import{updateBadge as i}from"../../background/message-cache.js"
+import chrome from"../../libraries/common/chrome.js"
+import{markAsRead as r}from"../../libraries/common/message-cache.js"
+import a from"../../libraries/common/notification-util.js"
+import c from"./comment-emojis.js"
+const n={addcomment:"comment",forumpost:"forum",loveproject:"heart",favoriteproject:"star",followuser:"follow",curatorinvite:"studio-add",remixproject:"remix",studioactivity:"studio",becomeownerstudio:"adminusers",becomehoststudio:"users"}
+export async function purgeDatabase(){const e=await t()
+try{await e.clear("urls")}finally{await e.close()}}const l=()=>{chrome.notifications.onClicked.addListener((async o=>{if(!o.startsWith("notifier"))return
+if(chrome.notifications.clear(o),1==scratchAddons.globalState.addonSettings["scratch-notifier"]?.mark_as_read_when_clicked)try{await r(scratchAddons.globalState.auth.csrfToken),i(scratchAddons.cookieStoreId)}catch(t){console.error("Marking message as read failed:",t)}const s=await t()
+try{const t=await s.get("urls",o)
+t&&chrome.tabs.create({url:t}),await e(s),await s.delete("urls",o)}finally{await s.close()}})),chrome.notifications.onButtonClicked.addListener((async(o,s)=>{if(!o.startsWith("notifier"))return
+if(chrome.notifications.clear(o),0===s)!async function(){chrome.tabs.query({url:"https://scratch.mit.edu/messages*"},(t=>{t[0]?(chrome.windows.update(t[0].windowId,{focused:1}),chrome.tabs.update(t[0].id,{active:1,url:"https://scratch.mit.edu/messages/"})):chrome.tabs.create({url:"https://scratch.mit.edu/messages/"}),i(scratchAddons.cookieStoreId)}))}()
+else try{await r(scratchAddons.globalState.auth.csrfToken),i(scratchAddons.cookieStoreId)}catch(t){console.error("Marking message as read failed:",t)}const a=await t()
+try{await e(a),await a.delete("urls",o)}finally{await a.close()}})),chrome.notifications.onClosed.addListener((async o=>{if(!o.startsWith("notifier"))return
+const s=await t()
+try{await e(s),await s.delete("urls",o)}finally{await s.close()}}))}
+chrome.notifications?l():chrome.permissions.onAdded.addListener((t=>{t.permissions?.includes("notifications")&&l()}))
+export function notifyNewMessages(t){const e=scratchAddons.globalState.addonSettings["scratch-notifier"]||{},i=scratchAddons.globalState.auth.username
+if(null===t||0===t.length||scratchAddons.muted)return
+t=t.slice(0,20)
+let r=0
+for(const a of t){let t,c=a.type
+if("addcomment"===a.type)if(c+="/",0===a.comment_type){const e=a.commentee_username
+c+=null===e?"ownProjectNewComment":e===i?"projectReplyToSelf":"ownProjectReplyToOther",t=`https://scratch.mit.edu/projects/${a.comment_obj_id}/#comments-${a.comment_id}`}else if(1===a.comment_type){const e=a.commentee_username
+c+=a.comment_obj_title===i?null===e?"ownProfileNewComment":e===i?"ownProfileReplyToSelf":"ownProfileReplyToOther":"otherProfileReplyToSelf",t=`https://scratch.mit.edu/users/${a.comment_obj_title}/#comments-${a.comment_id}`}else 2===a.comment_type&&(c+="studio",t=`https://scratch.mit.edu/studios/${a.comment_obj_id}/comments/#comments-${a.comment_id}`)
+if("addcomment"===a.type){if("addcomment/ownProjectNewComment"===c||"addcomment/ownProjectReplyToOther"===c){if(0==e.commentsonmyprojects_notifications)continue}else if(0==e.commentsforme_notifications)continue}else try{if(0==e[`${a.type}_notifications`])continue}catch{console.warn(`Unexpected message type: ${a.type}`)
+continue}const l={emoji:n[a.type],messageType:c,actor:a.actor_username,admin_actor:a.admin_actor||0,fragment:s(a.comment_fragment),commentee:a.commentee_username,commentUrl:t,title:a.comment_obj_title||a.topic_title||a.title||a.project_title||a.gallery_title,element_id:a.comment_id||a.gallery_id||a.project_id||a.topic_id,parent_title:a.parent_title}
+r||"addons-ping"!==e.notification_sound||new Audio(chrome.runtime.getURL("./addons/scratch-notifier/ping.mp3")).play(),r=1,o(l)}}chrome.runtime.onMessage.addListener((t=>{scratchAddons.localState.addonsEnabled["scratch-notifier"]&&t?.notifyNewMessages&&t.notifyNewMessages.store===scratchAddons.cookieStoreId&&notifyNewMessages(t.notifyNewMessages.messages)}))

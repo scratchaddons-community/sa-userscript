@@ -1,5 +1,1 @@
-html,
-body,
-#view {
-  background-color: var(--darkWww-gray);
-}
+#view,body,html{background-color:var(--darkWww-gray)}

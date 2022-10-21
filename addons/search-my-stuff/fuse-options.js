@@ -1,10 +1,1 @@
-export default {
-  includeScore: true,
-  threshold: 0.35,
-  keys: [
-    {
-      name: "name",
-      weight: 1,
-    },
-  ],
-};
+export default{includeScore:1,threshold:.35,keys:[{name:"name",weight:1}]}

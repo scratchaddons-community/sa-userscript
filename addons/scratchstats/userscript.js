@@ -1,238 +1,37 @@
-function createItem(number, label) {
-  // Creates a large number with a label below
-  const item = document.createElement("div");
-  const numberDiv = document.createElement("div");
-  item.appendChild(numberDiv);
-  numberDiv.className = "sa-stats-number";
-  numberDiv.innerText = number;
-  const labelDiv = document.createElement("div");
-  item.appendChild(labelDiv);
-  labelDiv.innerText = label;
-  return item;
-}
-
-function createSimpleItem(data, getter, label) {
-  // Used when only one number has to be displayed
-  const result = getter(data);
-  const number = result !== undefined ? result.toLocaleString() : "?";
-  return createItem(number, label);
-}
-
-function createSimpleRankItem(data, getter, label) {
-  // Used when the number is a rank: adds a number sign as a prefix
-  const result = getter(data);
-  const number = result !== undefined ? `#${result.toLocaleString()}` : "?";
-  return createItem(number, label);
-}
-
-function createDoubleRankItem(data, globalGetter, countryGetter, label) {
-  // Used to display a global rank next to a country rank
-  const globalResult = globalGetter(data);
-  const globalRank = globalResult !== undefined ? `#${globalResult.toLocaleString()}` : "?";
-  const countryResult = countryGetter(data);
-  const countryRank = countryResult !== undefined ? `#${countryResult.toLocaleString()}` : "?";
-  const number = `${globalRank} (${countryRank})`;
-  return createItem(number, label);
-}
-
-export default async function ({ addon, msg, console }) {
-  const createStatsSection = (element, { data, loading, error } = {}) => {
-    // "element" is the element whose content to replace
-    // "data" is the data from ScratchDB, or null to display a placeholder
-
-    element.className = `sa-stats-section ${loading || error ? "sa-stats-placeholder" : ""}`;
-    while (element.firstChild) element.firstChild.remove();
-
-    const followRow = document.createElement("div");
-    element.appendChild(followRow);
-    followRow.className = "sa-stats-row";
-    followRow.appendChild(createSimpleItem(data, (data) => data?.statistics?.followers, msg("followers")));
-    followRow.appendChild(
-      createSimpleRankItem(data, (data) => data?.statistics?.ranks?.followers, msg("most-followed-global"))
-    );
-    followRow.appendChild(
-      createSimpleRankItem(data, (data) => data?.statistics?.ranks?.country?.followers, msg("most-followed-location"))
-    );
-
-    const ranksRow = document.createElement("div");
-    element.appendChild(ranksRow);
-    ranksRow.className = "sa-stats-row";
-    ranksRow.appendChild(
-      createDoubleRankItem(
-        data,
-        (data) => data?.statistics?.ranks?.loves,
-        (data) => data?.statistics?.ranks?.country?.loves,
-        msg("most-loves")
-      )
-    );
-    ranksRow.appendChild(
-      createDoubleRankItem(
-        data,
-        (data) => data?.statistics?.ranks?.favorites,
-        (data) => data?.statistics?.ranks?.country?.favorites,
-        msg("most-favorites")
-      )
-    );
-    ranksRow.appendChild(
-      createDoubleRankItem(
-        data,
-        (data) => data?.statistics?.ranks?.views,
-        (data) => data?.statistics?.ranks?.country?.views,
-        msg("most-views")
-      )
-    );
-
-    if (loading)
-      element.appendChild(
-        Object.assign(document.createElement("div"), {
-          className: "sa-spinner",
-        })
-      );
-
-    if (error)
-      element.appendChild(
-        Object.assign(document.createElement("div"), {
-          className: "sa-stats-error",
-          innerText: msg("err"),
-        })
-      );
-  };
-
-  const username = location.pathname.split("/")[2];
-  if (!username) return;
-
-  // waitForElement is necessary because the userscript doesn't have runAtComplete
-  const content = await addon.tab.waitForElement("#content");
-  // #content exists, its children might not
-  const commentBox = await addon.tab.waitForElement(
-    "#content > .box:not(#profile-data):not(.slider-carousel-container):not(#page-404)"
-  );
-  const statsBox = document.createElement("div");
-  content.insertBefore(statsBox, commentBox);
-  addon.tab.displayNoneWhileDisabled(statsBox, { display: "block" });
-  statsBox.className = "box sa-stats slider-carousel-container";
-
-  const statsHeader = document.createElement("div");
-  statsBox.appendChild(statsHeader);
-  statsHeader.className = "box-head";
-  const statsTitle = document.createElement("h4");
-  statsHeader.appendChild(statsTitle);
-  statsTitle.innerText = msg("title");
-  const statsMoreLink = document.createElement("a");
-  statsHeader.appendChild(statsMoreLink);
-  statsMoreLink.innerText = msg("view-more");
-  statsMoreLink.href = "https://scratchstats.com/" + username;
-  const statsMoreIcon = document.createElement("img");
-  statsMoreLink.insertBefore(statsMoreIcon, statsMoreLink.firstChild);
-  statsMoreIcon.src = addon.self.dir + "/scratchstats.png";
-
-  const stats = document.createElement("div");
-  statsBox.appendChild(stats);
-  stats.className = "box-content";
-
-  const statsSection = document.createElement("div");
-  stats.appendChild(statsSection);
-  createStatsSection(statsSection, { loading: true });
-
-  const chartSection = Object.assign(document.createElement("div"), {
-    className: "sa-chart-section",
-  });
-  stats.appendChild(chartSection);
-  const chartLoadingSpinner = Object.assign(document.createElement("div"), {
-    className: "sa-spinner",
-  });
-  chartSection.appendChild(chartLoadingSpinner);
-
-  fetch(`https://scratchdb.lefty.one/v3/user/info/${username}`)
-    .then(async function (response) {
-      const data = await response.json();
-      createStatsSection(statsSection, { data });
-    })
-    .catch(() => createStatsSection(statsSection, { error: true }));
-
-  fetch(`https://scratchdb.lefty.one/v3/user/graph/${username}/followers?range=364&segment=6`)
-    .then(async (response) => {
-      const historyData = await response.json();
-      if (historyData.length === 0) throw new Error("scratchstats: No history data");
-      chartLoadingSpinner.remove();
-      await addon.tab.loadScript(addon.self.lib + "/thirdparty/cs/chart.min.js");
-      const canvas = document.createElement("canvas");
-      chartSection.appendChild(canvas);
-      canvas.id = "sa-scratchstats-chart";
-
-      const textColor = "#575e75";
-      const lineColor = "rgba(0, 0, 0, 0.1)";
-      const stepAvg = historyData.reduce((acc, cur) => acc + cur.value / historyData.length, 0);
-      const stepLog = Math.log10(stepAvg);
-      const stepSize = Math.pow(10, Math.max(Math.round(stepLog) - 1, 1));
-      new Chart(canvas, {
-        type: "scatter",
-        data: {
-          datasets: [
-            {
-              data: historyData.map((item) => {
-                return { x: Date.parse(item.date), y: item.value };
-              }),
-              fill: false,
-              showLine: true,
-              borderColor: "#4d97ff",
-              lineTension: 0,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              ticks: {
-                callback: (x) => new Date(x).toDateString(),
-                color: textColor,
-              },
-              grid: {
-                borderColor: textColor,
-                tickColor: textColor,
-                color: lineColor,
-              },
-            },
-            y: {
-              ticks: {
-                stepSize,
-                color: textColor,
-              },
-              grid: {
-                borderColor: textColor,
-                tickColor: textColor,
-                color: lineColor,
-              },
-            },
-          },
-          plugins: {
-            title: {
-              display: true,
-              text: msg("followers-title"),
-              color: textColor,
-            },
-            tooltip: {
-              callbacks: {
-                label: (context) => `${new Date(Number(context.raw.x)).toDateString()}: ${context.parsed.y}`,
-              },
-            },
-            legend: {
-              display: false,
-            },
-          },
-        },
-      });
-    })
-    .catch(() => {
-      chartLoadingSpinner.remove();
-      chartSection.classList.add("sa-stats-placeholder");
-      chartSection.appendChild(
-        Object.assign(document.createElement("div"), {
-          className: "sa-stats-error",
-          innerText: msg("err-chart"),
-        })
-      );
-    });
-}
+function t(t,o){const s=document.createElement("div"),e=document.createElement("div")
+s.appendChild(e),e.className="sa-stats-number",e.innerText=t
+const a=document.createElement("div")
+return s.appendChild(a),a.innerText=o,s}function o(o,s,e){const a=s(o)
+return t(void 0!==a?`#${a.toLocaleString()}`:"?",e)}function s(o,s,e,a){const n=s(o),c=void 0!==n?`#${n.toLocaleString()}`:"?",r=e(o)
+return t(`${c} (${void 0!==r?`#${r.toLocaleString()}`:"?"})`,a)}export default async function({addon:e,msg:a}){const n=(e,{data:n,loading:c,error:r}={})=>{for(e.className="sa-stats-section "+(c||r?"sa-stats-placeholder":"");e.firstChild;)e.firstChild.remove()
+const i=document.createElement("div")
+e.appendChild(i),i.className="sa-stats-row",i.appendChild(function(o,s,e){const a=(t=>t?.statistics?.followers)(o)
+return t(void 0!==a?a.toLocaleString():"?",e)}(n,0,a("followers"))),i.appendChild(o(n,(t=>t?.statistics?.ranks?.followers),a("most-followed-global"))),i.appendChild(o(n,(t=>t?.statistics?.ranks?.country?.followers),a("most-followed-location")))
+const d=document.createElement("div")
+e.appendChild(d),d.className="sa-stats-row",d.appendChild(s(n,(t=>t?.statistics?.ranks?.loves),(t=>t?.statistics?.ranks?.country?.loves),a("most-loves"))),d.appendChild(s(n,(t=>t?.statistics?.ranks?.favorites),(t=>t?.statistics?.ranks?.country?.favorites),a("most-favorites"))),d.appendChild(s(n,(t=>t?.statistics?.ranks?.views),(t=>t?.statistics?.ranks?.country?.views),a("most-views"))),c&&e.appendChild(Object.assign(document.createElement("div"),{className:"sa-spinner"})),r&&e.appendChild(Object.assign(document.createElement("div"),{className:"sa-stats-error",innerText:a("err")}))},c=location.pathname.split("/")[2]
+if(!c)return
+const r=await e.tab.waitForElement("#content"),i=await e.tab.waitForElement("#content > .box:not(#profile-data):not(.slider-carousel-container):not(#page-404)"),d=document.createElement("div")
+r.insertBefore(d,i),e.tab.displayNoneWhileDisabled(d,{display:"block"}),d.className="box sa-stats slider-carousel-container"
+const l=document.createElement("div")
+d.appendChild(l),l.className="box-head"
+const u=document.createElement("h4")
+l.appendChild(u),u.innerText=a("title")
+const m=document.createElement("a")
+l.appendChild(m),m.innerText=a("view-more"),m.href="https://scratchstats.com/"+c
+const h=document.createElement("img")
+m.insertBefore(h,m.firstChild),h.src=e.self.dir+"/scratchstats.png"
+const v=document.createElement("div")
+d.appendChild(v),v.className="box-content"
+const f=document.createElement("div")
+v.appendChild(f),n(f,{loading:1})
+const p=Object.assign(document.createElement("div"),{className:"sa-chart-section"})
+v.appendChild(p)
+const b=Object.assign(document.createElement("div"),{className:"sa-spinner"})
+p.appendChild(b),fetch(`https://scratchdb.lefty.one/v3/user/info/${c}`).then((async function(t){const o=await t.json()
+n(f,{data:o})})).catch((()=>n(f,{error:1}))),fetch(`https://scratchdb.lefty.one/v3/user/graph/${c}/followers?range=364&segment=6`).then((async t=>{const o=await t.json()
+if(0===o.length)throw new Error("scratchstats: No history data")
+b.remove(),await e.tab.loadScript(e.self.lib+"/thirdparty/cs/chart.min.js")
+const s=document.createElement("canvas")
+p.appendChild(s),s.id="sa-scratchstats-chart"
+const n="#575e75",c="rgba(0, 0, 0, 0.1)",r=o.reduce(((t,s)=>t+s.value/o.length),0),i=Math.log10(r),d=Math.pow(10,Math.max(Math.round(i)-1,1))
+new Chart(s,{type:"scatter",data:{datasets:[{data:o.map((t=>({x:Date.parse(t.date),y:t.value}))),fill:0,showLine:1,borderColor:"#4d97ff",lineTension:0}]},options:{responsive:1,maintainAspectRatio:0,scales:{x:{ticks:{callback(t){return new Date(t).toDateString()},color:n},grid:{borderColor:n,tickColor:n,color:c}},y:{ticks:{stepSize:d,color:n},grid:{borderColor:n,tickColor:n,color:c}}},plugins:{title:{display:1,text:a("followers-title"),color:n},tooltip:{callbacks:{label(t){return`${new Date(Number(t.raw.x)).toDateString()}: ${t.parsed.y}`}}},legend:{display:0}}}})})).catch((()=>{b.remove(),p.classList.add("sa-stats-placeholder"),p.appendChild(Object.assign(document.createElement("div"),{className:"sa-stats-error",innerText:a("err-chart")}))}))}

@@ -1,13 +1,2 @@
-export default async function ({ addon }) {
-  let type = location.pathname.split("/")[2];
-
-  let textarea = document.querySelector(type === "settings" ? "#id_signature" : "#id_body");
-  let postButton = document.querySelector(type === "topic" ? ".button.grey:nth-child(1)" : "button");
-
-  if (!textarea) return;
-  textarea.addEventListener("keydown", (e) => {
-    if (!addon.self.disabled && (e.ctrlKey || e.metaKey) && (e.code === "Enter" || e.code === "NumpadEnter")) {
-      postButton.click();
-    }
-  });
-}
+export default async function({addon:t}){let n=location.pathname.split("/")[2],o=document.querySelector("settings"===n?"#id_signature":"#id_body"),d=document.querySelector("topic"===n?".button.grey:nth-child(1)":"button")
+o&&o.addEventListener("keydown",(n=>{t.self.disabled||!n.ctrlKey&&!n.metaKey||"Enter"!==n.code&&"NumpadEnter"!==n.code||d.click()}))}

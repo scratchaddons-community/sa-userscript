@@ -1,9 +1,2 @@
-export default async function ({ addon, console }) {
-  const ScratchBlocks = await addon.tab.traps.getBlockly();
-  const originalBumpNeighbors = ScratchBlocks.BlockSvg.prototype.bumpNeighbours_;
-  ScratchBlocks.BlockSvg.prototype.bumpNeighbours_ = function () {
-    if (addon.self.disabled) {
-      originalBumpNeighbors.call(this);
-    }
-  };
-}
+export default async function({addon:n}){const t=await n.tab.traps.getBlockly(),a=t.BlockSvg.prototype.bumpNeighbours_
+t.BlockSvg.prototype.bumpNeighbours_=function(){n.self.disabled&&a.call(this)}}

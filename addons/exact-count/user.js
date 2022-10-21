@@ -1,63 +1,8 @@
-export default async function ({ addon }) {
-  const CACHE = {
-    projects: null,
-    favorites: null,
-    followers: null,
-    following: null,
-    studios: null,
-    studios_following: null,
-  };
-  const details = Object.keys(CACHE);
-  const username = Scratch.INIT_DATA.PROFILE.model.username;
-  const boxes = [...document.querySelectorAll(".box-head")];
-  addon.self.addEventListener("disabled", () => {
-    for (const cached of details) {
-      if (CACHE[cached] !== null) {
-        const box = getBoxHead(cached);
-        const title = box.querySelector("h4");
-        title.innerText = title.innerText.replace(` (${CACHE[cached]})`, "");
-      }
-    }
-  });
-  addon.self.addEventListener("reenabled", () => {
-    for (const cached of details) {
-      if (CACHE[cached] !== null) {
-        const box = getBoxHead(cached);
-        box.querySelector("h4").innerText += ` (${CACHE[cached]})`;
-      }
-    }
-  });
-
-  for (const detail of details) {
-    fetch(`https://scratch.mit.edu/users/${username}/${detail}/`, { credentials: "omit" })
-      .then((res) => res.text())
-      .then((html) => {
-        const find = html.search("<h2>");
-        const num = html.substring(find, find + 200).match(/\(([^)]+)\)/)[1];
-        const box = getBoxHead(detail);
-        if (typeof box !== "undefined") {
-          const boxheadName = box.querySelector("h4");
-          let boxVal = boxheadName.innerText.match(/\([0-9+]+\)/g);
-          if (boxVal) {
-            boxheadName.innerText = boxheadName.innerText.substring(0, boxheadName.innerText.indexOf(boxVal[0]));
-          }
-          CACHE[detail] = num;
-          if (!addon.self.disabled) boxheadName.innerText += ` (${num})`;
-        }
-      })
-      .catch((ex) => console.error("Error when fetching", detail, "-", ex));
-  }
-
-  function getBoxHead(type) {
-    return boxes.find((box) => {
-      const match = box.querySelector('a[href^="/"]');
-      if (match) {
-        const url = new URL(match.href);
-        if (url.pathname === `/users/${username}/${type}/`) {
-          return true;
-        }
-      }
-      return false;
-    });
-  }
-}
+export default async function({addon:o}){function n(o){return s.find((n=>{const t=n.querySelector('a[href^="/"]')
+return t&&new URL(t.href).pathname===`/users/${e}/${o}/`?1:0}))}const t={projects:null,favorites:null,followers:null,following:null,studios:null,studios_following:null},l=Object.keys(t),e=Scratch.INIT_DATA.PROFILE.model.username,s=[...document.querySelectorAll(".box-head")]
+o.self.addEventListener("disabled",(()=>{for(const o of l)if(null!==t[o]){const l=n(o).querySelector("h4")
+l.innerText=l.innerText.replace(` (${t[o]})`,"")}})),o.self.addEventListener("reenabled",(()=>{for(const o of l)null!==t[o]&&(n(o).querySelector("h4").innerText+=` (${t[o]})`)}))
+for(const s of l)fetch(`https://scratch.mit.edu/users/${e}/${s}/`,{credentials:"omit"}).then((o=>o.text())).then((l=>{const e=l.search("<h2>"),c=l.substring(e,e+200).match(/\(([^)]+)\)/)[1],r=n(s)
+if(void 0!==r){const n=r.querySelector("h4")
+let l=n.innerText.match(/\([0-9+]+\)/g)
+l&&(n.innerText=n.innerText.substring(0,n.innerText.indexOf(l[0]))),t[s]=c,o.self.disabled||(n.innerText+=` (${c})`)}})).catch((o=>console.error("Error when fetching",s,"-",o)))}

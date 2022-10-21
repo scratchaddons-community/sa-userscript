@@ -1,14 +1,1 @@
-.user-info > .avatar {
-  margin-right: 0 !important;
-}
-.user-info > .profile-name {
-  display: none;
-}
-
-.sa-profile-name {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: normal;
-  line-height: 0px;
-  padding-bottom: 15px;
-}
+.user-info>.avatar{margin-right:0!important}.user-info>.profile-name{display:none}.sa-profile-name{display:block;font-size:.75rem;font-weight:400;line-height:0px;padding-bottom:15px}

@@ -1,34 +1,4 @@
-export default async function ({ addon, global, console }) {
-  const cache = Object.create(null);
-  addon.self.addEventListener("disabled", () => {
-    for (const cached of Object.keys(cache)) {
-      const post = document.getElementById(cached);
-      const postsCounter = post.querySelector(".postleft dl").childNodes[6];
-      postsCounter.textContent = cache[cached].original;
-    }
-  });
-  addon.self.addEventListener("reenabled", () => {
-    for (const cached of Object.keys(cache)) {
-      const post = document.getElementById(cached);
-      const postsCounter = post.querySelector(".postleft dl").childNodes[6];
-      postsCounter.textContent = `${cache[cached].new} posts`;
-    }
-  });
-  while (true) {
-    const userbox = await addon.tab.waitForElement(".postleft dl", { markAsSeen: true });
-    if (userbox.childNodes[6] && userbox.childNodes[6].nodeValue.includes("+")) {
-      const postCountReal = Number(/(\d+)\+? posts?/.exec(userbox.childNodes[6].nodeValue)[1]);
-      fetch("https://scratchdb.lefty.one/v3/forum/user/info/" + userbox.querySelector("a").innerText)
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.counts && data.counts.total && data.counts.total.count > postCountReal) {
-            cache[userbox.closest(".blockpost").id] = {
-              original: userbox.childNodes[6].textContent,
-              new: data.counts.total.count,
-            };
-            userbox.childNodes[6].nodeValue = `${data.counts.total.count} posts`;
-          }
-        });
-    }
-  }
-}
+export default async function({addon:t}){const o=Object.create(null)
+for(t.self.addEventListener("disabled",(()=>{for(const t of Object.keys(o))document.getElementById(t).querySelector(".postleft dl").childNodes[6].textContent=o[t].original})),t.self.addEventListener("reenabled",(()=>{for(const t of Object.keys(o))document.getElementById(t).querySelector(".postleft dl").childNodes[6].textContent=`${o[t].new} posts`}));;){const e=await t.tab.waitForElement(".postleft dl",{markAsSeen:1})
+if(e.childNodes[6]&&e.childNodes[6].nodeValue.includes("+")){const t=Number(/(\d+)\+? posts?/.exec(e.childNodes[6].nodeValue)[1])
+fetch("https://scratchdb.lefty.one/v3/forum/user/info/"+e.querySelector("a").innerText).then((t=>t.json())).then((s=>{s.counts&&s.counts.total&&s.counts.total.count>t&&(o[e.closest(".blockpost").id]={original:e.childNodes[6].textContent,new:s.counts.total.count},e.childNodes[6].nodeValue=`${s.counts.total.count} posts`)}))}}}

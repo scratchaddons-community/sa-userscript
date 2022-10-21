@@ -1,34 +1,3 @@
-export default async function ({ template }) {
-  const CategorySelector = Vue.extend({
-    props: ["category"],
-    template,
-    data() {
-      return {
-        lastClick: 0,
-      };
-    },
-    computed: {
-      selectedCategory() {
-        return this.$root.selectedCategory;
-      },
-      shouldShow() {
-        const categoriesWithParent = this.$root.categories
-          .filter((category) => category.parent === this.category.parent)
-          .map((category) => category.id);
-        return !this.category.parent || [this.category.parent, ...categoriesWithParent].includes(this.selectedCategory);
-      },
-    },
-    methods: {
-      onClick(event) {
-        event.stopPropagation();
-        if (this.selectedCategory === this.category.id && !this.category.parent && Date.now() - this.lastClick > 350) {
-          this.$root.selectedCategory = "all";
-        } else {
-          this.$root.selectedCategory = this.category.id;
-        }
-        this.lastClick = Date.now();
-      },
-    },
-  });
-  Vue.component("category-selector", CategorySelector);
-}
+export default async function({template:t}){const e=Vue.extend({props:["category"],template:t,data:()=>({lastClick:0}),computed:{selectedCategory(){return this.$root.selectedCategory},shouldShow(){const t=this.$root.categories.filter((t=>t.parent===this.category.parent)).map((t=>t.id))
+return!this.category.parent||[this.category.parent,...t].includes(this.selectedCategory)}},methods:{onClick(t){t.stopPropagation(),this.$root.selectedCategory=this.selectedCategory===this.category.id&&!this.category.parent&&Date.now()-this.lastClick>350?"all":this.category.id,this.lastClick=Date.now()}}})
+Vue.component("category-selector",e)}

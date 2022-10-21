@@ -1,936 +1,131 @@
-import chrome from "../libraries/common/chrome.js";
-import "../../background/declare-scratchaddons-object.js";
-import "../../background/load-addon-manifests.js";
-import "../../background/get-addon-settings.js";
-import "../background/get-userscripts.js";
-
-try {
-  if (window.parent.location.origin !== "https://scratch.mit.edu") throw "Scratch Addons: not first party iframe";
-} catch {
-  throw "Scratch Addons: not first party iframe";
-}
-if (document.documentElement instanceof SVGElement) throw "Top-level SVG document (this can be ignored)";
-
-const MAX_USERSTYLES_PER_ADDON = 100;
-
-const _realConsole = window.console;
-const consoleOutput = (logAuthor = "[cs]") => {
-  const style = {
-    // Remember to change these as well on module.js
-    leftPrefix: "background:  #ff7b26; color: white; border-radius: 0.5rem 0 0 0.5rem; padding: 0 0.5rem",
-    rightPrefix:
-      "background: #222; color: white; border-radius: 0 0.5rem 0.5rem 0; padding: 0 0.5rem; font-weight: bold",
-    text: "",
-  };
-  return [`%cSA%c${logAuthor}%c`, style.leftPrefix, style.rightPrefix, style.text];
-};
-const console = {
-  ..._realConsole,
-  log: _realConsole.log.bind(_realConsole, ...consoleOutput()),
-  warn: _realConsole.warn.bind(_realConsole, ...consoleOutput()),
-  error: _realConsole.error.bind(_realConsole, ...consoleOutput()),
-};
-
-let pseudoUrl; // Fake URL to use if response code isn't 2xx
-
-let receivedResponse = false;
-const onMessageBackgroundReady = (request, sender, sendResponse) => {
-  if (request === "backgroundListenerReady" && !receivedResponse) {
-    chrome.runtime.sendMessage({ contentScriptReady: { url: location.href } }, onResponse);
-  }
-};
-chrome.runtime.onMessage.addListener(onMessageBackgroundReady);
-const onResponse = (res) => {
-  if (res && !receivedResponse) {
-    console.log("[Message from background]", res);
-    chrome.runtime.onMessage.removeListener(onMessageBackgroundReady);
-    if (res.httpStatusCode === null || String(res.httpStatusCode)[0] === "2") {
-      onInfoAvailable(res);
-      receivedResponse = true;
-    } else {
-      pseudoUrl = `https://scratch.mit.edu/${res.httpStatusCode}/`;
-      console.log(`Status code was not 2xx, replacing URL to ${pseudoUrl}`);
-      chrome.runtime.sendMessage({ contentScriptReady: { url: pseudoUrl } }, onResponse);
-    }
-  }
-};
-chrome.runtime.sendMessage({ contentScriptReady: { url: location.href } }, onResponse);
-
-const DOLLARS = ["$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8", "$9"];
-
-const promisify =
-  (callbackFn) =>
-  (...args) =>
-    new Promise((resolve) => callbackFn(...args, resolve));
-
-let _page_ = null;
-let globalState = null;
-
-const comlinkIframesDiv = document.createElement("div");
-comlinkIframesDiv.id = "scratchaddons-iframes";
-const comlinkIframe1 = document.createElement("iframe");
-comlinkIframe1.id = "scratchaddons-iframe-1";
-comlinkIframe1.style.display = "none";
-const comlinkIframe2 = comlinkIframe1.cloneNode();
-comlinkIframe2.id = "scratchaddons-iframe-2";
-const comlinkIframe3 = comlinkIframe1.cloneNode();
-comlinkIframe3.id = "scratchaddons-iframe-3";
-const comlinkIframe4 = comlinkIframe1.cloneNode();
-comlinkIframe4.id = "scratchaddons-iframe-4";
-comlinkIframesDiv.appendChild(comlinkIframe1);
-comlinkIframesDiv.appendChild(comlinkIframe2);
-comlinkIframesDiv.appendChild(comlinkIframe3);
-comlinkIframesDiv.appendChild(comlinkIframe4);
-document.documentElement.appendChild(comlinkIframesDiv);
-
-const csUrlObserver = new EventTarget();
-const cs = {
-  _url: location.href, // Updated by module.js on calls to history.replaceState/pushState
-  get url() {
-    return this._url;
-  },
-  set url(newUrl) {
-    this._url = newUrl;
-    csUrlObserver.dispatchEvent(new CustomEvent("change", { detail: { newUrl } }));
-  },
-  copyImage(dataURL) {
-    // Firefox only
-    return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ clipboardDataURL: dataURL }).then(
-        (res) => {
-          resolve();
-        },
-        (res) => {
-          reject(res.toString());
-        }
-      );
-    });
-  },
-  getEnabledAddons(tag) {
-    // Return addons that are enabled
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        {
-          getEnabledAddons: {
-            tag,
-          },
-        },
-        (res) => resolve(res)
-      );
-    });
-  },
-};
-Comlink.expose(cs, Comlink.windowEndpoint(comlinkIframe1.contentWindow, comlinkIframe2.contentWindow));
-
-const pageComlinkScript = document.createElement("script");
-pageComlinkScript.src = chrome.runtime.getURL("libraries/thirdparty/cs/comlink.js");
-document.documentElement.appendChild(pageComlinkScript);
-
-const moduleScript = document.createElement("script");
-moduleScript.type = "module";
-moduleScript.src = chrome.runtime.getURL("content-scripts/inject/module.js");
-
-(async () => {
-  await new Promise((resolve) => {
-    moduleScript.addEventListener("load", resolve);
-  });
-  _page_ = Comlink.wrap(Comlink.windowEndpoint(comlinkIframe3.contentWindow, comlinkIframe4.contentWindow));
-})();
-
-document.documentElement.appendChild(moduleScript);
-
-let initialUrl = location.href;
-let path = new URL(initialUrl).pathname.substring(1);
-if (path[path.length - 1] !== "/") path += "/";
-const pathArr = path.split("/");
-if (pathArr[0] === "scratch-addons-extension") {
-  if (pathArr[1] === "settings") {
-    let url = chrome.runtime.getURL(`webpages/settings/index.html${window.location.search}`);
-    if (location.hash) url += location.hash;
-    chrome.runtime.sendMessage({ replaceTabWithUrl: url });
-  }
-}
-if (path === "discuss/3/topic/add/") {
-  window.addEventListener("load", () => forumWarning("forumWarning"));
-} else if (path.startsWith("discuss/topic/")) {
-  window.addEventListener("load", () => {
-    if (document.querySelector('div.linkst > ul > li > a[href="/discuss/18/"]')) {
-      forumWarning("forumWarningGeneral");
-    }
-  });
-}
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log("[Message from background]", request);
-  if (request === "getInitialUrl") {
-    sendResponse(pseudoUrl || initialUrl);
-  }
-});
-
-function addStyle(addon) {
-  const allStyles = [...document.querySelectorAll(".scratch-addons-style")];
-  const addonStyles = allStyles.filter((el) => el.getAttribute("data-addon-id") === addon.addonId);
-
-  const appendByIndex = (el, index) => {
-    // Append a style element in the correct place preserving order
-    const nextElement = allStyles.find((el) => Number(el.getAttribute("data-addon-index") > index));
-    if (nextElement) document.documentElement.insertBefore(el, nextElement);
-    else {
-      if (document.body) document.documentElement.insertBefore(el, document.body);
-      else document.documentElement.appendChild(el);
-    }
-  };
-
-  if (addon.styles.length > MAX_USERSTYLES_PER_ADDON) {
-    console.warn(
-      "Please increase MAX_USERSTYLES_PER_ADDON in content-scripts/cs.js, otherwise style priority is not guaranteed! Has",
-      addon.styles.length,
-      "styles, current max is",
-      MAX_USERSTYLES_PER_ADDON
-    );
-  }
-  for (let i = 0; i < addon.styles.length; i++) {
-    const userstyle = addon.styles[i];
-    const styleIndex = addon.index * MAX_USERSTYLES_PER_ADDON + userstyle.index;
-    if (addon.injectAsStyleElt) {
-      // If an existing style is already appended, just enable it instead
-      const existingEl = addonStyles.find((style) => style.dataset.styleHref === userstyle.href);
-      if (existingEl) {
-        existingEl.disabled = false;
-        continue;
-      }
-
-      const style = document.createElement("style");
-      style.classList.add("scratch-addons-style");
-      style.setAttribute("data-addon-id", addon.addonId);
-      style.setAttribute("data-addon-index", styleIndex);
-      style.setAttribute("data-style-href", userstyle.href);
-      style.textContent = userstyle.text;
-      appendByIndex(style, styleIndex);
-    } else {
-      const existingEl = addonStyles.find((style) => style.href === userstyle.href);
-      if (existingEl) {
-        existingEl.disabled = false;
-        continue;
-      }
-
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.setAttribute("data-addon-id", addon.addonId);
-      link.setAttribute("data-addon-index", styleIndex);
-      link.classList.add("scratch-addons-style");
-      link.href = userstyle.href;
-      appendByIndex(link, styleIndex);
-    }
-  }
-}
-function removeAddonStyles(addonId) {
-  // Instead of actually removing the style/link element, we just disable it.
-  // That way, if the addon needs to be reenabled, it can just enable that style/link element instead of readding it.
-  // This helps with load times for link elements.
-  document.querySelectorAll(`[data-addon-id='${addonId}']`).forEach((style) => (style.disabled = true));
-}
-function removeAddonStylesPartial(addonId, stylesToRemove) {
-  document.querySelectorAll(`[data-addon-id='${addonId}']`).forEach((style) => {
-    if (stylesToRemove.includes(style.href || style.dataset.styleHref)) style.disabled = true;
-  });
-}
-
-function injectUserstyles(addonsWithUserstyles) {
-  for (const addon of addonsWithUserstyles || []) {
-    addStyle(addon);
-  }
-}
-
-const textColorLib = __scratchAddonsTextColor;
-const existingCssVariables = [];
-function setCssVariables(addonSettings, addonsWithUserstyles) {
-  const hyphensToCamelCase = (s) => s.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-  const setVar = (addonId, varName, value) => {
-    const realVarName = `--${hyphensToCamelCase(addonId)}-${varName}`;
-    document.documentElement.style.setProperty(realVarName, value);
-    existingCssVariables.push(realVarName);
-  };
-
-  const removeVar = (addonId, varName) =>
-    document.documentElement.style.removeProperty(`--${hyphensToCamelCase(addonId)}-${varName}`);
-
-  // First remove all CSS variables, we add them all back anyway
-  existingCssVariables.forEach((varName) => document.documentElement.style.removeProperty(varName));
-  existingCssVariables.length = 0;
-
-  const addonIds = addonsWithUserstyles.map((obj) => obj.addonId);
-
-  // Set variables for settings
-  for (const addonId of addonIds) {
-    for (const settingName of Object.keys(addonSettings[addonId] || {})) {
-      const value = addonSettings[addonId][settingName];
-      if (typeof value === "string" || typeof value === "number") {
-        setVar(addonId, hyphensToCamelCase(settingName), addonSettings[addonId][settingName]);
-      }
-    }
-  }
-
-  // Set variables for customCssVariables
-  const getColor = (addonId, obj) => {
-    if (typeof obj !== "object" || obj === null) return obj;
-    let hex;
-    switch (obj.type) {
-      case "settingValue":
-        return addonSettings[addonId][obj.settingId];
-      case "ternary":
-        // this is not even a color lol
-        return getColor(addonId, obj.source) ? getColor(addonId, obj.true) : getColor(addonId, obj.false);
-      case "map":
-        return obj.options[getColor(addonId, obj.source)];
-      case "textColor": {
-        hex = getColor(addonId, obj.source);
-        let black = getColor(addonId, obj.black);
-        let white = getColor(addonId, obj.white);
-        let threshold = getColor(addonId, obj.threshold);
-        return textColorLib.textColor(hex, black, white, threshold);
-      }
-      case "alphaThreshold": {
-        hex = getColor(addonId, obj.source);
-        let { a } = textColorLib.parseHex(hex);
-        let threshold = getColor(addonId, obj.threshold) || 0.5;
-        if (a >= threshold) return getColor(addonId, obj.opaque);
-        else return getColor(addonId, obj.transparent);
-      }
-      case "multiply": {
-        hex = getColor(addonId, obj.source);
-        return textColorLib.multiply(hex, obj);
-      }
-      case "brighten": {
-        hex = getColor(addonId, obj.source);
-        return textColorLib.brighten(hex, obj);
-      }
-      case "alphaBlend": {
-        let opaqueHex = getColor(addonId, obj.opaqueSource);
-        let transparentHex = getColor(addonId, obj.transparentSource);
-        return textColorLib.alphaBlend(opaqueHex, transparentHex);
-      }
-      case "makeHsv": {
-        let hSource = getColor(addonId, obj.h);
-        let sSource = getColor(addonId, obj.s);
-        let vSource = getColor(addonId, obj.v);
-        return textColorLib.makeHsv(hSource, sSource, vSource);
-      }
-      case "recolorFilter": {
-        hex = getColor(addonId, obj.source);
-        return textColorLib.recolorFilter(hex);
-      }
-    }
-  };
-
-  for (const addon of addonsWithUserstyles) {
-    const addonId = addon.addonId;
-    for (const customVar of addon.cssVariables) {
-      const varName = customVar.name;
-      const varValue = getColor(addonId, customVar.value);
-      if (varValue === null && customVar.dropNull) {
-        removeVar(addonId, varName);
-      } else {
-        setVar(addonId, varName, varValue);
-      }
-    }
-  }
-}
-
-function waitForDocumentHead() {
-  if (document.head) return Promise.resolve();
-  else {
-    return new Promise((resolve) => {
-      const observer = new MutationObserver(() => {
-        if (document.head) {
-          resolve();
-          observer.disconnect();
-        }
-      });
-      observer.observe(document.documentElement, { subtree: true, childList: true });
-    });
-  }
-}
-
-function getL10NURLs() {
-  const langCode = /scratchlanguage=([\w-]+)/.exec(document.cookie)?.[1] || "en";
-  const urls = [chrome.runtime.getURL(`addons-l10n/${langCode}`)];
-  if (langCode === "pt") {
-    urls.push(chrome.runtime.getURL(`addons-l10n/pt-br`));
-  }
-  if (langCode.includes("-")) {
-    urls.push(chrome.runtime.getURL(`addons-l10n/${langCode.split("-")[0]}`));
-  }
-  const enJSON = chrome.runtime.getURL("addons-l10n/en");
-  if (!urls.includes(enJSON)) urls.push(enJSON);
-  return urls;
-}
-
-async function onInfoAvailable({ globalState: globalStateMsg, addonsWithUserscripts, addonsWithUserstyles }) {
-  const everLoadedUserscriptAddons = new Set(addonsWithUserscripts.map((entry) => entry.addonId));
-  const disabledDynamicAddons = new Set();
-  globalState = globalStateMsg;
-  setCssVariables(globalState.addonSettings, addonsWithUserstyles);
-  // Just in case, make sure the <head> loaded before injecting styles
-  waitForDocumentHead().then(() => injectUserstyles(addonsWithUserstyles));
-
-  chrome.runtime.onMessage.addListener((request) => {
-    if (request.dynamicAddonEnabled) {
-      const {
-        scripts,
-        userstyles,
-        cssVariables,
-        addonId,
-        injectAsStyleElt,
-        index,
-        dynamicEnable,
-        dynamicDisable,
-        partial,
-      } = request.dynamicAddonEnabled;
-      disabledDynamicAddons.delete(addonId);
-      addStyle({ styles: userstyles, addonId, injectAsStyleElt, index });
-      if (partial) {
-        // Partial: part of userstyle was (re-)enabled.
-        // No need to deal with userscripts here.
-        const addonsWithUserstylesEntry = addonsWithUserstyles.find((entry) => entry.addonId === addonId);
-        if (addonsWithUserstylesEntry) {
-          addonsWithUserstylesEntry.styles = userstyles;
-        } else {
-          addonsWithUserstyles.push({ styles: userstyles, cssVariables, addonId, injectAsStyleElt, index });
-        }
-      } else {
-        // Non-partial: the whole addon was (re-)enabled.
-        if (everLoadedUserscriptAddons.has(addonId)) {
-          if (!dynamicDisable) return;
-          // Addon was reenabled
-          _page_.fireEvent({ name: "reenabled", addonId, target: "self" });
-        } else {
-          if (!dynamicEnable) return;
-          // Addon was not injected in page yet
-
-          // If the the module wasn't loaded yet, don't run these scripts as they will run later anyway.
-          if (_page_) {
-            _page_.runAddonUserscripts({ addonId, scripts, enabledLate: true });
-            everLoadedUserscriptAddons.add(addonId);
-          }
-        }
-
-        addonsWithUserscripts.push({ addonId, scripts });
-        addonsWithUserstyles.push({ styles: userstyles, cssVariables, addonId, injectAsStyleElt, index });
-      }
-      setCssVariables(globalState.addonSettings, addonsWithUserstyles);
-    } else if (request.dynamicAddonDisable) {
-      // Note: partialDynamicDisabledStyles includes ones that are disabled currently, too!
-      const { addonId, partialDynamicDisabledStyles } = request.dynamicAddonDisable;
-      // This may run twice if the style-only addon was first "partially"
-      // (but in fact entirely) disabled, and it was then toggled off.
-      // Early return in this situation.
-      if (disabledDynamicAddons.has(addonId)) return;
-      const scriptIndex = addonsWithUserscripts.findIndex((a) => a.addonId === addonId);
-      const styleIndex = addonsWithUserstyles.findIndex((a) => a.addonId === addonId);
-      if (_page_) {
-        if (partialDynamicDisabledStyles) {
-          // Userstyles are partially disabled.
-          // This should not result in other parts being disabled,
-          // unless that means no scripts/styles are running on this page.
-          removeAddonStylesPartial(addonId, partialDynamicDisabledStyles);
-          if (styleIndex > -1) {
-            // This should exist... right? Safeguarding anyway
-            const userstylesEntry = addonsWithUserstyles[styleIndex];
-            userstylesEntry.styles = userstylesEntry.styles.filter(
-              (style) => !partialDynamicDisabledStyles.includes(style.href)
-            );
-            if (userstylesEntry.styles.length || scriptIndex > -1) {
-              // The addon was not completely disabled, so early return.
-              // Note: we do not need to recalculate cssVariables here
-              return;
-            }
-          }
-        } else {
-          removeAddonStyles(addonId);
-        }
-        disabledDynamicAddons.add(addonId);
-        _page_.fireEvent({ name: "disabled", addonId, target: "self" });
-      } else {
-        everLoadedUserscriptAddons.delete(addonId);
-      }
-      if (scriptIndex !== -1) addonsWithUserscripts.splice(scriptIndex, 1);
-      if (styleIndex !== -1) addonsWithUserstyles.splice(styleIndex, 1);
-
-      setCssVariables(globalState.addonSettings, addonsWithUserstyles);
-    } else if (request.updateUserstylesSettingsChange) {
-      const {
-        userstyles,
-        addonId,
-        injectAsStyleElt,
-        index,
-        dynamicEnable,
-        dynamicDisable,
-        addonSettings,
-        cssVariables,
-      } = request.updateUserstylesSettingsChange;
-      const addonIndex = addonsWithUserstyles.findIndex((addon) => addon.addonId === addonId);
-      removeAddonStyles(addonId);
-      if (addonIndex > -1 && userstyles.length === 0 && dynamicDisable) {
-        // This is actually dynamicDisable condition, but since this does not involve
-        // toggling addon state, this is not considered one by the code.
-        addonsWithUserstyles.splice(addonIndex, 1);
-        // This might race with newGlobalState, so we merge explicitly here
-        setCssVariables({ ...globalState.addonSettings, [addonId]: addonSettings }, addonsWithUserstyles);
-        console.log(`Dynamically disabling all userstyles of ${addonId} due to settings change`);
-        // Early return because we know addStyle will be no-op
-        return;
-        // Wait, but what about userscripts? Great question. No, we do not need to fire events
-        // or handle userscripts at all. This is because settings change does not cause
-        // userscripts to be enabled or disabled (only userstyles). Instead userscripts
-        // should always be executed but listen to settings change event. Thus this
-        // "dynamic disable" does not fire disable event, because userscripts aren't disabled.
-      }
-      if (addonIndex > -1 && (dynamicDisable || dynamicEnable)) {
-        // Userstyles enabled when there are already enabled ones, or
-        // userstyles partially disabled. do not call
-        // removeAddonStylesPartial as we remove and re-add instead.
-        const userstylesEntry = addonsWithUserstyles[addonIndex];
-        userstylesEntry.styles = userstyles;
-      }
-      if (addonIndex === -1 && userstyles.length > 0 && dynamicEnable) {
-        // This is actually dynamicEnable condition, but since this does not involve
-        // toggling addon state, this is not considered one by the code.
-        console.log(`Dynamically enabling userstyle addon ${addonId} due to settings change`);
-        addonsWithUserstyles.push({ styles: userstyles, cssVariables, addonId, injectAsStyleElt, index });
-        disabledDynamicAddons.delete(addonId);
-        setCssVariables({ ...globalState.addonSettings, [addonId]: addonSettings }, addonsWithUserstyles);
-        // Same goes here; enabling a setting does not run or re-enable an userscript by design.
-      }
-      // Removing the addon styles and readding them works since the background
-      // will send a different array for the new valid userstyles.
-      // Try looking for the "userscriptMatches" function.
-      addStyle({ styles: userstyles, addonId, injectAsStyleElt, index });
-    }
-  });
-  if (!_page_) {
-    await new Promise((resolve) => {
-      // We're registering this load event after the load event that
-      // sets _page_, so we can guarantee _page_ exists now
-      moduleScript.addEventListener("load", resolve);
-    });
-  }
-
-  _page_.globalState = globalState;
-  _page_.l10njson = getL10NURLs();
-  _page_.addonsWithUserscripts = addonsWithUserscripts;
-  _page_.dataReady = true;
-
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.newGlobalState) {
-      _page_.globalState = request.newGlobalState;
-      globalState = request.newGlobalState;
-      setCssVariables(request.newGlobalState.addonSettings, addonsWithUserstyles);
-    } else if (request.fireEvent) {
-      _page_.fireEvent(request.fireEvent);
-    } else if (request === "getRunningAddons") {
-      const userscripts = addonsWithUserscripts.map((obj) => obj.addonId);
-      const userstyles = addonsWithUserstyles.map((obj) => obj.addonId);
-      sendResponse({
-        userscripts,
-        userstyles,
-        disabledDynamicAddons: Array.from(disabledDynamicAddons),
-      });
-    } else if (request === "refetchSession") {
-      _page_.refetchSession();
-    }
-  });
-}
-
-const escapeHTML = (str) => str.replace(/([<>'"&])/g, (_, l) => `&#${l.charCodeAt(0)};`);
-
-if (location.pathname.startsWith("/discuss/")) {
-  // We do this first as sb2 runs fast.
-  const preserveBlocks = () => {
-    document.querySelectorAll("pre.blocks").forEach((el) => {
-      el.setAttribute("data-original", el.innerText);
-    });
-  };
-  if (document.readyState !== "loading") {
-    setTimeout(preserveBlocks, 0);
-  } else {
-    window.addEventListener("DOMContentLoaded", preserveBlocks, { once: true });
-  }
-}
-
-function forumWarning(key) {
-  let postArea = document.querySelector("form#post > label");
-  if (postArea) {
-    var errorList = document.querySelector("form#post > label > ul");
-    if (!errorList) {
-      let typeArea = postArea.querySelector("strong");
-      errorList = document.createElement("ul");
-      errorList.classList.add("errorlist");
-      postArea.insertBefore(errorList, typeArea);
-    }
-    let addonError = document.createElement("li");
-    let reportLink = document.createElement("a");
-    const uiLanguage = chrome.i18n.getUILanguage();
-    const localeSlash = uiLanguage.startsWith("en") ? "" : `${uiLanguage.split("-")[0]}/`;
-    const utm = `utm_source=userscript&utm_medium=forumwarning&utm_campaign=v${chrome.runtime.getManifest().version}`;
-    reportLink.href = `https://scratchaddons.com/${localeSlash}feedback/?ext_version=${
-      chrome.runtime.getManifest().version
-    }&${utm}`;
-    reportLink.target = "_blank";
-    reportLink.innerText = chrome.i18n.getMessage("reportItHere");
-    let text1 = document.createElement("span");
-    text1.innerHTML = escapeHTML(chrome.i18n.getMessage(key, DOLLARS)).replace("$1", reportLink.outerHTML);
-    addonError.appendChild(text1);
-    errorList.appendChild(addonError);
-  }
-}
-
-const showBanner = () => {
-  const makeBr = () => document.createElement("br");
-
-  const notifOuterBody = document.createElement("div");
-  const notifInnerBody = Object.assign(document.createElement("div"), {
-    id: "sa-notification",
-    style: `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 700px;
-    max-height: 270px;
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    border-radius: 10px;
-    background-color: #222;
-    color: white;
-    z-index: 99999;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    text-shadow: none;
-    box-shadow: 0 0 20px 0px #0000009e;
-    line-height: 1em;`,
-  });
-  const notifImageLink = Object.assign(document.createElement("a"), {
-    href: "https://www.youtube.com/watch?v=e_70jvFOmfI",
-    target: "_blank",
-    rel: "noopener",
-    referrerPolicy: "strict-origin-when-cross-origin",
-  });
-  const notifImage = Object.assign(document.createElement("img"), {
-    // alt: chrome.i18n.getMessage("hexColorPickerAlt"),
-    src: chrome.runtime.getURL("/images/cs/yt-thumbnail.jpg"),
-    style: "height: 100px; border-radius: 5px; padding: 20px",
-  });
-  const notifText = Object.assign(document.createElement("div"), {
-    id: "sa-notification-text",
-    style: "margin: 12px;",
-  });
-  const notifTitle = Object.assign(document.createElement("span"), {
-    style: "font-size: 18px; line-height: 24px; display: inline-block; margin-bottom: 12px;",
-    textContent: chrome.i18n.getMessage("extensionUpdate"),
-  });
-  const notifClose = Object.assign(document.createElement("img"), {
-    style: `
-    float: right;
-    cursor: pointer;
-    width: 24px;`,
-    title: chrome.i18n.getMessage("close"),
-    src: chrome.runtime.getURL("../images/cs/close.svg"),
-  });
-  notifClose.addEventListener("click", () => notifInnerBody.remove(), { once: true });
-
-  const NOTIF_TEXT_STYLE = "display: block; font-size: 14px; color: white !important;";
-
-  const notifInnerText0 = Object.assign(document.createElement("span"), {
-    style: NOTIF_TEXT_STYLE + "font-weight: bold;",
-    textContent: chrome.i18n
-      .getMessage("extensionHasUpdated", DOLLARS)
-      .replace(/\$(\d+)/g, (_, i) => [chrome.runtime.getManifest().version][Number(i) - 1]),
-  });
-  const notifInnerText1 = Object.assign(document.createElement("span"), {
-    style: NOTIF_TEXT_STYLE,
-    innerHTML: escapeHTML(chrome.i18n.getMessage("extensionUpdateInfo1_v1_29", DOLLARS)).replace(
-      /\$(\d+)/g,
-      (_, i) =>
-        [
-          /*
-          Object.assign(document.createElement("b"), { textContent: chrome.i18n.getMessage("newFeature") }).outerHTML,
-          Object.assign(document.createElement("b"), { textContent: chrome.i18n.getMessage("newFeatureName") })
-            .outerHTML,
-          */
-          Object.assign(document.createElement("a"), {
-            href: "https://scratch.mit.edu/scratch-addons-extension/settings?source=updatenotif",
-            target: "_blank",
-            textContent: chrome.i18n.getMessage("scratchAddonsSettings"),
-          }).outerHTML,
-        ][Number(i) - 1]
-    ),
-  });
-  const notifInnerText2 = Object.assign(document.createElement("span"), {
-    style: NOTIF_TEXT_STYLE,
-    textContent: chrome.i18n.getMessage("extensionUpdateInfo2_v1_29"),
-  });
-  const notifFooter = Object.assign(document.createElement("span"), {
-    style: NOTIF_TEXT_STYLE,
-  });
-  const uiLanguage = chrome.i18n.getUILanguage();
-  const localeSlash = uiLanguage.startsWith("en") ? "" : `${uiLanguage.split("-")[0]}/`;
-  const utm = `utm_source=extension&utm_medium=updatenotification&utm_campaign=v${
-    chrome.runtime.getManifest().version
-  }`;
-  const notifFooterChangelog = Object.assign(document.createElement("a"), {
-    href: `https://scratchaddons.com/${localeSlash}changelog?${utm}`,
-    target: "_blank",
-    textContent: chrome.i18n.getMessage("notifChangelog"),
-  });
-  const notifFooterFeedback = Object.assign(document.createElement("a"), {
-    href: `https://scratchaddons.com/${localeSlash}feedback/?ext_version=${
-      chrome.runtime.getManifest().version
-    }&${utm}`,
-    target: "_blank",
-    textContent: chrome.i18n.getMessage("feedback"),
-  });
-  const notifFooterTranslate = Object.assign(document.createElement("a"), {
-    href: "https://scratchaddons.com/translate",
-    target: "_blank",
-    textContent: chrome.i18n.getMessage("translate"),
-  });
-  const notifFooterLegal = Object.assign(document.createElement("small"), {
-    textContent: chrome.i18n.getMessage("notAffiliated"),
-  });
-  notifFooter.appendChild(notifFooterChangelog);
-  notifFooter.appendChild(document.createTextNode(" | "));
-  notifFooter.appendChild(notifFooterFeedback);
-  notifFooter.appendChild(document.createTextNode(" | "));
-  notifFooter.appendChild(notifFooterTranslate);
-  notifFooter.appendChild(makeBr());
-  notifFooter.appendChild(notifFooterLegal);
-
-  notifText.appendChild(notifTitle);
-  notifText.appendChild(notifClose);
-  notifText.appendChild(makeBr());
-  notifText.appendChild(notifInnerText0);
-  notifText.appendChild(makeBr());
-  notifText.appendChild(notifInnerText1);
-  notifText.appendChild(makeBr());
-  notifText.appendChild(notifInnerText2);
-  notifText.appendChild(makeBr());
-  notifText.appendChild(notifFooter);
-
-  notifImageLink.appendChild(notifImage);
-
-  notifInnerBody.appendChild(notifImageLink);
-  notifInnerBody.appendChild(notifText);
-
-  notifOuterBody.appendChild(notifInnerBody);
-
-  document.body.appendChild(notifOuterBody);
-};
-
-const handleBanner = async () => {
-  const currentVersion = chrome.runtime.getManifest().version;
-  const [major, minor, _] = currentVersion.split(".");
-  const currentVersionMajorMinor = `${major}.${minor}`;
-  // Making this configurable in the future?
-  // Using local because browser extensions may not be updated at the same time across browsers
-  const settings = await promisify(chrome.storage.local.get.bind(chrome.storage.local))(["bannerSettings"]);
-  const force = !settings || !settings.bannerSettings;
-
-  if (force || settings.bannerSettings.lastShown !== currentVersionMajorMinor || location.hash === "#sa-update-notif") {
-    console.log("Banner shown.");
-    await promisify(chrome.storage.local.set.bind(chrome.storage.local))({
-      bannerSettings: Object.assign({}, settings.bannerSettings, { lastShown: currentVersionMajorMinor }),
-    });
-    showBanner();
-  }
-};
-
-if (document.readyState !== "loading") {
-  handleBanner();
-} else {
-  window.addEventListener("DOMContentLoaded", handleBanner, { once: true });
-}
-
-const isProfile = pathArr[0] === "users" && pathArr[2] === "";
-const isStudio = pathArr[0] === "studios";
-const isProject = pathArr[0] === "projects";
-
-if (isProfile || isStudio || isProject) {
-  const shouldCaptureComment = (value) => {
-    const regex = /scratch[ ]?add[ ]?ons/;
-    // Trim like scratchr2
-    const trimmedValue = value.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, "");
-    const limitedValue = trimmedValue.toLowerCase().replace(/[^a-z /]+/g, "");
-    return regex.test(limitedValue);
-  };
-  const extensionPolicyLink = document.createElement("a");
-  extensionPolicyLink.href = "https://scratch.mit.edu/discuss/topic/284272/";
-  extensionPolicyLink.target = "_blank";
-  extensionPolicyLink.innerText = chrome.i18n.getMessage("captureCommentPolicy");
-  Object.assign(extensionPolicyLink.style, {
-    textDecoration: "underline",
-    color: "white",
-  });
-  const errorMsgHtml = escapeHTML(chrome.i18n.getMessage("captureCommentError", DOLLARS)).replace(
-    "$1",
-    extensionPolicyLink.outerHTML
-  );
-  const sendAnywayMsg = chrome.i18n.getMessage("captureCommentPostAnyway");
-  const confirmMsg = chrome.i18n.getMessage("captureCommentConfirm");
-
-  window.addEventListener("load", () => {
-    if (isProfile) {
-      window.addEventListener(
-        "click",
-        (e) => {
-          const path = e.composedPath();
-          if (
-            path[1] &&
-            path[1] !== document &&
-            path[1].getAttribute("data-control") === "post" &&
-            path[1].hasAttribute("data-commentee-id")
-          ) {
-            const form = path[3];
-            if (form.tagName !== "FORM") return;
-            if (form.hasAttribute("data-sa-send-anyway")) {
-              form.removeAttribute("data-sa-send-anyway");
-              return;
-            }
-            const textarea = form.querySelector("textarea[name=content]");
-            if (!textarea) return;
-            if (shouldCaptureComment(textarea.value)) {
-              e.stopPropagation();
-              e.preventDefault(); // Avoid location.hash being set to null
-
-              form.querySelector("[data-control=error] .text").innerHTML = errorMsgHtml + " ";
-              const sendAnyway = document.createElement("a");
-              sendAnyway.onclick = () => {
-                const res = confirm(confirmMsg);
-                if (res) {
-                  form.setAttribute("data-sa-send-anyway", "");
-                  form.querySelector("[data-control=post]").click();
-                }
-              };
-              sendAnyway.textContent = sendAnywayMsg;
-              Object.assign(sendAnyway.style, {
-                textDecoration: "underline",
-                color: "white",
-              });
-              form.querySelector("[data-control=error] .text").appendChild(sendAnyway);
-              form.querySelector(".control-group").classList.add("error");
-            }
-          }
-        },
-        { capture: true }
-      );
-    } else if (isProject || isStudio) {
-      // For projects, we want to be careful not to hurt performance.
-      // Let's capture the event in the comments container instead
-      // of the whole window. There will be a new comment container
-      // each time the user goes inside the project then outside.
-      let observer;
-      const waitForContainer = () => {
-        if (document.querySelector(".comments-container, .studio-compose-container")) return Promise.resolve();
-        return new Promise((resolve) => {
-          observer = new MutationObserver((mutationsList) => {
-            if (document.querySelector(".comments-container, .studio-compose-container")) {
-              resolve();
-              observer.disconnect();
-            }
-          });
-          observer.observe(document.documentElement, { childList: true, subtree: true });
-        });
-      };
-      const getEditorMode = () => {
-        // From addon-api/content-script/Tab.js
-        const pathname = location.pathname.toLowerCase();
-        const split = pathname.split("/").filter(Boolean);
-        if (!split[0] || split[0] !== "projects") return null;
-        if (split.includes("editor")) return "editor";
-        if (split.includes("fullscreen")) return "fullscreen";
-        if (split.includes("embed")) return "embed";
-        return "projectpage";
-      };
-      const addListener = () =>
-        document.querySelector(".comments-container, .studio-compose-container").addEventListener(
-          "click",
-          (e) => {
-            const path = e.composedPath();
-            // When clicking the post button, e.path[0] might
-            // be <span>Post</span> or the <button /> element
-            const possiblePostBtn = path[0].tagName === "SPAN" ? path[1] : path[0];
-            if (!possiblePostBtn) return;
-            if (possiblePostBtn.tagName !== "BUTTON") return;
-            if (!possiblePostBtn.classList.contains("compose-post")) return;
-            const form = path[0].tagName === "SPAN" ? path[3] : path[2];
-            if (!form) return;
-            if (form.tagName !== "FORM") return;
-            if (!form.classList.contains("full-width-form")) return;
-            // Remove error when about to send comment anyway, if it exists
-            form.parentNode.querySelector(".sa-compose-error-row")?.remove();
-            if (form.hasAttribute("data-sa-send-anyway")) {
-              form.removeAttribute("data-sa-send-anyway");
-              return;
-            }
-            const textarea = form.querySelector("textarea[name=compose-comment]");
-            if (!textarea) return;
-            if (shouldCaptureComment(textarea.value)) {
-              e.stopPropagation();
-              const errorRow = document.createElement("div");
-              errorRow.className = "flex-row compose-error-row sa-compose-error-row";
-              const errorTip = document.createElement("div");
-              errorTip.className = "compose-error-tip";
-              const span = document.createElement("span");
-              span.innerHTML = errorMsgHtml + " ";
-              const sendAnyway = document.createElement("a");
-              sendAnyway.onclick = () => {
-                const res = confirm(confirmMsg);
-                if (res) {
-                  form.setAttribute("data-sa-send-anyway", "");
-                  possiblePostBtn.click();
-                }
-              };
-              sendAnyway.textContent = sendAnywayMsg;
-              errorTip.appendChild(span);
-              errorTip.appendChild(sendAnyway);
-              errorRow.appendChild(errorTip);
-              form.parentNode.prepend(errorRow);
-
-              // Hide error after typing like scratch-www does
-              textarea.addEventListener(
-                "input",
-                () => {
-                  errorRow.remove();
-                },
-                { once: true }
-              );
-              // Hide error after clicking cancel like scratch-www does
-              form.querySelector(".compose-cancel").addEventListener(
-                "click",
-                () => {
-                  errorRow.remove();
-                },
-                { once: true }
-              );
-            }
-          },
-          { capture: true }
-        );
-
-      const check = async () => {
-        if (
-          // Note: do not use pathArr here below! pathArr is calculated
-          // on load, pathname can change dynamically with replaceState
-          (isStudio && location.pathname.split("/")[3] === "comments") ||
-          (isProject && getEditorMode() === "projectpage")
-        ) {
-          await waitForContainer();
-          addListener();
-        } else {
-          observer?.disconnect();
-        }
-      };
-      check();
-      csUrlObserver.addEventListener("change", (e) => check());
-    }
-  });
-}
+function t(t){const e=[...document.querySelectorAll(".scratch-addons-style")],n=e.filter((e=>e.getAttribute("data-addon-id")===t.addonId)),o=(t,n)=>{const o=e.find((t=>Number(t.getAttribute("data-addon-index")>n)))
+o?document.documentElement.insertBefore(t,o):document.body?document.documentElement.insertBefore(t,document.body):document.documentElement.appendChild(t)}
+t.styles.length>100&&c.warn("Please increase MAX_USERSTYLES_PER_ADDON in content-scripts/cs.js, otherwise style priority is not guaranteed! Has",t.styles.length,"styles, current max is",100)
+for(let e=0;t.styles.length>e;e++){const s=t.styles[e],c=100*t.index+s.index
+if(t.injectAsStyleElt){const e=n.find((t=>t.dataset.styleHref===s.href))
+if(e){e.disabled=0
+continue}const a=document.createElement("style")
+a.classList.add("scratch-addons-style"),a.setAttribute("data-addon-id",t.addonId),a.setAttribute("data-addon-index",c),a.setAttribute("data-style-href",s.href),a.textContent=s.text,o(a,c)}else{const e=n.find((t=>t.href===s.href))
+if(e){e.disabled=0
+continue}const a=document.createElement("link")
+a.rel="stylesheet",a.setAttribute("data-addon-id",t.addonId),a.setAttribute("data-addon-index",c),a.classList.add("scratch-addons-style"),a.href=s.href,o(a,c)}}}function e(t){document.querySelectorAll(`[data-addon-id='${t}']`).forEach((t=>t.disabled=1))}function n(t,e){const n=t=>t.replace(/-([a-z])/g,(t=>t[1].toUpperCase())),o=(t,e,o)=>{const s=`--${n(t)}-${e}`
+document.documentElement.style.setProperty(s,o),_.push(s)},s=(t,e)=>document.documentElement.style.removeProperty(`--${n(t)}-${e}`)
+_.forEach((t=>document.documentElement.style.removeProperty(t))),_.length=0
+const c=e.map((t=>t.addonId))
+for(const e of c)for(const s of Object.keys(t[e]||{})){const c=t[e][s]
+"string"!=typeof c&&"number"!=typeof c||o(e,n(s),t[e][s])}const a=(e,n)=>{if("object"!=typeof n||null===n)return n
+let o
+switch(n.type){case"settingValue":return t[e][n.settingId]
+case"ternary":return a(e,n.source)?a(e,n.true):a(e,n.false)
+case"map":return n.options[a(e,n.source)]
+case"textColor":{o=a(e,n.source)
+let t=a(e,n.black),s=a(e,n.white),c=a(e,n.threshold)
+return A.textColor(o,t,s,c)}case"alphaThreshold":{o=a(e,n.source)
+let{a:t}=A.parseHex(o),s=a(e,n.threshold)||.5
+return a(e,s>t?n.transparent:n.opaque)}case"multiply":return o=a(e,n.source),A.multiply(o,n)
+case"brighten":return o=a(e,n.source),A.brighten(o,n)
+case"alphaBlend":{let t=a(e,n.opaqueSource),o=a(e,n.transparentSource)
+return A.alphaBlend(t,o)}case"makeHsv":{let t=a(e,n.h),o=a(e,n.s),s=a(e,n.v)
+return A.makeHsv(t,o,s)}case"recolorFilter":return o=a(e,n.source),A.recolorFilter(o)}}
+for(const t of e){const e=t.addonId
+for(const n of t.cssVariables){const t=n.name,c=a(e,n.value)
+null===c&&n.dropNull?s(e,t):o(e,t,c)}}}function o(t){let e=document.querySelector("form#post > label")
+if(e){var n=document.querySelector("form#post > label > ul")
+if(!n){let t=e.querySelector("strong");(n=document.createElement("ul")).classList.add("errorlist"),e.insertBefore(n,t)}let o=document.createElement("li"),s=document.createElement("a")
+const c=chrome.i18n.getUILanguage(),a=c.startsWith("en")?"":`${c.split("-")[0]}/`,r=`utm_source=userscript&utm_medium=forumwarning&utm_campaign=v${chrome.runtime.getManifest().version}`
+s.href=`https://scratchaddons.com/${a}feedback/?ext_version=${chrome.runtime.getManifest().version}&${r}`,s.target="_blank",s.innerText=chrome.i18n.getMessage("reportItHere")
+let d=document.createElement("span")
+d.innerHTML=C(chrome.i18n.getMessage(t,l)).replace("$1",s.outerHTML),o.appendChild(d),n.appendChild(o)}}import chrome from"../libraries/common/chrome.js"
+import"../../background/declare-scratchaddons-object.js"
+import"../../background/load-addon-manifests.js"
+import"../../background/get-addon-settings.js"
+import"../background/get-userscripts.js"
+try{if("https://scratch.mit.edu"!==window.parent.location.origin)throw"Scratch Addons: not first party iframe"}catch{throw"Scratch Addons: not first party iframe"}if(document.documentElement instanceof SVGElement)throw"Top-level SVG document (this can be ignored)"
+const _realConsole=window.console,s=(t="[cs]")=>[`%cSA%c${t}%c`,"background:  #ff7b26; color: white; border-radius: 0.5rem 0 0 0.5rem; padding: 0 0.5rem","background: #222; color: white; border-radius: 0 0.5rem 0.5rem 0; padding: 0 0.5rem; font-weight: bold",""],c={..._realConsole,log:_realConsole.log.bind(_realConsole,...s()),warn:_realConsole.warn.bind(_realConsole,...s()),error:_realConsole.error.bind(_realConsole,...s())}
+let a,r=0
+const d=t=>{"backgroundListenerReady"!==t||r||chrome.runtime.sendMessage({contentScriptReady:{url:location.href}},i)}
+chrome.runtime.onMessage.addListener(d)
+const i=o=>{o&&!r&&(c.log("[Message from background]",o),chrome.runtime.onMessage.removeListener(d),null===o.httpStatusCode||"2"===String(o.httpStatusCode)[0]?(async function({globalState:o,addonsWithUserscripts:s,addonsWithUserstyles:a}){const r=new Set(s.map((t=>t.addonId))),d=new Set
+p=o,n(p.addonSettings,a),(document.head?Promise.resolve():new Promise((t=>{const e=new MutationObserver((()=>{document.head&&(t(),e.disconnect())}))
+e.observe(document.documentElement,{subtree:1,childList:1})}))).then((()=>function(e){for(const n of e||[])t(n)}(a))),chrome.runtime.onMessage.addListener((o=>{if(o.dynamicAddonEnabled){const{scripts:e,userstyles:c,cssVariables:i,addonId:l,injectAsStyleElt:u,index:f,dynamicEnable:g,dynamicDisable:h,partial:b}=o.dynamicAddonEnabled
+if(d.delete(l),t({styles:c,addonId:l,injectAsStyleElt:u,index:f}),b){const t=a.find((t=>t.addonId===l))
+t?t.styles=c:a.push({styles:c,cssVariables:i,addonId:l,injectAsStyleElt:u,index:f})}else{if(r.has(l)){if(!h)return
+m.fireEvent({name:"reenabled",addonId:l,target:"self"})}else{if(!g)return
+m&&(m.runAddonUserscripts({addonId:l,scripts:e,enabledLate:1}),r.add(l))}s.push({addonId:l,scripts:e}),a.push({styles:c,cssVariables:i,addonId:l,injectAsStyleElt:u,index:f})}n(p.addonSettings,a)}else if(o.dynamicAddonDisable){const{addonId:t,partialDynamicDisabledStyles:c}=o.dynamicAddonDisable
+if(d.has(t))return
+const i=s.findIndex((e=>e.addonId===t)),l=a.findIndex((e=>e.addonId===t))
+if(m){if(c){if(function(t,e){document.querySelectorAll(`[data-addon-id='${t}']`).forEach((t=>{e.includes(t.href||t.dataset.styleHref)&&(t.disabled=1)}))}(t,c),l>-1){const t=a[l]
+if(t.styles=t.styles.filter((t=>!c.includes(t.href))),t.styles.length||i>-1)return}}else e(t)
+d.add(t),m.fireEvent({name:"disabled",addonId:t,target:"self"})}else r.delete(t);-1!==i&&s.splice(i,1),-1!==l&&a.splice(l,1),n(p.addonSettings,a)}else if(o.updateUserstylesSettingsChange){const{userstyles:s,addonId:r,injectAsStyleElt:i,index:l,dynamicEnable:u,dynamicDisable:m,addonSettings:f,cssVariables:g}=o.updateUserstylesSettingsChange,h=a.findIndex((t=>t.addonId===r))
+if(e(r),h>-1&&0===s.length&&m)return a.splice(h,1),n({...p.addonSettings,[r]:f},a),void c.log(`Dynamically disabling all userstyles of ${r} due to settings change`)
+h>-1&&(m||u)&&(a[h].styles=s),-1===h&&s.length>0&&u&&(c.log(`Dynamically enabling userstyle addon ${r} due to settings change`),a.push({styles:s,cssVariables:g,addonId:r,injectAsStyleElt:i,index:l}),d.delete(r),n({...p.addonSettings,[r]:f},a)),t({styles:s,addonId:r,injectAsStyleElt:i,index:l})}})),m||await new Promise((t=>{k.addEventListener("load",t)})),m.globalState=p,m.l10njson=function(){const t=/scratchlanguage=([\w-]+)/.exec(document.cookie)?.[1]||"en",e=[chrome.runtime.getURL(`addons-l10n/${t}`)]
+"pt"===t&&e.push(chrome.runtime.getURL("addons-l10n/pt-br")),t.includes("-")&&e.push(chrome.runtime.getURL(`addons-l10n/${t.split("-")[0]}`))
+const n=chrome.runtime.getURL("addons-l10n/en")
+return e.includes(n)||e.push(n),e}(),m.addonsWithUserscripts=s,m.dataReady=1,chrome.runtime.onMessage.addListener(((t,e,o)=>{t.newGlobalState?(m.globalState=t.newGlobalState,p=t.newGlobalState,n(t.newGlobalState.addonSettings,a)):t.fireEvent?m.fireEvent(t.fireEvent):"getRunningAddons"===t?o({userscripts:s.map((t=>t.addonId)),userstyles:a.map((t=>t.addonId)),disabledDynamicAddons:Array.from(d)}):"refetchSession"===t&&m.refetchSession()}))}(o),r=1):(a=`https://scratch.mit.edu/${o.httpStatusCode}/`,c.log(`Status code was not 2xx, replacing URL to ${a}`),chrome.runtime.sendMessage({contentScriptReady:{url:a}},i)))}
+chrome.runtime.sendMessage({contentScriptReady:{url:location.href}},i)
+const l=["$1","$2","$3","$4","$5","$6","$7","$8","$9"],u=t=>(...e)=>new Promise((n=>t(...e,n)))
+let m=null,p=null
+const f=document.createElement("div")
+f.id="scratchaddons-iframes"
+const g=document.createElement("iframe")
+g.id="scratchaddons-iframe-1",g.style.display="none"
+const h=g.cloneNode()
+h.id="scratchaddons-iframe-2"
+const b=g.cloneNode()
+b.id="scratchaddons-iframe-3"
+const y=g.cloneNode()
+y.id="scratchaddons-iframe-4",f.appendChild(g),f.appendChild(h),f.appendChild(b),f.appendChild(y),document.documentElement.appendChild(f)
+const w=new EventTarget,x={_url:location.href,get url(){return this._url},set url(t){this._url=t,w.dispatchEvent(new CustomEvent("change",{detail:{newUrl:t}}))},copyImage:t=>new Promise(((e,n)=>{chrome.runtime.sendMessage({clipboardDataURL:t}).then((()=>{e()}),(t=>{n(t.toString())}))})),getEnabledAddons:t=>new Promise((e=>{chrome.runtime.sendMessage({getEnabledAddons:{tag:t}},(t=>e(t)))}))}
+Comlink.expose(x,Comlink.windowEndpoint(g.contentWindow,h.contentWindow))
+const j=document.createElement("script")
+j.src=chrome.runtime.getURL("libraries/thirdparty/cs/comlink.js"),document.documentElement.appendChild(j)
+const k=document.createElement("script")
+k.type="module",k.src=chrome.runtime.getURL("content-scripts/inject/module.js"),(async()=>{await new Promise((t=>{k.addEventListener("load",t)})),m=Comlink.wrap(Comlink.windowEndpoint(b.contentWindow,y.contentWindow))})(),document.documentElement.appendChild(k)
+let S=location.href,v=new URL(S).pathname.substring(1)
+"/"!==v[v.length-1]&&(v+="/")
+const O=v.split("/")
+if("scratch-addons-extension"===O[0]&&"settings"===O[1]){let t=chrome.runtime.getURL(`webpages/settings/index.html${window.location.search}`)
+location.hash&&(t+=location.hash),chrome.runtime.sendMessage({replaceTabWithUrl:t})}"discuss/3/topic/add/"===v?window.addEventListener("load",(()=>o("forumWarning"))):v.startsWith("discuss/topic/")&&window.addEventListener("load",(()=>{document.querySelector('div.linkst > ul > li > a[href="/discuss/18/"]')&&o("forumWarningGeneral")})),chrome.runtime.onMessage.addListener(((t,e,n)=>{c.log("[Message from background]",t),"getInitialUrl"===t&&n(a||S)}))
+const A=__scratchAddonsTextColor,_=[],C=t=>t.replace(/([<>'"&])/g,((t,e)=>`&#${e.charCodeAt(0)};`))
+if(location.pathname.startsWith("/discuss/")){const t=()=>{document.querySelectorAll("pre.blocks").forEach((t=>{t.setAttribute("data-original",t.innerText)}))}
+"loading"!==document.readyState?setTimeout(t,0):window.addEventListener("DOMContentLoaded",t,{once:1})}const E=async()=>{const t=chrome.runtime.getManifest().version,[e,n,o]=t.split("."),s=`${e}.${n}`,a=await u(chrome.storage.local.get.bind(chrome.storage.local))(["bannerSettings"]);(!a||!a.bannerSettings||a.bannerSettings.lastShown!==s||"#sa-update-notif"===location.hash)&&(c.log("Banner shown."),await u(chrome.storage.local.set.bind(chrome.storage.local))({bannerSettings:Object.assign({},a.bannerSettings,{lastShown:s})}),(()=>{const t=()=>document.createElement("br"),e=document.createElement("div"),n=Object.assign(document.createElement("div"),{id:"sa-notification",style:'\n    position: fixed;\n    bottom: 20px;\n    right: 20px;\n    width: 700px;\n    max-height: 270px;\n    display: flex;\n    align-items: center;\n    padding: 10px;\n    border-radius: 10px;\n    background-color: #222;\n    color: white;\n    z-index: 99999;\n    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;\n    text-shadow: none;\n    box-shadow: 0 0 20px 0px #0000009e;\n    line-height: 1em;'}),o=Object.assign(document.createElement("a"),{href:"https://www.youtube.com/watch?v=e_70jvFOmfI",target:"_blank",rel:"noopener",referrerPolicy:"strict-origin-when-cross-origin"}),s=Object.assign(document.createElement("img"),{src:chrome.runtime.getURL("/images/cs/yt-thumbnail.jpg"),style:"height: 100px; border-radius: 5px; padding: 20px"}),c=Object.assign(document.createElement("div"),{id:"sa-notification-text",style:"margin: 12px;"}),a=Object.assign(document.createElement("span"),{style:"font-size: 18px; line-height: 24px; display: inline-block; margin-bottom: 12px;",textContent:chrome.i18n.getMessage("extensionUpdate")}),r=Object.assign(document.createElement("img"),{style:"\n    float: right;\n    cursor: pointer;\n    width: 24px;",title:chrome.i18n.getMessage("close"),src:chrome.runtime.getURL("../images/cs/close.svg")})
+r.addEventListener("click",(()=>n.remove()),{once:1})
+const d="display: block; font-size: 14px; color: white !important;",i=Object.assign(document.createElement("span"),{style:d+"font-weight: bold;",textContent:chrome.i18n.getMessage("extensionHasUpdated",l).replace(/\$(\d+)/g,((t,e)=>[chrome.runtime.getManifest().version][Number(e)-1]))}),u=Object.assign(document.createElement("span"),{style:d,innerHTML:C(chrome.i18n.getMessage("extensionUpdateInfo1_v1_29",l)).replace(/\$(\d+)/g,((t,e)=>[Object.assign(document.createElement("a"),{href:"https://scratch.mit.edu/scratch-addons-extension/settings?source=updatenotif",target:"_blank",textContent:chrome.i18n.getMessage("scratchAddonsSettings")}).outerHTML][Number(e)-1]))}),m=Object.assign(document.createElement("span"),{style:d,textContent:chrome.i18n.getMessage("extensionUpdateInfo2_v1_29")}),p=Object.assign(document.createElement("span"),{style:d}),f=chrome.i18n.getUILanguage(),g=f.startsWith("en")?"":`${f.split("-")[0]}/`,h=`utm_source=extension&utm_medium=updatenotification&utm_campaign=v${chrome.runtime.getManifest().version}`,b=Object.assign(document.createElement("a"),{href:`https://scratchaddons.com/${g}changelog?${h}`,target:"_blank",textContent:chrome.i18n.getMessage("notifChangelog")}),y=Object.assign(document.createElement("a"),{href:`https://scratchaddons.com/${g}feedback/?ext_version=${chrome.runtime.getManifest().version}&${h}`,target:"_blank",textContent:chrome.i18n.getMessage("feedback")}),w=Object.assign(document.createElement("a"),{href:"https://scratchaddons.com/translate",target:"_blank",textContent:chrome.i18n.getMessage("translate")}),x=Object.assign(document.createElement("small"),{textContent:chrome.i18n.getMessage("notAffiliated")})
+p.appendChild(b),p.appendChild(document.createTextNode(" | ")),p.appendChild(y),p.appendChild(document.createTextNode(" | ")),p.appendChild(w),p.appendChild(t()),p.appendChild(x),c.appendChild(a),c.appendChild(r),c.appendChild(t()),c.appendChild(i),c.appendChild(t()),c.appendChild(u),c.appendChild(t()),c.appendChild(m),c.appendChild(t()),c.appendChild(p),o.appendChild(s),n.appendChild(o),n.appendChild(c),e.appendChild(n),document.body.appendChild(e)})())}
+"loading"!==document.readyState?E():window.addEventListener("DOMContentLoaded",E,{once:1})
+const I="users"===O[0]&&""===O[2],P="studios"===O[0],D="projects"===O[0]
+if(I||P||D){const t=t=>{const e=t.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g,"").toLowerCase().replace(/[^a-z /]+/g,"")
+return/scratch[ ]?add[ ]?ons/.test(e)},e=document.createElement("a")
+e.href="https://scratch.mit.edu/discuss/topic/284272/",e.target="_blank",e.innerText=chrome.i18n.getMessage("captureCommentPolicy"),Object.assign(e.style,{textDecoration:"underline",color:"white"})
+const n=C(chrome.i18n.getMessage("captureCommentError",l)).replace("$1",e.outerHTML),o=chrome.i18n.getMessage("captureCommentPostAnyway"),s=chrome.i18n.getMessage("captureCommentConfirm")
+window.addEventListener("load",(()=>{if(I)window.addEventListener("click",(e=>{const c=e.composedPath()
+if(c[1]&&c[1]!==document&&"post"===c[1].getAttribute("data-control")&&c[1].hasAttribute("data-commentee-id")){const a=c[3]
+if("FORM"!==a.tagName)return
+if(a.hasAttribute("data-sa-send-anyway"))return void a.removeAttribute("data-sa-send-anyway")
+const r=a.querySelector("textarea[name=content]")
+if(!r)return
+if(t(r.value)){e.stopPropagation(),e.preventDefault(),a.querySelector("[data-control=error] .text").innerHTML=n+" "
+const t=document.createElement("a")
+t.onclick=()=>{confirm(s)&&(a.setAttribute("data-sa-send-anyway",""),a.querySelector("[data-control=post]").click())},t.textContent=o,Object.assign(t.style,{textDecoration:"underline",color:"white"}),a.querySelector("[data-control=error] .text").appendChild(t),a.querySelector(".control-group").classList.add("error")}}}),{capture:1})
+else if(D||P){let e
+const c=()=>document.querySelector(".comments-container, .studio-compose-container")?Promise.resolve():new Promise((t=>{e=new MutationObserver((()=>{document.querySelector(".comments-container, .studio-compose-container")&&(t(),e.disconnect())})),e.observe(document.documentElement,{childList:1,subtree:1})})),a=()=>{const t=location.pathname.toLowerCase().split("/").filter(Boolean)
+return t[0]&&"projects"===t[0]?t.includes("editor")?"editor":t.includes("fullscreen")?"fullscreen":t.includes("embed")?"embed":"projectpage":null},r=()=>document.querySelector(".comments-container, .studio-compose-container").addEventListener("click",(e=>{const c=e.composedPath(),a="SPAN"===c[0].tagName?c[1]:c[0]
+if(!a)return
+if("BUTTON"!==a.tagName)return
+if(!a.classList.contains("compose-post"))return
+const r="SPAN"===c[0].tagName?c[3]:c[2]
+if(!r)return
+if("FORM"!==r.tagName)return
+if(!r.classList.contains("full-width-form"))return
+if(r.parentNode.querySelector(".sa-compose-error-row")?.remove(),r.hasAttribute("data-sa-send-anyway"))return void r.removeAttribute("data-sa-send-anyway")
+const d=r.querySelector("textarea[name=compose-comment]")
+if(d&&t(d.value)){e.stopPropagation()
+const t=document.createElement("div")
+t.className="flex-row compose-error-row sa-compose-error-row"
+const c=document.createElement("div")
+c.className="compose-error-tip"
+const i=document.createElement("span")
+i.innerHTML=n+" "
+const l=document.createElement("a")
+l.onclick=()=>{confirm(s)&&(r.setAttribute("data-sa-send-anyway",""),a.click())},l.textContent=o,c.appendChild(i),c.appendChild(l),t.appendChild(c),r.parentNode.prepend(t),d.addEventListener("input",(()=>{t.remove()}),{once:1}),r.querySelector(".compose-cancel").addEventListener("click",(()=>{t.remove()}),{once:1})}}),{capture:1}),d=async()=>{P&&"comments"===location.pathname.split("/")[3]||D&&"projectpage"===a()?(await c(),r()):e?.disconnect()}
+d(),w.addEventListener("change",(()=>d()))}}))}

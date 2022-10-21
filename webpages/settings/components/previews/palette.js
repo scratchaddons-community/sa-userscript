@@ -1,12 +1,2 @@
-export default async function ({ template }) {
-  const PalettePreview = Vue.extend({
-    props: ["options", "settingData", "settings"],
-    template,
-    methods: {
-      settingName(id) {
-        return this.settingData.find((setting) => setting.id === id).name;
-      },
-    },
-  });
-  Vue.component("preview-palette", PalettePreview);
-}
+export default async function({template:t}){const e=Vue.extend({props:["options","settingData","settings"],template:t,methods:{settingName(t){return this.settingData.find((e=>e.id===t)).name}}})
+Vue.component("preview-palette",e)}

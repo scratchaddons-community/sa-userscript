@@ -1,105 +1,12 @@
-export default async function ({ addon, global, cons, msg }) {
-  const ScratchBlocks = await addon.tab.traps.getBlockly();
-
-  let defaultKeys = null;
-  function appendKeys(keys, enableShiftKeys) {
-    if (!defaultKeys) {
-      defaultKeys = [...keys];
-    }
-    if (!addon.self.disabled) {
-      keys.push(
-        ...[
-          ["-", "-"],
-          [",", ","],
-          [".", "."],
-        ]
-      );
-      keys.splice(5, 0, [msg("enter-key"), "enter"]);
-      if (addon.settings.get("experimentalKeys")) {
-        keys.push(
-          ...[
-            ["`", "`"],
-            ["=", "="],
-            ["[", "["],
-            ["]", "]"],
-            ["\\", "\\"],
-            [";", ";"],
-            ["'", "'"],
-            ["/", "/"],
-          ]
-        );
-      }
-      if (enableShiftKeys && addon.settings.get("shiftKeys")) {
-        keys.push(
-          ...[
-            ["!", "!"],
-            ["@", "@"],
-            ["#", "#"],
-            ["$", "$"],
-            ["%", "%"],
-            ["^", "^"],
-            ["&", "&"],
-            ["*", "*"],
-            ["(", "("],
-            [")", ")"],
-            ["_", "_"],
-            ["+", "+"],
-            ["{", "{"],
-            ["}", "}"],
-            ["|", "|"],
-            [":", ":"],
-            ['"', '"'],
-            ["?", "?"],
-            ["<", "<"],
-            [">", ">"],
-            ["~", "~"],
-          ]
-        );
-      }
-    }
-    return keys;
-  }
-
-  for (const opcode of ["sensing_keyoptions", "event_whenkeypressed"]) {
-    const block = ScratchBlocks.Blocks[opcode];
-    const originalInit = block.init;
-    block.init = function (...args) {
-      const originalJsonInit = this.jsonInit;
-      this.jsonInit = function (obj) {
-        appendKeys(obj.args0[0].options, opcode === "event_whenkeypressed");
-        return originalJsonInit.call(this, obj);
-      };
-      return originalInit.call(this, ...args);
-    };
-  }
-
-  const updateExistingBlocks = () => {
-    const workspace = Blockly.getMainWorkspace();
-    const flyout = workspace && workspace.getFlyout();
-    if (workspace && flyout) {
-      const allBlocks = [...workspace.getAllBlocks(), ...flyout.getWorkspace().getAllBlocks()];
-      for (const block of allBlocks) {
-        if (block.type !== "event_whenkeypressed" && block.type !== "sensing_keyoptions") {
-          continue;
-        }
-        const input = block.inputList[0];
-        if (!input) {
-          continue;
-        }
-        const field = input.fieldRow.find((i) => i && Array.isArray(i.menuGenerator_));
-        if (!field) {
-          continue;
-        }
-        field.menuGenerator_ = appendKeys(
-          defaultKeys ? [...defaultKeys] : field.menuGenerator_,
-          block.type === "event_whenkeypressed"
-        );
-      }
-    }
-  };
-
-  updateExistingBlocks();
-  addon.settings.addEventListener("change", updateExistingBlocks);
-  addon.self.addEventListener("disabled", updateExistingBlocks);
-  addon.self.addEventListener("reenabled", updateExistingBlocks);
-}
+export default async function({addon:e,msg:n}){function t(t,s){return o||(o=[...t]),e.self.disabled||(t.push(["-","-"],[",",","],[".","."]),t.splice(5,0,[n("enter-key"),"enter"]),e.settings.get("experimentalKeys")&&t.push(["`","`"],["=","="],["[","["],["]","]"],["\\","\\"],[";",";"],["'","'"],["/","/"]),s&&e.settings.get("shiftKeys")&&t.push(["!","!"],["@","@"],["#","#"],["$","$"],["%","%"],["^","^"],["&","&"],["*","*"],["(","("],[")",")"],["_","_"],["+","+"],["{","{"],["}","}"],["|","|"],[":",":"],['"','"'],["?","?"],["<","<"],[">",">"],["~","~"])),t}const s=await e.tab.traps.getBlockly()
+let o=null
+for(const e of["sensing_keyoptions","event_whenkeypressed"]){const n=s.Blocks[e],o=n.init
+n.init=function(...n){const s=this.jsonInit
+return this.jsonInit=function(n){return t(n.args0[0].options,"event_whenkeypressed"===e),s.call(this,n)},o.call(this,...n)}}const i=()=>{const e=Blockly.getMainWorkspace(),n=e&&e.getFlyout()
+if(e&&n){const s=[...e.getAllBlocks(),...n.getWorkspace().getAllBlocks()]
+for(const e of s){if("event_whenkeypressed"!==e.type&&"sensing_keyoptions"!==e.type)continue
+const n=e.inputList[0]
+if(!n)continue
+const s=n.fieldRow.find((e=>e&&Array.isArray(e.menuGenerator_)))
+s&&(s.menuGenerator_=t(o?[...o]:s.menuGenerator_,"event_whenkeypressed"===e.type))}}}
+i(),e.settings.addEventListener("change",i),e.self.addEventListener("disabled",i),e.self.addEventListener("reenabled",i)}

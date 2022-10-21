@@ -1,360 +1,52 @@
-import { HTTPError } from "../../libraries/common/message-cache.js";
-
-const parser = new DOMParser();
-
-export { HTTPError };
-
-export class DetailedError extends Error {
-  constructor(message, details) {
-    super(message);
-    this.details = details;
-  }
-}
-
-export async function deleteComment(addon, { resourceType, resourceId, commentId }) {
-  if (resourceType === "user") return deleteLegacyComment(addon, { resourceType, resourceId, commentId });
-  const resourceTypeUrl = resourceType === "project" ? "project" : "studio";
-  const xToken = await addon.auth.fetchXToken();
-  return fetch(
-    `https://api.scratch.mit.edu/proxy/comments/${resourceTypeUrl}/${resourceId}/comment/${commentId}?sareferer`,
-    {
-      headers: {
-        "content-type": "application/json",
-        "x-csrftoken": addon.auth.csrfToken,
-        "x-token": xToken,
-      },
-      method: "DELETE",
-    }
-  ).then((resp) => {
-    if (!resp.ok)
-      throw HTTPError.fromResponse(`Deleting ${resourceTypeUrl} comment ${commentId} of ${resourceId} failed`, resp);
-  });
-}
-
-const deleteLegacyComment = async (addon, { resourceType, resourceId, commentId }) => {
-  return fetch(`https://scratch.mit.edu/site-api/comments/${resourceType}/${resourceId}/del/?sareferer`, {
-    headers: {
-      "content-type": "application/json",
-      "x-csrftoken": addon.auth.csrfToken,
-      "x-requested-with": "XMLHttpRequest",
-    },
-    body: JSON.stringify({ id: String(commentId) }),
-    method: "POST",
-  }).then((resp) => {
-    if (!resp.ok)
-      throw HTTPError.fromResponse(`Deleting ${resourceType} comment ${commentId} of ${resourceId} failed`, resp);
-  });
-};
-
-export async function dismissAlert(addon, alertId) {
-  return fetch("https://scratch.mit.edu/site-api/messages/messages-delete/?sareferer", {
-    headers: {
-      "content-type": "application/json",
-      "x-csrftoken": addon.auth.csrfToken,
-      "x-requested-with": "XMLHttpRequest",
-    },
-    body: JSON.stringify({ alertType: "notification", alertId }),
-    method: "POST",
-  }).then((resp) => {
-    if (!resp.ok) throw HTTPError.fromResponse(`Dismissing alert ${alertId} failed`, resp);
-  });
-}
-
-export async function sendComment(addon, { resourceType, resourceId, content, parentId, commenteeId }) {
-  if (resourceType === "user")
-    return sendLegacyComment(addon, { resourceType, resourceId, content, parentId, commenteeId });
-  return sendMigratedComment(addon, { resourceType, resourceId, content, parentId, commenteeId });
-}
-
-export async function sendMigratedComment(addon, { resourceType, resourceId, content, parentId, commenteeId }) {
-  const resourceTypeUrl = resourceType === "project" ? "project" : "studio";
-  const xToken = await addon.auth.fetchXToken();
-  return fetch(`https://api.scratch.mit.edu/proxy/comments/${resourceTypeUrl}/${resourceId}?sareferer`, {
-    headers: {
-      "content-type": "application/json",
-      "x-csrftoken": addon.auth.csrfToken,
-      "x-token": xToken,
-    },
-    body: JSON.stringify({ content, parent_id: parentId, commentee_id: commenteeId }),
-    method: "POST",
-  })
-    .then((resp) => {
-      if (!resp.ok) throw HTTPError.fromResponse(`Sending ${resourceTypeUrl} comment on ${resourceId} failed`, resp);
-      return resp.json();
-    })
-    .then((json) => {
-      if (json.rejected) {
-        throw new DetailedError(`Server rejected sending ${resourceTypeUrl} comment`, {
-          error: json.rejected,
-          muteStatus: json.status?.mute_status || null,
-        });
-      }
-      return {
-        id: json.id,
-        content: json.content,
-      };
-    });
-}
-
-export async function sendLegacyComment(addon, { resourceType, resourceId, content, parentId, commenteeId }) {
-  return fetch(`https://scratch.mit.edu/site-api/comments/${resourceType}/${resourceId}/add/?sareferer`, {
-    headers: {
-      "content-type": "application/json",
-      "x-csrftoken": addon.auth.csrfToken,
-      "x-requested-with": "XMLHttpRequest",
-    },
-    method: "POST",
-    body: JSON.stringify({ content, parent_id: parentId, commentee_id: commenteeId }),
-  })
-    .then((resp) => {
-      if (!resp.ok) throw HTTPError.fromResponse(`Sending ${resourceType} comment on ${resourceId} failed`, resp);
-      return resp.text();
-    })
-    .then((text) => {
-      const dom = parser.parseFromString(text, "text/html");
-      const comment = dom.querySelector(".comment");
-      const error = dom.querySelector("script#error-data");
-      if (comment) {
-        const commentId = Number(comment.getAttribute("data-comment-id"));
-        const content = dom.querySelector(".content");
-        return { id: commentId, content };
-      } else if (error) {
-        const json = JSON.parse(error.textContent);
-        throw new DetailedError(`Server rejected sending ${resourceType} comment`, {
-          error: json.error,
-          muteStatus: json.status?.mute_status || null,
-        });
-      } else {
-        console.warn("Unexpected state while sending legacy comment: ", text);
-        throw new Error("Unexpected state while sending legacy comment, see logs");
-      }
-    });
-}
-
-export async function fetchComments(addon, { resourceType, resourceId, commentIds, page = 1, commentsObj = {} }) {
-  if (resourceType === "user")
-    return fetchLegacyComments(addon, { resourceType, resourceId, commentIds, page, commentsObj });
-  return fetchMigratedComments(addon, { resourceType, resourceId, commentIds, page, commentsObj });
-}
-
-export async function fetchMigratedComments(
-  addon,
-  { resourceType, resourceId, commentIds, page = 1, commentsObj = {} }
-) {
-  let projectAuthor;
-  if (resourceType === "project") {
-    const projectRes = await fetch(`https://api.scratch.mit.edu/projects/${resourceId}`);
-    if (!projectRes.ok) return commentsObj; // empty
-    const projectJson = await projectRes.json();
-    projectAuthor = projectJson.author.username;
-  }
-  const getCommentUrl = (commId) =>
-    resourceType === "project"
-      ? `https://api.scratch.mit.edu/users/${projectAuthor}/projects/${resourceId}/comments/${commId}`
-      : `https://api.scratch.mit.edu/studios/${resourceId}/comments/${commId}`;
-  const getRepliesUrl = (commId, offset) =>
-    resourceType === "project"
-      ? `https://api.scratch.mit.edu/users/${projectAuthor}/projects/${resourceId}/comments/${commId}/replies?offset=${offset}&limit=40&nocache=${Date.now()}`
-      : `https://api.scratch.mit.edu/studios/${resourceId}/comments/${commId}/replies?offset=${offset}&limit=40&nocache=${Date.now()}`;
-  for (const commentId of commentIds) {
-    if (commentsObj[`${resourceType[0]}_${commentId}`]) continue;
-
-    const res = await fetch(getCommentUrl(commentId));
-
-    if (!res.ok) {
-      if (res.status === 404) continue;
-      throw HTTPError.fromResponse(`Error when fetching comment ${resourceType}/${commentId}`, res);
-    }
-    const json = await res.json();
-    // This is sometimes null for deleted comments
-    if (json === null) continue;
-    const parentId = json.parent_id || commentId;
-    const childrenComments = {};
-
-    let parentComment;
-
-    if (json.parent_id) {
-      const resParent = await fetch(getCommentUrl(parentId));
-      if (!resParent.ok) {
-        throw HTTPError.fromResponse(
-          `Error when fetching parent ${parentId} for comment ${resourceType}/${commentId}`,
-          resParent
-        );
-      }
-      const jsonParent = await resParent.json();
-      // This is sometimes null for deleted comments
-      if (jsonParent === null) continue;
-      parentComment = jsonParent;
-    } else {
-      parentComment = json;
-    }
-
-    // If originally requested comment was not a parent comment, we do not use
-    // "json" variable at all. We'll get info for the same comment when fetching
-    // all of the parent's child comments anyway
-    // Note: we need to check replies for all parent comments, reply_count doesn't work properly
-
-    const getReplies = async (offset) => {
-      const repliesRes = await fetch(getRepliesUrl(parentId, offset));
-      if (!repliesRes.ok) {
-        if (repliesRes.status === 404) return;
-        throw HTTPError.fromResponse(`Ignoring comment ${resourceType}/${commentId}`, repliesRes);
-      }
-      const repliesJson = await repliesRes.json();
-      return repliesJson;
-    };
-
-    const replies = [];
-    let lastRepliesLength = 40;
-    let offset = 0;
-    // reply_count is guaranteed to be above 0 if replies exist,
-    // although the exact value is unreliable
-    // This matches scratch-www behavior, and has significant performance gain
-    if (parentComment.reply_count > 0) {
-      while (lastRepliesLength === 40) {
-        const newReplies = await getReplies(offset);
-        newReplies.forEach((c) => replies.push(c));
-        lastRepliesLength = newReplies.length;
-        offset += 40;
-      }
-    }
-
-    if (json.parent_id && replies.length === 0) {
-      // Something went wrong, we didn't get the replies (likely API failure)
-      // Add the comment as a reply - better than crashing, because apparently it's
-      // more common than I thought!
-      console.error(
-        `No replies found on comment ${resourceType}/${resourceId}/${commentId} with parents ${json.parent_id}`
-      );
-      replies.push(json);
-    }
-
-    for (const reply of replies) {
-      const commenteeReply = replies.find((c) => c.author.id === reply.commentee_id);
-      const replyingTo = commenteeReply ? commenteeReply.author.username : parentComment.author.username;
-      childrenComments[`${resourceType[0]}_${reply.id}`] = {
-        author: reply.author.username,
-        authorId: reply.author.id,
-        content: reply.content,
-        date: reply.datetime_created,
-        children: null,
-        childOf: `${resourceType[0]}_${parentId}`,
-        replyingTo,
-        scratchTeam: reply.author.scratchteam,
-        projectAuthor,
-      };
-    }
-    for (const childCommentId of Object.keys(childrenComments)) {
-      commentsObj[childCommentId] = childrenComments[childCommentId];
-    }
-
-    commentsObj[`${resourceType[0]}_${parentId}`] = {
-      author: parentComment.author.username,
-      authorId: parentComment.author.id,
-      content: parentComment.content,
-      date: parentComment.datetime_created,
-      children: Object.keys(childrenComments),
-      childOf: null,
-      replyingTo: "",
-      scratchTeam: parentComment.author.scratchteam,
-      projectAuthor,
-    };
-  }
-  return commentsObj;
-}
-
-export async function fetchLegacyComments(addon, { resourceType, resourceId, commentIds, page = 1, commentsObj = {} }) {
-  const res = await fetch(
-    `https://scratch.mit.edu/site-api/comments/${resourceType}/${resourceId}/?page=${page}&nocache=${Date.now()}`,
-    { credentials: "omit" }
-  );
-  if (!res.ok) {
-    console.warn(`Ignoring comments ${resourceType}/${resourceId} page ${page}, status ${res.status}`);
-    return commentsObj;
-  }
-  const text = await res.text();
-  const dom = parser.parseFromString(text, "text/html");
-  for (const commentChain of dom.querySelectorAll(".top-level-reply:not(.removed)")) {
-    if (commentIds.length === 0) {
-      // We found all comments we had to look for
-      return commentsObj;
-    }
-    let foundComment = false;
-    const parentComment = commentChain.querySelector("div");
-    const parentId = Number(parentComment.getAttribute("data-comment-id"));
-
-    const childrenComments = {};
-    const children = commentChain.querySelectorAll("li.reply:not(.removed)");
-    for (const child of children) {
-      const childId = Number(child.querySelector("div").getAttribute("data-comment-id"));
-      if (commentIds.includes(childId)) {
-        foundComment = true;
-        commentIds.splice(
-          commentIds.findIndex((commentId) => commentId === childId),
-          1
-        );
-      }
-      const author = child.querySelector(".name").textContent.trim();
-      childrenComments[`${resourceType[0]}_${childId}`] = {
-        author: author.replace(/\*/g, ""),
-        authorId: Number(child.querySelector(".reply").getAttribute("data-commentee-id")),
-        content: child.querySelector(".content"),
-        date: child.querySelector(".time").getAttribute("title"),
-        children: null,
-        childOf: `${resourceType[0]}_${parentId}`,
-        scratchTeam: author.includes("*"),
-      };
-    }
-
-    if (commentIds.includes(parentId)) {
-      foundComment = true;
-      commentIds.splice(
-        commentIds.findIndex((commentId) => commentId === parentId),
-        1
-      );
-    }
-
-    if (foundComment) {
-      const parentAuthor = parentComment.querySelector(".name").textContent.trim();
-      commentsObj[`${resourceType[0]}_${parentId}`] = {
-        author: parentAuthor.replace(/\*/g, ""),
-        authorId: Number(parentComment.querySelector(".reply").getAttribute("data-commentee-id")),
-        content: parentComment.querySelector(".content"),
-        date: parentComment.querySelector(".time").getAttribute("title"),
-        children: Object.keys(childrenComments),
-        childOf: null,
-        scratchTeam: parentAuthor.includes("*"),
-      };
-      for (const childCommentId of Object.keys(childrenComments)) {
-        commentsObj[childCommentId] = childrenComments[childCommentId];
-      }
-    }
-  }
-  // We haven't found some comments
-  if (page < 3)
-    return await fetchLegacyComments(addon, { resourceType, resourceId, commentIds, page: page + 1, commentsObj });
-  else {
-    console.log(
-      "Could not find all comments for ",
-      resourceType,
-      " ",
-      resourceId,
-      ", remaining ids: ",
-      JSON.parse(JSON.stringify(commentIds))
-    );
-    return commentsObj;
-  }
-}
-
-export async function fetchAlerts(addon) {
-  const username = await addon.auth.fetchUsername();
-  const xToken = await addon.auth.fetchXToken();
-  return fetch(`https://api.scratch.mit.edu/users/${username}/messages/admin`, {
-    headers: {
-      "x-token": xToken,
-    },
-  }).then((res) => {
-    if (!res.ok) throw HTTPError.fromResponse("Fetching alerts failed", res);
-    return res.json();
-  });
-}
+import{HTTPError as e}from"../../libraries/common/message-cache.js"
+const t=new DOMParser
+export{e as HTTPError}
+export class DetailedError extends Error{constructor(e,t){super(e),this.details=t}}export async function deleteComment(t,{resourceType:n,resourceId:r,commentId:c}){if("user"===n)return o(t,{resourceType:n,resourceId:r,commentId:c})
+const s="project"===n?"project":"studio",a=await t.auth.fetchXToken()
+return fetch(`https://api.scratch.mit.edu/proxy/comments/${s}/${r}/comment/${c}?sareferer`,{headers:{"content-type":"application/json","x-csrftoken":t.auth.csrfToken,"x-token":a},method:"DELETE"}).then((t=>{if(!t.ok)throw e.fromResponse(`Deleting ${s} comment ${c} of ${r} failed`,t)}))}const o=async(t,{resourceType:o,resourceId:n,commentId:r})=>fetch(`https://scratch.mit.edu/site-api/comments/${o}/${n}/del/?sareferer`,{headers:{"content-type":"application/json","x-csrftoken":t.auth.csrfToken,"x-requested-with":"XMLHttpRequest"},body:JSON.stringify({id:String(r)}),method:"POST"}).then((t=>{if(!t.ok)throw e.fromResponse(`Deleting ${o} comment ${r} of ${n} failed`,t)}))
+export async function dismissAlert(t,o){return fetch("https://scratch.mit.edu/site-api/messages/messages-delete/?sareferer",{headers:{"content-type":"application/json","x-csrftoken":t.auth.csrfToken,"x-requested-with":"XMLHttpRequest"},body:JSON.stringify({alertType:"notification",alertId:o}),method:"POST"}).then((t=>{if(!t.ok)throw e.fromResponse(`Dismissing alert ${o} failed`,t)}))}export async function sendComment(e,{resourceType:t,resourceId:o,content:n,parentId:r,commenteeId:c}){return"user"===t?sendLegacyComment(e,{resourceType:t,resourceId:o,content:n,parentId:r,commenteeId:c}):sendMigratedComment(e,{resourceType:t,resourceId:o,content:n,parentId:r,commenteeId:c})}export async function sendMigratedComment(t,{resourceType:o,resourceId:n,content:r,parentId:c,commenteeId:s}){const a="project"===o?"project":"studio",i=await t.auth.fetchXToken()
+return fetch(`https://api.scratch.mit.edu/proxy/comments/${a}/${n}?sareferer`,{headers:{"content-type":"application/json","x-csrftoken":t.auth.csrfToken,"x-token":i},body:JSON.stringify({content:r,parent_id:c,commentee_id:s}),method:"POST"}).then((t=>{if(!t.ok)throw e.fromResponse(`Sending ${a} comment on ${n} failed`,t)
+return t.json()})).then((e=>{if(e.rejected)throw new DetailedError(`Server rejected sending ${a} comment`,{error:e.rejected,muteStatus:e.status?.mute_status||null})
+return{id:e.id,content:e.content}}))}export async function sendLegacyComment(o,{resourceType:n,resourceId:r,content:c,parentId:s,commenteeId:a}){return fetch(`https://scratch.mit.edu/site-api/comments/${n}/${r}/add/?sareferer`,{headers:{"content-type":"application/json","x-csrftoken":o.auth.csrfToken,"x-requested-with":"XMLHttpRequest"},method:"POST",body:JSON.stringify({content:c,parent_id:s,commentee_id:a})}).then((t=>{if(!t.ok)throw e.fromResponse(`Sending ${n} comment on ${r} failed`,t)
+return t.text()})).then((e=>{const o=t.parseFromString(e,"text/html"),r=o.querySelector(".comment"),c=o.querySelector("script#error-data")
+if(r)return{id:Number(r.getAttribute("data-comment-id")),content:o.querySelector(".content")}
+if(c){const e=JSON.parse(c.textContent)
+throw new DetailedError(`Server rejected sending ${n} comment`,{error:e.error,muteStatus:e.status?.mute_status||null})}throw console.warn("Unexpected state while sending legacy comment: ",e),new Error("Unexpected state while sending legacy comment, see logs")}))}export async function fetchComments(e,{resourceType:t,resourceId:o,commentIds:n,page:r=1,commentsObj:c={}}){return"user"===t?fetchLegacyComments(e,{resourceType:t,resourceId:o,commentIds:n,page:r,commentsObj:c}):fetchMigratedComments(e,{resourceType:t,resourceId:o,commentIds:n,page:r,commentsObj:c})}export async function fetchMigratedComments(t,{resourceType:o,resourceId:n,commentIds:r,page:c=1,commentsObj:s={}}){let a
+if("project"===o){const e=await fetch(`https://api.scratch.mit.edu/projects/${n}`)
+if(!e.ok)return s
+const t=await e.json()
+a=t.author.username}const i=e=>"project"===o?`https://api.scratch.mit.edu/users/${a}/projects/${n}/comments/${e}`:`https://api.scratch.mit.edu/studios/${n}/comments/${e}`,m=(e,t)=>"project"===o?`https://api.scratch.mit.edu/users/${a}/projects/${n}/comments/${e}/replies?offset=${t}&limit=40&nocache=${Date.now()}`:`https://api.scratch.mit.edu/studios/${n}/comments/${e}/replies?offset=${t}&limit=40&nocache=${Date.now()}`
+for(const t of r){if(s[`${o[0]}_${t}`])continue
+const r=await fetch(i(t))
+if(!r.ok){if(404===r.status)continue
+throw e.fromResponse(`Error when fetching comment ${o}/${t}`,r)}const c=await r.json()
+if(null===c)continue
+const d=c.parent_id||t,u={}
+let p
+if(c.parent_id){const n=await fetch(i(d))
+if(!n.ok)throw e.fromResponse(`Error when fetching parent ${d} for comment ${o}/${t}`,n)
+const r=await n.json()
+if(null===r)continue
+p=r}else p=c
+const h=async n=>{const r=await fetch(m(d,n))
+if(!r.ok){if(404===r.status)return
+throw e.fromResponse(`Ignoring comment ${o}/${t}`,r)}return await r.json()},f=[]
+let l=40,y=0
+if(p.reply_count>0)for(;40===l;){const e=await h(y)
+e.forEach((e=>f.push(e))),l=e.length,y+=40}c.parent_id&&0===f.length&&(console.error(`No replies found on comment ${o}/${n}/${t} with parents ${c.parent_id}`),f.push(c))
+for(const e of f){const t=f.find((t=>t.author.id===e.commentee_id))
+u[`${o[0]}_${e.id}`]={author:e.author.username,authorId:e.author.id,content:e.content,date:e.datetime_created,children:null,childOf:`${o[0]}_${d}`,replyingTo:t?t.author.username:p.author.username,scratchTeam:e.author.scratchteam,projectAuthor:a}}for(const e of Object.keys(u))s[e]=u[e]
+s[`${o[0]}_${d}`]={author:p.author.username,authorId:p.author.id,content:p.content,date:p.datetime_created,children:Object.keys(u),childOf:null,replyingTo:"",scratchTeam:p.author.scratchteam,projectAuthor:a}}return s}export async function fetchLegacyComments(e,{resourceType:o,resourceId:n,commentIds:r,page:c=1,commentsObj:s={}}){const a=await fetch(`https://scratch.mit.edu/site-api/comments/${o}/${n}/?page=${c}&nocache=${Date.now()}`,{credentials:"omit"})
+if(!a.ok)return console.warn(`Ignoring comments ${o}/${n} page ${c}, status ${a.status}`),s
+const i=await a.text(),m=t.parseFromString(i,"text/html")
+for(const e of m.querySelectorAll(".top-level-reply:not(.removed)")){if(0===r.length)return s
+let t=0
+const n=e.querySelector("div"),c=Number(n.getAttribute("data-comment-id")),a={},i=e.querySelectorAll("li.reply:not(.removed)")
+for(const e of i){const n=Number(e.querySelector("div").getAttribute("data-comment-id"))
+r.includes(n)&&(t=1,r.splice(r.findIndex((e=>e===n)),1))
+const s=e.querySelector(".name").textContent.trim()
+a[`${o[0]}_${n}`]={author:s.replace(/\*/g,""),authorId:Number(e.querySelector(".reply").getAttribute("data-commentee-id")),content:e.querySelector(".content"),date:e.querySelector(".time").getAttribute("title"),children:null,childOf:`${o[0]}_${c}`,scratchTeam:s.includes("*")}}if(r.includes(c)&&(t=1,r.splice(r.findIndex((e=>e===c)),1)),t){const e=n.querySelector(".name").textContent.trim()
+s[`${o[0]}_${c}`]={author:e.replace(/\*/g,""),authorId:Number(n.querySelector(".reply").getAttribute("data-commentee-id")),content:n.querySelector(".content"),date:n.querySelector(".time").getAttribute("title"),children:Object.keys(a),childOf:null,scratchTeam:e.includes("*")}
+for(const e of Object.keys(a))s[e]=a[e]}}return 3>c?await fetchLegacyComments(e,{resourceType:o,resourceId:n,commentIds:r,page:c+1,commentsObj:s}):(console.log("Could not find all comments for ",o," ",n,", remaining ids: ",JSON.parse(JSON.stringify(r))),s)}export async function fetchAlerts(t){const o=await t.auth.fetchUsername(),n=await t.auth.fetchXToken()
+return fetch(`https://api.scratch.mit.edu/users/${o}/messages/admin`,{headers:{"x-token":n}}).then((t=>{if(!t.ok)throw e.fromResponse("Fetching alerts failed",t)
+return t.json()}))}

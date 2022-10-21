@@ -1,90 +1,16 @@
-export default async function ({ addon, console, msg }) {
-  const action = addon.settings.get("action");
-  let playerToggled = false;
-  let scratchStage;
-  let twIframeContainer = document.createElement("div");
-  twIframeContainer.className = "sa-tw-iframe-container";
-  let twIframe = document.createElement("iframe");
-  twIframe.setAttribute("allowtransparency", "true");
-  twIframe.setAttribute("allowfullscreen", "true");
-  twIframe.setAttribute(
-    "allow",
-    "autoplay *; camera https://turbowarp.org; document-domain 'none'; fullscreen *; gamepad https://turbowarp.org; microphone https://turbowarp.org;"
-  );
-  twIframe.className = "sa-tw-iframe";
-  twIframeContainer.appendChild(twIframe);
-
-  const button = document.createElement("button");
-  button.className = "button sa-tw-button";
-  button.title = "TurboWarp";
-
-  function removeIframe() {
-    twIframeContainer.remove();
-    scratchStage.style.display = "";
-    button.classList.remove("scratch");
-    playerToggled = false;
-    button.title = "TurboWarp";
-  }
-
-  button.onclick = async () => {
-    let search = "";
-    if (
-      addon.tab.redux.state?.preview?.projectInfo?.public === false &&
-      addon.tab.redux.state.preview.projectInfo.project_token
-    ) {
-      search = `#?token=${addon.tab.redux.state.preview.projectInfo.project_token}`;
-    }
-    if (action === "player") {
-      playerToggled = !playerToggled;
-      if (playerToggled) {
-        const username = await addon.auth.fetchUsername();
-        const usp = new URLSearchParams();
-        usp.set("settings-button", "1");
-        if (username) usp.set("username", username);
-        const projectId = window.location.pathname.split("/")[2];
-        if (addon.settings.get("addons")) {
-          const enabledAddons = await addon.self.getEnabledAddons("editor");
-          usp.set("addons", enabledAddons.join(","));
-        }
-        const iframeUrl = `https://turbowarp.org/${projectId}/embed?${usp}${search}`;
-        twIframe.src = "";
-        scratchStage.parentElement.prepend(twIframeContainer);
-        // Use location.replace to avoid creating a history entry
-        twIframe.contentWindow.location.replace(iframeUrl);
-
-        scratchStage.style.display = "none";
-        button.classList.add("scratch");
-        button.title = "Scratch";
-        addon.tab.traps.vm.stopAll();
-      } else removeIframe();
-    } else {
-      window.open(
-        `https://turbowarp.org/${window.location.pathname.split("/")[2]}${search}`,
-        "_blank",
-        "noopener,noreferrer"
-      );
-    }
-  };
-
-  let showAlert = true;
-  while (true) {
-    const seeInside = await addon.tab.waitForElement(".see-inside-button", {
-      markAsSeen: true,
-      reduxCondition: (state) => state.scratchGui.mode.isPlayerOnly,
-    });
-
-    seeInside.addEventListener("click", function seeInsideClick(event) {
-      if (!playerToggled || !showAlert) return;
-
-      if (confirm(msg("confirmation"))) {
-        showAlert = false;
-      } else {
-        event.stopPropagation();
-      }
-    });
-
-    addon.tab.appendToSharedSpace({ space: "beforeRemixButton", element: button, order: 1 });
-
-    scratchStage = document.querySelector(".guiPlayer");
-  }
-}
+export default async function({addon:t,msg:e}){const o=t.settings.get("action")
+let n,r=0,a=document.createElement("div")
+a.className="sa-tw-iframe-container"
+let c=document.createElement("iframe")
+c.setAttribute("allowtransparency","true"),c.setAttribute("allowfullscreen","true"),c.setAttribute("allow","autoplay *; camera https://turbowarp.org; document-domain 'none'; fullscreen *; gamepad https://turbowarp.org; microphone https://turbowarp.org;"),c.className="sa-tw-iframe",a.appendChild(c)
+const s=document.createElement("button")
+s.className="button sa-tw-button",s.title="TurboWarp",s.onclick=async()=>{let e=""
+if(0==t.tab.redux.state?.preview?.projectInfo?.public&&t.tab.redux.state.preview.projectInfo.project_token&&(e=`#?token=${t.tab.redux.state.preview.projectInfo.project_token}`),"player"===o)if(r=!r,r){const o=await t.auth.fetchUsername(),r=new URLSearchParams
+r.set("settings-button","1"),o&&r.set("username",o)
+const i=window.location.pathname.split("/")[2]
+if(t.settings.get("addons")){const e=await t.self.getEnabledAddons("editor")
+r.set("addons",e.join(","))}const u=`https://turbowarp.org/${i}/embed?${r}${e}`
+c.src="",n.parentElement.prepend(a),c.contentWindow.location.replace(u),n.style.display="none",s.classList.add("scratch"),s.title="Scratch",t.tab.traps.vm.stopAll()}else a.remove(),n.style.display="",s.classList.remove("scratch"),r=0,s.title="TurboWarp"
+else window.open(`https://turbowarp.org/${window.location.pathname.split("/")[2]}${e}`,"_blank","noopener,noreferrer")}
+let i=1
+for(;;)(await t.tab.waitForElement(".see-inside-button",{markAsSeen:1,reduxCondition(t){return t.scratchGui.mode.isPlayerOnly}})).addEventListener("click",(function(t){r&&i&&(confirm(e("confirmation"))?i=0:t.stopPropagation())})),t.tab.appendToSharedSpace({space:"beforeRemixButton",element:s,order:1}),n=document.querySelector(".guiPlayer")}

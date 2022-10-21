@@ -1,146 +1,32 @@
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-const containerSvg = document.createElementNS(SVG_NS, "svg");
-// unfortunately we can't use display: none on this as that breaks filters
-containerSvg.style.position = "fixed";
-containerSvg.style.top = "-999999px";
-containerSvg.style.width = "0";
-containerSvg.style.height = "0";
-document.body.appendChild(containerSvg);
-
-let nextGlowerId = 0;
-
-const highlightsPerElement = new WeakMap();
-
-const getHighlightersForElement = (element) => {
-  if (!highlightsPerElement.get(element)) {
-    highlightsPerElement.set(element, new Set());
-  }
-  return highlightsPerElement.get(element);
-};
-
-const updateHighlight = (element, highlighters) => {
-  let result;
-  for (const i of highlighters) {
-    if (!result || i.priority > result.priority) {
-      result = i;
-    }
-  }
-  if (result) {
-    element.style.filter = result.filter;
-  } else {
-    element.style.filter = "";
-  }
-};
-
-const addHighlight = (element, highlighter) => {
-  const highlighters = getHighlightersForElement(element);
-  highlighters.add(highlighter);
-  updateHighlight(element, highlighters);
-};
-
-const removeHighlight = (element, highlighter) => {
-  const highlighters = getHighlightersForElement(element);
-  highlighters.delete(highlighter);
-  updateHighlight(element, highlighters);
-};
-
-class Highlighter {
-  constructor(priority, color) {
-    this.priority = priority;
-
-    const id = `sa_glower_filter${nextGlowerId++}`;
-    this.filter = `url("#${id}")`;
-
-    this.previousElements = new Set();
-
-    const filterElement = document.createElementNS(SVG_NS, "filter");
-    filterElement.id = id;
-    filterElement.setAttribute("width", "180%");
-    filterElement.setAttribute("height", "160%");
-    filterElement.setAttribute("x", "-40%");
-    filterElement.setAttribute("y", "-30%");
-
-    const filterBlur = document.createElementNS(SVG_NS, "feGaussianBlur");
-    filterBlur.setAttribute("in", "SourceGraphic");
-    filterBlur.setAttribute("stdDeviation", "4");
-    filterElement.appendChild(filterBlur);
-
-    const filterTransfer = document.createElementNS(SVG_NS, "feComponentTransfer");
-    filterTransfer.setAttribute("result", "outBlur");
-    filterElement.appendChild(filterTransfer);
-
-    const filterTransferTable = document.createElementNS(SVG_NS, "feFuncA");
-    filterTransferTable.setAttribute("type", "table");
-    filterTransferTable.setAttribute("tableValues", "0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1");
-    filterTransfer.appendChild(filterTransferTable);
-
-    const filterFlood = document.createElementNS(SVG_NS, "feFlood");
-    filterFlood.setAttribute("flood-opacity", "1");
-    filterFlood.setAttribute("result", "outColor");
-    filterElement.appendChild(filterFlood);
-    this.filterFlood = filterFlood;
-
-    const filterComposite = document.createElementNS(SVG_NS, "feComposite");
-    filterComposite.setAttribute("in", "outColor");
-    filterComposite.setAttribute("in2", "outBlur");
-    filterComposite.setAttribute("operator", "in");
-    filterComposite.setAttribute("result", "outGlow");
-    filterElement.appendChild(filterComposite);
-
-    const filterFinalComposite = document.createElementNS(SVG_NS, "feComposite");
-    filterFinalComposite.setAttribute("in", "SourceGraphic");
-    filterFinalComposite.setAttribute("in2", "outGlow");
-    filterFinalComposite.setAttribute("operator", "over");
-    filterElement.appendChild(filterFinalComposite);
-
-    containerSvg.appendChild(filterElement);
-    this.setColor(color);
-  }
-
-  setColor(color) {
-    this.filterFlood.setAttribute("flood-color", color);
-  }
-
-  setGlowingThreads(threads) {
-    const elementsToHighlight = new Set();
-    const workspace = Blockly.getMainWorkspace();
-
-    if (workspace) {
-      for (const thread of threads) {
-        thread.stack.forEach((blockId) => {
-          const block = workspace.getBlockById(blockId);
-          if (!block) {
-            return;
-          }
-          const childblock = thread.stack.find((i) => {
-            let b = block;
-            while (b.childBlocks_.length) {
-              b = b.childBlocks_[b.childBlocks_.length - 1];
-              if (i === b.id) return true;
-            }
-            return false;
-          });
-          if (!childblock && block.svgPath_) {
-            const svgPath = block.svgPath_;
-            elementsToHighlight.add(svgPath);
-          }
-        });
-      }
-    }
-
-    for (const element of this.previousElements) {
-      if (!elementsToHighlight.has(element)) {
-        removeHighlight(element, this);
-      }
-    }
-    for (const element of elementsToHighlight) {
-      if (!this.previousElements.has(element)) {
-        addHighlight(element, this);
-      }
-    }
-    this.previousElements = elementsToHighlight;
-  }
-}
-
-export default Highlighter;
+const o="http://www.w3.org/2000/svg",t=document.createElementNS(o,"svg")
+t.style.position="fixed",t.style.top="-999999px",t.style.width="0",t.style.height="0",document.body.appendChild(t)
+let e=0
+const s=new WeakMap,n=o=>(s.get(o)||s.set(o,new Set),s.get(o)),r=(o,t)=>{let e
+for(const o of t)e&&e.priority>=o.priority||(e=o)
+o.style.filter=e?e.filter:""},c=(o,t)=>{const e=n(o)
+e.add(t),r(o,e)},i=(o,t)=>{const e=n(o)
+e.delete(t),r(o,e)}
+export default class{constructor(s,n){this.priority=s
+const r="sa_glower_filter"+e++
+this.filter=`url("#${r}")`,this.previousElements=new Set
+const c=document.createElementNS(o,"filter")
+c.id=r,c.setAttribute("width","180%"),c.setAttribute("height","160%"),c.setAttribute("x","-40%"),c.setAttribute("y","-30%")
+const i=document.createElementNS(o,"feGaussianBlur")
+i.setAttribute("in","SourceGraphic"),i.setAttribute("stdDeviation","4"),c.appendChild(i)
+const u=document.createElementNS(o,"feComponentTransfer")
+u.setAttribute("result","outBlur"),c.appendChild(u)
+const l=document.createElementNS(o,"feFuncA")
+l.setAttribute("type","table"),l.setAttribute("tableValues","0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"),u.appendChild(l)
+const f=document.createElementNS(o,"feFlood")
+f.setAttribute("flood-opacity","1"),f.setAttribute("result","outColor"),c.appendChild(f),this.filterFlood=f
+const a=document.createElementNS(o,"feComposite")
+a.setAttribute("in","outColor"),a.setAttribute("in2","outBlur"),a.setAttribute("operator","in"),a.setAttribute("result","outGlow"),c.appendChild(a)
+const h=document.createElementNS(o,"feComposite")
+h.setAttribute("in","SourceGraphic"),h.setAttribute("in2","outGlow"),h.setAttribute("operator","over"),c.appendChild(h),t.appendChild(c),this.setColor(n)}setColor(o){this.filterFlood.setAttribute("flood-color",o)}setGlowingThreads(o){const t=new Set,e=Blockly.getMainWorkspace()
+if(e)for(const s of o)s.stack.forEach((o=>{const n=e.getBlockById(o)
+n&&!s.stack.find((o=>{let t=n
+for(;t.childBlocks_.length;)if(t=t.childBlocks_[t.childBlocks_.length-1],o===t.id)return 1
+return 0}))&&n.svgPath_&&t.add(n.svgPath_)}))
+for(const o of this.previousElements)t.has(o)||i(o,this)
+for(const o of t)this.previousElements.has(o)||c(o,this)
+this.previousElements=t}}

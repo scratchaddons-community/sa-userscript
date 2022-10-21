@@ -1,39 +1,14 @@
-export default async ({ addon, console }) => {
-  const vm = addon.tab.traps.vm;
-
-  let shiftKeyPressed = false;
-  document.addEventListener(
-    "mousedown",
-    function (e) {
-      shiftKeyPressed = e.shiftKey;
-    },
-    {
-      capture: true,
-    }
-  );
-
-  // Do not focus sprite after dragging it
-  const oldStopDrag = vm.stopDrag;
-  vm.stopDrag = function (...args) {
-    if (shiftKeyPressed || addon.self.disabled) return oldStopDrag.call(this, ...args);
-    const setEditingTarget = this.setEditingTarget;
-    this.setEditingTarget = () => {};
-    const r = oldStopDrag.call(this, ...args);
-    this.setEditingTarget = setEditingTarget;
-    return r;
-  };
-
-  // Don't let the editor drag sprites that aren't marked as draggable
-  const oldGetTargetIdForDrawableId = vm.getTargetIdForDrawableId;
-  vm.getTargetIdForDrawableId = function (...args) {
-    const targetId = oldGetTargetIdForDrawableId.call(this, ...args);
-    if (shiftKeyPressed || addon.self.disabled) return targetId;
-    if (targetId !== null) {
-      const target = this.runtime.getTargetById(targetId);
-      if (target && !target.draggable) {
-        return null;
-      }
-    }
-    return targetId;
-  };
-};
+export default async({addon:t})=>{const n=t.tab.traps.vm
+let s=0
+document.addEventListener("mousedown",(function(t){s=t.shiftKey}),{capture:1})
+const o=n.stopDrag
+n.stopDrag=function(...n){if(s||t.self.disabled)return o.call(this,...n)
+const i=this.setEditingTarget
+this.setEditingTarget=()=>{}
+const u=o.call(this,...n)
+return this.setEditingTarget=i,u}
+const i=n.getTargetIdForDrawableId
+n.getTargetIdForDrawableId=function(...n){const o=i.call(this,...n)
+if(s||t.self.disabled)return o
+if(null!==o){const t=this.runtime.getTargetById(o)
+if(t&&!t.draggable)return null}return o}}

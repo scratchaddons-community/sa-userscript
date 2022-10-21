@@ -1,69 +1,11 @@
-export default async function (
-  /** @type {import("../../addon-api/content-script/typedef").UserscriptUtilities} */ { addon, msg, global, console }
-) {
-  const STUDIO_REGEX = /https:\/\/scratch\.mit\.edu\/studios\/([0-9]+)/;
-  const xToken = await addon.auth.fetchXToken();
-  const username = await addon.auth.fetchUsername();
-  const { csrfToken } = addon.auth;
-
-  const cache = Object.create(null);
-
-  await addon.tab.redux.waitForState((state) => state.messages.status.message === "FETCHED");
-  main: while (true) {
-    const invite = await addon.tab.waitForElement(".mod-curator-invite", { markAsSeen: true });
-    const inviteTextContainer = await addon.tab.waitForElement(".social-message-content > div > span", {
-      elementCondition: (el) => invite.contains(el),
-    });
-
-    const studioId = Array.from(inviteTextContainer.children)
-      .find((node) => node.tagName === "A" && STUDIO_REGEX.test(node.href))
-      .href.match(STUDIO_REGEX)[1];
-    if (cache[studioId]) {
-      continue main;
-    } else {
-      cache[studioId] = true;
-    }
-    const userProfileRes = await fetch(`https://api.scratch.mit.edu/studios/${studioId}/users/${username}`, {
-      headers: {
-        "X-Token": xToken,
-      },
-    });
-    let userProfile = await userProfileRes.json();
-
-    const button = document.createElement("button");
-    button.className = "sa-curator-invite-button button";
-
-    if (userProfile.invited) {
-      button.innerText = msg("accept");
-    } else {
-      button.innerText = msg("accepted");
-      button.classList.add("disabled");
-      button.disabled = true;
-    }
-
-    button.addEventListener("click", async () => {
-      if (userProfile.invited) {
-        button.classList.add("loading");
-        const addCurator = await fetch(`/site-api/users/curators-in/${studioId}/add/?usernames=${username}`, {
-          method: "PUT",
-          headers: {
-            "x-csrftoken": csrfToken,
-            "x-requested-with": "XMLHttpRequest",
-          },
-        });
-        const { success } = await addCurator.json();
-
-        button.classList.remove("loading");
-        if (success) {
-          button.innerText = msg("accepted");
-          userProfile.invited = false;
-          button.disabled = true;
-        } else {
-          alert(msg("failed"));
-        }
-      }
-    });
-
-    inviteTextContainer.parentElement.appendChild(button);
-  }
-}
+export default async function({addon:t,msg:e}){const a=/https:\/\/scratch\.mit\.edu\/studios\/([0-9]+)/,s=await t.auth.fetchXToken(),i=await t.auth.fetchUsername(),{csrfToken:c}=t.auth,n=Object.create(null)
+await t.tab.redux.waitForState((t=>"FETCHED"===t.messages.status.message))
+t:for(;;){const o=await t.tab.waitForElement(".mod-curator-invite",{markAsSeen:1}),d=await t.tab.waitForElement(".social-message-content > div > span",{elementCondition(t){return o.contains(t)}}),r=Array.from(d.children).find((t=>"A"===t.tagName&&a.test(t.href))).href.match(a)[1]
+if(n[r])continue t
+n[r]=1
+const u=await fetch(`https://api.scratch.mit.edu/studios/${r}/users/${i}`,{headers:{"X-Token":s}})
+let l=await u.json()
+const f=document.createElement("button")
+f.className="sa-curator-invite-button button",l.invited?f.innerText=e("accept"):(f.innerText=e("accepted"),f.classList.add("disabled"),f.disabled=1),f.addEventListener("click",(async()=>{if(l.invited){f.classList.add("loading")
+const t=await fetch(`/site-api/users/curators-in/${r}/add/?usernames=${i}`,{method:"PUT",headers:{"x-csrftoken":c,"x-requested-with":"XMLHttpRequest"}}),{success:a}=await t.json()
+f.classList.remove("loading"),a?(f.innerText=e("accepted"),l.invited=0,f.disabled=1):alert(e("failed"))}})),d.parentElement.appendChild(f)}}

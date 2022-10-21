@@ -1,17 +1,1 @@
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  if (request && request.msg) {
-    return sendResponse(scratchAddons.l10n.get(request.msg, request.placeholders || {}));
-  }
-  if (request && request.l10nAddonId) {
-    return sendResponse(
-      Object.fromEntries(
-        Object.keys(scratchAddons.l10n.messages)
-          .filter((value) => value.startsWith(`${request.l10nAddonId}/`))
-          .map((value) => [value, scratchAddons.l10n.messages[value]])
-      )
-    );
-  }
-  if (request && request.messages) {
-    return sendResponse(request.messages.map((value) => scratchAddons.l10n.messages[value] || value));
-  }
-});
+chrome.runtime.onMessage.addListener((function(c,d,s){return c&&c.msg?s(scratchAddons.l10n.get(c.msg,c.placeholders||{})):c&&c.l10nAddonId?s(Object.fromEntries(Object.keys(scratchAddons.l10n.messages).filter((d=>d.startsWith(`${c.l10nAddonId}/`))).map((c=>[c,scratchAddons.l10n.messages[c]])))):c&&c.messages?s(c.messages.map((c=>scratchAddons.l10n.messages[c]||c))):void 0}))

@@ -1,34 +1,9 @@
-const POPUP_PREFIX = chrome.runtime.getURL("popups");
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (!request?.requestPopupInfo) return;
-  // For some reason non-popups managed to request popup info?
-  if (!sender.url?.startsWith(POPUP_PREFIX)) return;
-  const handle = () => {
-    const { addonId } = request.requestPopupInfo;
-    const manifest = scratchAddons.manifests.find(
-      ({ addonId: mAddonId, manifest: mManifest }) => addonId === mAddonId && mManifest.popup
-    );
-    if (!manifest) return;
-    return {
-      popup: manifest.manifest.popup,
-      settings: JSON.parse(JSON.stringify(scratchAddons.globalState.addonSettings)),
-    };
-  };
-  if (!scratchAddons.localState.allReady) {
-    scratchAddons.localEvents.addEventListener("ready", () => sendResponse(handle()), { once: true });
-    return true;
-  }
-  sendResponse(handle());
-});
-
-chrome.runtime.onConnect.addListener((port) => {
-  if (!port.sender.url?.startsWith(POPUP_PREFIX)) return;
-  const addonId = port.name;
-  if (!scratchAddons.popupPorts[addonId]) scratchAddons.popupPorts[addonId] = [];
-  scratchAddons.popupPorts[addonId].push(port);
-  port.postMessage("ping");
-  port.onDisconnect.addListener(() => {
-    scratchAddons.popupPorts[port.name] = scratchAddons.popupPorts[port.name].filter((port2) => port2 !== port);
-  });
-});
+const c=chrome.runtime.getURL("popups")
+chrome.runtime.onMessage.addListener(((s,d,n)=>{if(!s?.requestPopupInfo)return
+if(!d.url?.startsWith(c))return
+const r=()=>{const{addonId:c}=s.requestPopupInfo,d=scratchAddons.manifests.find((({addonId:s,manifest:d})=>c===s&&d.popup))
+if(d)return{popup:d.manifest.popup,settings:JSON.parse(JSON.stringify(scratchAddons.globalState.addonSettings))}}
+if(!scratchAddons.localState.allReady)return scratchAddons.localEvents.addEventListener("ready",(()=>n(r())),{once:1}),1
+n(r())})),chrome.runtime.onConnect.addListener((s=>{if(!s.sender.url?.startsWith(c))return
+const d=s.name
+scratchAddons.popupPorts[d]||(scratchAddons.popupPorts[d]=[]),scratchAddons.popupPorts[d].push(s),s.postMessage("ping"),s.onDisconnect.addListener((()=>{scratchAddons.popupPorts[s.name]=scratchAddons.popupPorts[s.name].filter((c=>c!==s))}))}))

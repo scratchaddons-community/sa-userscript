@@ -1,191 +1,31 @@
-import downloadBlob from "../../libraries/common/cs/download-blob.js";
-import LogView from "./log-view.js";
-
-export default async function createLogsTab({ debug, addon, console, msg }) {
-  const vm = addon.tab.traps.vm;
-
-  const tab = debug.createHeaderTab({
-    text: msg("tab-logs"),
-    icon: addon.self.dir + "/icons/logs.svg",
-  });
-
-  const logView = new LogView();
-  logView.placeholderElement.textContent = msg("no-logs");
-
-  const getInputOfBlock = (targetId, blockId) => {
-    const target = vm.runtime.getTargetById(targetId);
-    if (!target) {
-      return null;
-    }
-    const block = debug.getBlock(target, blockId);
-    if (!block) {
-      return null;
-    }
-    return Object.values(block.inputs)[0]?.block;
-  };
-
-  logView.generateRow = (row) => {
-    const root = document.createElement("div");
-    root.className = "sa-debugger-log";
-    if (row.internal) {
-      root.classList.add("sa-debugger-log-internal");
-    }
-    root.dataset.type = row.type;
-
-    const icon = document.createElement("div");
-    icon.className = "sa-debugger-log-icon";
-    if (row.type === "warn" || row.type === "error") {
-      icon.title = msg("icon-" + row.type);
-    }
-    root.appendChild(icon);
-
-    const repeats = document.createElement("div");
-    repeats.className = "sa-debugger-log-repeats";
-    repeats.style.display = "none";
-    root.appendChild(repeats);
-
-    if (row.preview && row.blockId && row.targetInfo) {
-      const originalId = row.targetInfo.originalId;
-      const inputBlock = getInputOfBlock(originalId, row.blockId);
-      if (inputBlock) {
-        const preview = debug.createBlockPreview(originalId, inputBlock);
-        if (preview) {
-          root.appendChild(preview);
-        }
-      }
-    }
-
-    const text = document.createElement("div");
-    text.className = "sa-debugger-log-text";
-    if (row.text.length === 0) {
-      text.classList.add("sa-debugger-log-text-empty");
-      text.textContent = msg("empty-string");
-    } else {
-      text.textContent = row.text;
-      text.title = row.text;
-    }
-    root.appendChild(text);
-
-    if (row.targetInfo && row.blockId) {
-      root.appendChild(debug.createBlockLink(row.targetInfo, row.blockId));
-    }
-
-    return {
-      root,
-      repeats,
-    };
-  };
-
-  logView.renderRow = (elements, row) => {
-    const { repeats } = elements;
-    if (row.count > 1) {
-      repeats.style.display = "";
-      repeats.textContent = row.count;
-    }
-  };
-
-  const exportButton = debug.createHeaderButton({
-    text: msg("export"),
-    icon: addon.self.dir + "/icons/download-white.svg",
-    description: msg("export-desc"),
-  });
-  const downloadText = (filename, text) => {
-    downloadBlob(filename, new Blob([text], { type: "text/plain" }));
-  };
-  exportButton.element.addEventListener("click", async (e) => {
-    const defaultFormat = "{sprite}: {content} ({type})";
-    const exportFormat = e.shiftKey
-      ? await addon.tab.prompt(msg("export"), msg("enter-format"), defaultFormat, { useEditorClasses: true })
-      : defaultFormat;
-    if (!exportFormat) return;
-    const file = logView.rows
-      .map(({ text, targetInfo, type, count }) =>
-        (
-          exportFormat.replace(
-            /\{(sprite|type|content)\}/g,
-            (_, match) =>
-              ({
-                sprite: targetInfo ? targetInfo.name : msg("unknown-sprite"),
-                type,
-                content: text,
-              }[match])
-          ) + "\n"
-        ).repeat(count)
-      )
-      .join("");
-    downloadText("logs.txt", file);
-  });
-
-  const trashButton = debug.createHeaderButton({
-    text: msg("clear"),
-    icon: addon.self.dir + "/icons/delete.svg",
-  });
-  trashButton.element.addEventListener("click", () => {
-    clearLogs();
-  });
-
-  const areLogsEqual = (a, b) =>
-    a.text === b.text &&
-    a.type === b.type &&
-    a.internal === b.internal &&
-    a.blockId === b.blockId &&
-    a.targetId === b.targetId;
-
-  const addLog = (text, thread, type) => {
-    const log = {
-      text,
-      type,
-      count: 1,
-      preview: true,
-    };
-    if (thread) {
-      log.blockId = thread.peekStack();
-      const targetId = thread.target.id;
-      log.targetId = targetId;
-      log.targetInfo = debug.getTargetInfoById(targetId);
-    }
-    if (type === "internal") {
-      log.internal = true;
-      log.preview = false;
-      log.type = "log";
-    }
-    if (type === "internal-warn") {
-      log.internal = true;
-      log.type = "warn";
-    }
-
-    const previousLog = logView.rows[logView.rows.length - 1];
-    if (previousLog && areLogsEqual(log, previousLog)) {
-      previousLog.count++;
-      logView.queueUpdateContent();
-    } else {
-      logView.append(log);
-    }
-
-    if (!logView.visible && !log.internal) {
-      debug.setHasUnreadMessage(true);
-    }
-  };
-
-  const clearLogs = () => {
-    logView.clear();
-  };
-
-  const show = () => {
-    logView.show();
-    debug.setHasUnreadMessage(false);
-  };
-  const hide = () => {
-    logView.hide();
-  };
-
-  return {
-    tab,
-    content: logView.outerElement,
-    buttons: [exportButton, trashButton],
-    show,
-    hide,
-    addLog,
-    clearLogs,
-  };
-}
+import t from"../../libraries/common/cs/download-blob.js"
+import e from"./log-view.js"
+export default async function o({debug:o,addon:n,msg:s}){const r=n.tab.traps.vm,c=o.createHeaderTab({text:s("tab-logs"),icon:n.self.dir+"/icons/logs.svg"}),i=new e
+i.placeholderElement.textContent=s("no-logs"),i.generateRow=t=>{const e=document.createElement("div")
+e.className="sa-debugger-log",t.internal&&e.classList.add("sa-debugger-log-internal"),e.dataset.type=t.type
+const n=document.createElement("div")
+n.className="sa-debugger-log-icon","warn"!==t.type&&"error"!==t.type||(n.title=s("icon-"+t.type)),e.appendChild(n)
+const c=document.createElement("div")
+if(c.className="sa-debugger-log-repeats",c.style.display="none",e.appendChild(c),t.preview&&t.blockId&&t.targetInfo){const n=t.targetInfo.originalId,s=((t,e)=>{const n=r.runtime.getTargetById(t)
+if(!n)return null
+const s=o.getBlock(n,e)
+return s?Object.values(s.inputs)[0]?.block:null})(n,t.blockId)
+if(s){const t=o.createBlockPreview(n,s)
+t&&e.appendChild(t)}}const i=document.createElement("div")
+return i.className="sa-debugger-log-text",0===t.text.length?(i.classList.add("sa-debugger-log-text-empty"),i.textContent=s("empty-string")):(i.textContent=t.text,i.title=t.text),e.appendChild(i),t.targetInfo&&t.blockId&&e.appendChild(o.createBlockLink(t.targetInfo,t.blockId)),{root:e,repeats:c}},i.renderRow=(t,e)=>{const{repeats:o}=t
+e.count>1&&(o.style.display="",o.textContent=e.count)}
+const a=o.createHeaderButton({text:s("export"),icon:n.self.dir+"/icons/download-white.svg",description:s("export-desc")})
+a.element.addEventListener("click",(async e=>{const o="{sprite}: {content} ({type})",r=e.shiftKey?await n.tab.prompt(s("export"),s("enter-format"),o,{useEditorClasses:1}):o
+if(!r)return
+const c=i.rows.map((({text:t,targetInfo:e,type:o,count:n})=>(r.replace(/\{(sprite|type|content)\}/g,((n,r)=>({sprite:e?e.name:s("unknown-sprite"),type:o,content:t}[r])))+"\n").repeat(n))).join("")
+t("logs.txt",new Blob([c],{type:"text/plain"}))}))
+const g=o.createHeaderButton({text:s("clear"),icon:n.self.dir+"/icons/delete.svg"})
+g.element.addEventListener("click",(()=>{l()}))
+const l=()=>{i.clear()}
+return{tab:c,content:i.outerElement,buttons:[a,g],show(){i.show(),o.setHasUnreadMessage(0)},hide(){i.hide()},addLog(t,e,n){const s={text:t,type:n,count:1,preview:1}
+if(e){s.blockId=e.peekStack()
+const t=e.target.id
+s.targetId=t,s.targetInfo=o.getTargetInfoById(t)}"internal"===n&&(s.internal=1,s.preview=0,s.type="log"),"internal-warn"===n&&(s.internal=1,s.type="warn")
+const r=i.rows[i.rows.length-1]
+var c,a
+r&&(c=s).text===(a=r).text&&c.type===a.type&&c.internal===a.internal&&c.blockId===a.blockId&&c.targetId===a.targetId?(r.count++,i.queueUpdateContent()):i.append(s),i.visible||s.internal||o.setHasUnreadMessage(1)},clearLogs:l}}

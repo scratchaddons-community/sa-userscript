@@ -1,7 +1,2 @@
-const cssNanoConfig = { preset: ["default", { mergeIdents: true, svgo: false }] };
-
-module.exports = {
-  cssNanoConfig,
-  map: false,
-  plugins: [require("cssnano")(cssNanoConfig), require("autoprefixer")({ grid: "autoplace" })],
-};
+const e={preset:["default",{mergeIdents:1,svgo:0}]}
+module.exports={cssNanoConfig:e,map:0,plugins:[require("cssnano")(e),require("autoprefixer")({grid:"autoplace"})]}

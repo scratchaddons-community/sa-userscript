@@ -1,39 +1,6 @@
-export default async function ({ addon, global, console, msg }) {
-  let { redux } = addon.tab;
-
-  await redux.waitForState((state) => state.preview.status.project === "FETCHED", {
-    actions: ["SET_PROJECT_INFO"],
-  });
-
-  let data = redux.state.preview.projectInfo;
-
-  if (!data.history) return;
-
-  while (true) {
-    const element = await addon.tab.waitForElement(".share-date", {
-      markAsSeen: true,
-      reduxEvents: ["scratch-gui/mode/SET_PLAYER", "fontsLoaded/SET_FONTS_LOADED", "scratch-gui/locales/SELECT_LOCALE"],
-      reduxCondition: (state) => state.scratchGui.mode.isPlayerOnly,
-    });
-
-    // Using this instead of scratchAddons.l10n.locales
-    // to avoid confusion between DD/MM/YYYY and MM/DD/YYYY.
-    // This will use AM/PM for all English users, even en-GB
-    const dateFormatterWithMonthName = new Intl.DateTimeFormat(msg.locale, {
-      timeStyle: "short",
-      dateStyle: "medium",
-    });
-    let dateMod = data.history.modified ? dateFormatterWithMonthName.format(new Date(data.history.modified)) : "?";
-    let dateShared = data.history.shared ? dateFormatterWithMonthName.format(new Date(data.history.shared)) : "?";
-    let dataTitle = `${msg("shared", { date: dateShared })}
-${msg("modified", { date: dateMod })}`;
-    element.setAttribute("title", dataTitle);
-
-    addon.self.addEventListener("disabled", () => {
-      element.removeAttribute("title");
-    });
-    addon.self.addEventListener("reenabled", () => {
-      element.setAttribute("title", dataTitle);
-    });
-  }
-}
+export default async function({addon:e,msg:t}){let{redux:a}=e.tab
+await a.waitForState((e=>"FETCHED"===e.preview.status.project),{actions:["SET_PROJECT_INFO"]})
+let d=a.state.preview.projectInfo
+if(d.history)for(;;){const a=await e.tab.waitForElement(".share-date",{markAsSeen:1,reduxEvents:["scratch-gui/mode/SET_PLAYER","fontsLoaded/SET_FONTS_LOADED","scratch-gui/locales/SELECT_LOCALE"],reduxCondition(e){return e.scratchGui.mode.isPlayerOnly}}),n=new Intl.DateTimeFormat(t.locale,{timeStyle:"short",dateStyle:"medium"})
+let i=d.history.modified?n.format(new Date(d.history.modified)):"?",l=`${t("shared",{date:d.history.shared?n.format(new Date(d.history.shared)):"?"})}\n${t("modified",{date:i})}`
+a.setAttribute("title",l),e.self.addEventListener("disabled",(()=>{a.removeAttribute("title")})),e.self.addEventListener("reenabled",(()=>{a.setAttribute("title",l)}))}}

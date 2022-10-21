@@ -1,16 +1,1 @@
-.activity-ul {
-  overflow-y: scroll !important;
-  height: 300px;
-}
-
-.load-more-wh {
-  outline: none;
-  margin: 0 auto;
-  width: 90%;
-  padding: 0.4em 1.25em;
-}
-
-.load-more-wh-container {
-  display: block !important;
-  text-align: center;
-}
+.activity-ul{height:300px;overflow-y:scroll!important}.load-more-wh{margin:0 auto;outline:none;padding:.4em 1.25em;width:90%}.load-more-wh-container{display:block!important;text-align:center}

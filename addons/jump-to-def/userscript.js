@@ -1,48 +1,9 @@
-import Utils from "../find-bar/blockly/Utils.js";
-export default async function ({ addon, msg, global, console }) {
-  if (!addon.self._isDevtoolsExtension && window.initGUI) {
-    console.log("Extension running, stopping addon");
-    window._devtoolsAddonEnabled = true;
-    window.dispatchEvent(new CustomEvent("scratchAddonsDevtoolsAddonStopped"));
-    return;
-  }
-
-  const utils = new Utils(addon);
-
-  const Blockly = await addon.tab.traps.getBlockly();
-
-  Object.defineProperty(Blockly.Gesture.prototype, "jumpToDef", {
-    get() {
-      return !addon.self.disabled;
-    },
-  });
-
-  const _doBlockClick_ = Blockly.Gesture.prototype.doBlockClick_;
-  Blockly.Gesture.prototype.doBlockClick_ = function () {
-    if (!addon.self.disabled && (this.mostRecentEvent_.button === 1 || this.mostRecentEvent_.shiftKey)) {
-      // Wheel button...
-      // Intercept clicks to allow jump to...?
-      let block = this.startBlock_;
-      for (; block; block = block.getSurroundParent()) {
-        if (block.type === "procedures_call") {
-          let findProcCode = block.getProcCode();
-
-          let topBlocks = utils.getWorkspace().getTopBlocks();
-          for (const root of topBlocks) {
-            if (root.type === "procedures_definition") {
-              let label = root.getChildren()[0];
-              let procCode = label.getProcCode();
-              if (procCode && procCode === findProcCode) {
-                // Found... navigate to it!
-                utils.scrollBlockIntoView(root);
-                return;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    _doBlockClick_.call(this);
-  };
-}
+import o from"../find-bar/blockly/Utils.js"
+export default async function({addon:n,console:t}){if(!n.self._isDevtoolsExtension&&window.initGUI)return t.log("Extension running, stopping addon"),window._devtoolsAddonEnabled=1,void window.dispatchEvent(new CustomEvent("scratchAddonsDevtoolsAddonStopped"))
+const i=new o(n),Blockly=await n.tab.traps.getBlockly()
+Object.defineProperty(Blockly.Gesture.prototype,"jumpToDef",{get:()=>!n.self.disabled})
+const e=Blockly.Gesture.prototype.doBlockClick_
+Blockly.Gesture.prototype.doBlockClick_=function(){if(!n.self.disabled&&(1===this.mostRecentEvent_.button||this.mostRecentEvent_.shiftKey)){let o=this.startBlock_
+for(;o;o=o.getSurroundParent())if("procedures_call"===o.type){let n=o.getProcCode(),t=i.getWorkspace().getTopBlocks()
+for(const o of t)if("procedures_definition"===o.type){let t=o.getChildren()[0].getProcCode()
+if(t&&t===n)return void i.scrollBlockIntoView(o)}}}e.call(this)}}

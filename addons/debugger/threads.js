@@ -1,233 +1,49 @@
-import { onPauseChanged, isPaused, singleStep, onSingleStep, getRunningThread } from "./module.js";
-import LogView from "./log-view.js";
-import Highlighter from "../editor-stepping/highlighter.js";
-
-const concatInPlace = (copyInto, copyFrom) => {
-  for (const i of copyFrom) {
-    copyInto.push(i);
-  }
-};
-
-export default async function createThreadsTab({ debug, addon, console, msg }) {
-  const vm = addon.tab.traps.vm;
-
-  const tab = debug.createHeaderTab({
-    text: msg("tab-threads"),
-    icon: addon.self.dir + "/icons/threads.svg",
-  });
-
-  const logView = new LogView();
-  logView.canAutoScrollToEnd = false;
-  logView.outerElement.classList.add("sa-debugger-threads");
-  logView.placeholderElement.textContent = msg("no-threads-running");
-
-  const highlighter = new Highlighter(10, "#ff0000");
-
-  logView.generateRow = (row) => {
-    const root = document.createElement("div");
-    root.className = "sa-debugger-log";
-
-    const isHeader = row.type === "thread-header";
-    const indenter = document.createElement("div");
-    indenter.className = "sa-debugger-thread-indent";
-    indenter.style.setProperty("--level", isHeader ? row.depth : row.depth + 1);
-    root.appendChild(indenter);
-
-    if (isHeader) {
-      root.classList.add("sa-debugger-thread-title");
-
-      if (row.depth > 0) {
-        const icon = document.createElement("div");
-        icon.className = "sa-debugger-log-icon";
-        root.appendChild(icon);
-      }
-
-      const name = document.createElement("div");
-      name.textContent = row.targetName;
-      name.className = "sa-debugger-thread-target-name";
-      root.appendChild(name);
-
-      const id = document.createElement("div");
-      id.className = "sa-debugger-thread-id";
-      id.textContent = msg("thread", {
-        id: row.id,
-      });
-      root.appendChild(id);
-    }
-
-    if (row.type === "thread-stack") {
-      const preview = debug.createBlockPreview(row.targetId, row.blockId);
-      if (preview) {
-        root.appendChild(preview);
-      }
-    }
-
-    if (row.targetId && row.blockId) {
-      root.appendChild(debug.createBlockLink(debug.getTargetInfoById(row.targetId), row.blockId));
-    }
-
-    return {
-      root,
-    };
-  };
-
-  logView.renderRow = (elements, row) => {
-    const { root } = elements;
-    root.classList.toggle("sa-debugger-thread-running", !!row.running);
-  };
-
-  let threadInfoCache = new WeakMap();
-
-  const allThreadIds = new WeakMap();
-  let nextThreadId = 1;
-  const getThreadId = (thread) => {
-    if (!allThreadIds.has(thread)) {
-      allThreadIds.set(thread, nextThreadId++);
-    }
-    return allThreadIds.get(thread);
-  };
-
-  const updateContent = () => {
-    if (!logView.visible) {
-      return;
-    }
-
-    const newRows = [];
-    const threads = vm.runtime.threads;
-    const visitedThreads = new Set();
-
-    const createThreadInfo = (thread, depth) => {
-      if (visitedThreads.has(thread)) {
-        return [];
-      }
-      visitedThreads.add(thread);
-
-      const id = getThreadId(thread);
-      const target = thread.target;
-
-      if (!threadInfoCache.has(thread)) {
-        threadInfoCache.set(thread, {
-          headerItem: {
-            type: "thread-header",
-            depth,
-            targetName: target.getName(),
-            id,
-          },
-          blockCache: new WeakMap(),
-        });
-      }
-      const cacheInfo = threadInfoCache.get(thread);
-
-      const runningThread = getRunningThread();
-      const createBlockInfo = (block, stackFrameIdx) => {
-        const blockId = block.id;
-        if (!block) return;
-
-        const stackFrame = thread.stackFrames[stackFrameIdx];
-
-        if (!cacheInfo.blockCache.has(block)) {
-          cacheInfo.blockCache.set(block, {});
-        }
-
-        const blockInfoMap = cacheInfo.blockCache.get(block);
-        let blockInfo = blockInfoMap[stackFrameIdx];
-
-        if (!blockInfo) {
-          blockInfo = blockInfoMap[stackFrameIdx] = {
-            type: "thread-stack",
-            depth,
-            targetId: target.id,
-            blockId,
-          };
-        }
-
-        blockInfo.running =
-          thread === runningThread &&
-          blockId === runningThread.peekStack() &&
-          stackFrameIdx === runningThread.stackFrames.length - 1;
-
-        const result = [blockInfo];
-        if (stackFrame && stackFrame.executionContext && stackFrame.executionContext.startedThreads) {
-          for (const thread of stackFrame.executionContext.startedThreads) {
-            concatInPlace(result, createThreadInfo(thread, depth + 1));
-          }
-        }
-
-        return result;
-      };
-
-      const topBlock = debug.getBlock(thread.target, thread.topBlock);
-      const result = [cacheInfo.headerItem];
-      if (topBlock) {
-        concatInPlace(result, createBlockInfo(topBlock, 0));
-        for (let i = 0; i < thread.stack.length; i++) {
-          const blockId = thread.stack[i];
-          if (blockId === topBlock.id) continue;
-          const block = debug.getBlock(thread.target, blockId);
-          if (block) {
-            concatInPlace(result, createBlockInfo(block, i));
-          }
-        }
-      }
-
-      return result;
-    };
-
-    for (let i = 0; i < threads.length; i++) {
-      const thread = threads[i];
-      // Do not display threads used to update variable and list monitors.
-      if (thread.updateMonitor) {
-        continue;
-      }
-      concatInPlace(newRows, createThreadInfo(thread, 0));
-    }
-
-    logView.rows = newRows;
-    logView.queueUpdateContent();
-  };
-
-  debug.addAfterStepCallback(() => {
-    updateContent();
-
-    const runningThread = getRunningThread();
-    if (runningThread) {
-      highlighter.setGlowingThreads([runningThread]);
-    } else {
-      highlighter.setGlowingThreads([]);
-    }
-  });
-
-  const stepButton = debug.createHeaderButton({
-    text: msg("step"),
-    icon: addon.self.dir + "/icons/step.svg",
-    description: msg("step-desc"),
-  });
-  stepButton.element.addEventListener("click", () => {
-    singleStep();
-  });
-
-  const handlePauseChanged = (paused) => {
-    stepButton.element.style.display = paused ? "" : "none";
-    updateContent();
-  };
-  handlePauseChanged(isPaused());
-  onPauseChanged(handlePauseChanged);
-
-  onSingleStep(updateContent);
-
-  const show = () => {
-    logView.show();
-    updateContent();
-  };
-  const hide = () => {
-    logView.hide();
-  };
-
-  return {
-    tab,
-    content: logView.outerElement,
-    buttons: [stepButton],
-    show,
-    hide,
-  };
-}
+import{onPauseChanged as t,isPaused as e,singleStep as n,onSingleStep as o,getRunningThread as r}from"./module.js"
+import s from"./log-view.js"
+import d from"../editor-stepping/highlighter.js"
+const c=(t,e)=>{for(const n of e)t.push(n)}
+export default async function a({debug:a,addon:i,msg:g}){const u=i.tab.traps.vm,h=a.createHeaderTab({text:g("tab-threads"),icon:i.self.dir+"/icons/threads.svg"}),f=new s
+f.canAutoScrollToEnd=0,f.outerElement.classList.add("sa-debugger-threads"),f.placeholderElement.textContent=g("no-threads-running")
+const l=new d(10,"#ff0000")
+f.generateRow=t=>{const e=document.createElement("div")
+e.className="sa-debugger-log"
+const n="thread-header"===t.type,o=document.createElement("div")
+if(o.className="sa-debugger-thread-indent",o.style.setProperty("--level",n?t.depth:t.depth+1),e.appendChild(o),n){if(e.classList.add("sa-debugger-thread-title"),t.depth>0){const t=document.createElement("div")
+t.className="sa-debugger-log-icon",e.appendChild(t)}const n=document.createElement("div")
+n.textContent=t.targetName,n.className="sa-debugger-thread-target-name",e.appendChild(n)
+const o=document.createElement("div")
+o.className="sa-debugger-thread-id",o.textContent=g("thread",{id:t.id}),e.appendChild(o)}if("thread-stack"===t.type){const n=a.createBlockPreview(t.targetId,t.blockId)
+n&&e.appendChild(n)}return t.targetId&&t.blockId&&e.appendChild(a.createBlockLink(a.getTargetInfoById(t.targetId),t.blockId)),{root:e}},f.renderRow=(t,e)=>{const{root:n}=t
+n.classList.toggle("sa-debugger-thread-running",!!e.running)}
+let p=new WeakMap
+const m=new WeakMap
+let b=1
+const v=()=>{if(!f.visible)return
+const t=[],e=u.runtime.threads,n=new Set,o=(t,e)=>{if(n.has(t))return[]
+n.add(t)
+const s=(t=>(m.has(t)||m.set(t,b++),m.get(t)))(t),d=t.target
+p.has(t)||p.set(t,{headerItem:{type:"thread-header",depth:e,targetName:d.getName(),id:s},blockCache:new WeakMap})
+const i=p.get(t),g=r(),u=(n,r)=>{const s=n.id
+if(!n)return
+const a=t.stackFrames[r]
+i.blockCache.has(n)||i.blockCache.set(n,{})
+const u=i.blockCache.get(n)
+let h=u[r]
+h||(h=u[r]={type:"thread-stack",depth:e,targetId:d.id,blockId:s}),h.running=t===g&&s===g.peekStack()&&r===g.stackFrames.length-1
+const f=[h]
+if(a&&a.executionContext&&a.executionContext.startedThreads)for(const t of a.executionContext.startedThreads)c(f,o(t,e+1))
+return f},h=a.getBlock(t.target,t.topBlock),f=[i.headerItem]
+if(h){c(f,u(h,0))
+for(let e=0;t.stack.length>e;e++){const n=t.stack[e]
+if(n===h.id)continue
+const o=a.getBlock(t.target,n)
+o&&c(f,u(o,e))}}return f}
+for(let n=0;e.length>n;n++){const r=e[n]
+r.updateMonitor||c(t,o(r,0))}f.rows=t,f.queueUpdateContent()}
+a.addAfterStepCallback((()=>{v()
+const t=r()
+l.setGlowingThreads(t?[t]:[])}))
+const k=a.createHeaderButton({text:g("step"),icon:i.self.dir+"/icons/step.svg",description:g("step-desc")})
+k.element.addEventListener("click",(()=>{n()}))
+const w=t=>{k.element.style.display=t?"":"none",v()}
+return w(e()),t(w),o(v),{tab:h,content:f.outerElement,buttons:[k],show(){f.show(),v()},hide(){f.hide()}}}

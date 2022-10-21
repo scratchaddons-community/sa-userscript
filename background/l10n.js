@@ -1,30 +1,7 @@
-import chrome from "../libraries/common/chrome.js";
-import LocalizationProvider from "../libraries/common/cs/l10n.js";
-
-export default class BackgroundLocalizationProvider extends LocalizationProvider {
-  constructor() {
-    super();
-    this.loaded = [];
-  }
-
-  async load(addonIds) {
-    const ui = chrome.i18n.getUILanguage().toLowerCase();
-    const locales = [ui];
-    if (ui.includes("-")) locales.push(ui.split("-")[0]);
-    if (ui.startsWith("pt") && ui !== "pt-br") locales.push("pt-br");
-    if (!locales.includes("en")) locales.push("en");
-
-    for (const locale of locales) {
-      const url = chrome.runtime.getURL(`/addons-l10n/${locale}.json`);
-      try {
-        const resp = await fetch(url);
-        const messages = await resp.json();
-        this.messages = Object.assign(messages, this.messages);
-      } catch (_) {
-        continue;
-      }
-    }
-    this._reconfigure();
-    this.loaded = this.loaded.concat(addonIds);
-  }
-}
+import chrome from"../libraries/common/chrome.js"
+import t from"../libraries/common/cs/l10n.js"
+export default class s extends t{constructor(){super(),this.loaded=[]}async load(t){const s=chrome.i18n.getUILanguage().toLowerCase(),o=[s]
+s.includes("-")&&o.push(s.split("-")[0]),s.startsWith("pt")&&"pt-br"!==s&&o.push("pt-br"),o.includes("en")||o.push("en")
+for(const t of o){const s=chrome.runtime.getURL(`/addons-l10n/${t}.json`)
+try{const t=await fetch(s),o=await t.json()
+this.messages=Object.assign(o,this.messages)}catch(t){continue}}this._reconfigure(),this.loaded=this.loaded.concat(t)}}

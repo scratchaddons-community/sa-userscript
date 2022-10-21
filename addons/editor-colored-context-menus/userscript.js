@@ -1,39 +1,11 @@
-import { removeAlpha } from "../../libraries/common/cs/text-color.esm.js";
-
-export default async function ({ addon, global, console }) {
-  const ScratchBlocks = await addon.tab.traps.getBlockly();
-
-  const applyContextMenuColor = (block) => {
-    const widgetDiv = ScratchBlocks.WidgetDiv.DIV;
-    if (!widgetDiv) {
-      return;
-    }
-    const background = block.svgPath_;
-    if (!background) {
-      return;
-    }
-    const fill = removeAlpha(background.getAttribute("fill"));
-    const border = background.getAttribute("stroke") || "#0003";
-    widgetDiv.classList.add("sa-contextmenu-colored");
-    widgetDiv.style.setProperty("--sa-contextmenu-bg", fill);
-    widgetDiv.style.setProperty("--sa-contextmenu-border", border);
-  };
-
-  const originalHandleRightClick = ScratchBlocks.Gesture.prototype.handleRightClick;
-  ScratchBlocks.Gesture.prototype.handleRightClick = function (...args) {
-    const block = this.targetBlock_;
-    const ret = originalHandleRightClick.call(this, ...args);
-    if (block) {
-      applyContextMenuColor(block);
-    }
-    return ret;
-  };
-
-  const originalHide = ScratchBlocks.WidgetDiv.hide;
-  ScratchBlocks.WidgetDiv.hide = function (...args) {
-    if (ScratchBlocks.WidgetDiv.DIV) {
-      ScratchBlocks.WidgetDiv.DIV.classList.remove("sa-contextmenu-colored");
-    }
-    return originalHide.call(this, ...args);
-  };
-}
+import{removeAlpha as t}from"../../libraries/common/cs/text-color.esm.js"
+export default async function({addon:n}){const o=await n.tab.traps.getBlockly(),e=o.Gesture.prototype.handleRightClick
+o.Gesture.prototype.handleRightClick=function(...n){const c=this.targetBlock_,r=e.call(this,...n)
+return c&&(n=>{const e=o.WidgetDiv.DIV
+if(!e)return
+const c=n.svgPath_
+if(!c)return
+const r=t(c.getAttribute("fill")),s=c.getAttribute("stroke")||"#0003"
+e.classList.add("sa-contextmenu-colored"),e.style.setProperty("--sa-contextmenu-bg",r),e.style.setProperty("--sa-contextmenu-border",s)})(c),r}
+const c=o.WidgetDiv.hide
+o.WidgetDiv.hide=function(...t){return o.WidgetDiv.DIV&&o.WidgetDiv.DIV.classList.remove("sa-contextmenu-colored"),c.call(this,...t)}}

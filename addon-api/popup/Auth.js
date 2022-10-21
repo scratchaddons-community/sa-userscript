@@ -1,14 +1,2 @@
-import FetchableAuth from "../common/FetchableAuth.js";
-
-/**
- * Authentication related utilities.
- * @extends FetchableAuth
- */
-export default class Auth extends FetchableAuth {
-  /**
-   * @private
-   */
-  _getCookie(name) {
-    return scratchAddons.cookies.get(name) || null;
-  }
-}
+import e from"../common/FetchableAuth.js"
+export default class t extends e{_getCookie(e){return scratchAddons.cookies.get(e)||null}}

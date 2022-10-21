@@ -1,71 +1,9 @@
-export default async function ({ addon, global, console }) {
-  var posContainerContainer = document.createElement("div");
-  addon.tab.displayNoneWhileDisabled(posContainerContainer, { display: "flex" });
-
-  var posContainer = document.createElement("div");
-  var pos = document.createElement("span");
-
-  posContainerContainer.className = "pos-container-container";
-  posContainer.className = "pos-container";
-
-  posContainerContainer.appendChild(posContainer);
-  posContainer.appendChild(pos);
-
-  const vm = addon.tab.traps.vm;
-
-  vm.runtime.ioDevices.mouse.__scratchX = vm.runtime.ioDevices.mouse._scratchX;
-  vm.runtime.ioDevices.mouse.__scratchY = vm.runtime.ioDevices.mouse._scratchY;
-
-  var x = vm.runtime.ioDevices.mouse.__scratchX ? vm.runtime.ioDevices.mouse.__scratchX : 0;
-  var y = vm.runtime.ioDevices.mouse.__scratchY ? vm.runtime.ioDevices.mouse.__scratchY : 0;
-
-  const showUpdatedValue = () => pos.setAttribute("data-content", `${x}, ${y}`);
-
-  Object.defineProperty(vm.runtime.ioDevices.mouse, "_scratchX", {
-    get: function () {
-      return this.__scratchX;
-    },
-    set: function (setx) {
-      x = setx;
-      showUpdatedValue();
-      this.__scratchX = setx;
-    },
-  });
-
-  Object.defineProperty(vm.runtime.ioDevices.mouse, "_scratchY", {
-    get: function () {
-      return this.__scratchY;
-    },
-    set: function (sety) {
-      y = sety;
-      showUpdatedValue();
-      this.__scratchY = sety;
-    },
-  });
-
-  if (addon.tab.redux.state && addon.tab.redux.state.scratchGui.stageSize.stageSize === "small") {
-    document.body.classList.add("sa-mouse-pos-small");
-  }
-  document.addEventListener(
-    "click",
-    (e) => {
-      if (e.target.closest("[class*='stage-header_stage-button-first']")) {
-        document.body.classList.add("sa-mouse-pos-small");
-      } else if (e.target.closest("[class*='stage-header_stage-button-last']")) {
-        document.body.classList.remove("sa-mouse-pos-small");
-      }
-    },
-    { capture: true }
-  );
-
-  while (true) {
-    await addon.tab.waitForElement('[class*="controls_controls-container"]', {
-      markAsSeen: true,
-      reduxEvents: ["scratch-gui/mode/SET_PLAYER", "fontsLoaded/SET_FONTS_LOADED", "scratch-gui/locales/SELECT_LOCALE"],
-    });
-
-    if (addon.tab.editorMode === "editor") {
-      addon.tab.appendToSharedSpace({ space: "afterStopButton", element: posContainerContainer, order: 1 });
-    }
-  }
-}
+export default async function({addon:t}){var e=document.createElement("div")
+t.tab.displayNoneWhileDisabled(e,{display:"flex"})
+var s=document.createElement("div"),a=document.createElement("span")
+e.className="pos-container-container",s.className="pos-container",e.appendChild(s),s.appendChild(a)
+const o=t.tab.traps.vm
+o.runtime.ioDevices.mouse.__scratchX=o.runtime.ioDevices.mouse._scratchX,o.runtime.ioDevices.mouse.__scratchY=o.runtime.ioDevices.mouse._scratchY
+var c=o.runtime.ioDevices.mouse.__scratchX?o.runtime.ioDevices.mouse.__scratchX:0,n=o.runtime.ioDevices.mouse.__scratchY?o.runtime.ioDevices.mouse.__scratchY:0
+const r=()=>a.setAttribute("data-content",`${c}, ${n}`)
+for(Object.defineProperty(o.runtime.ioDevices.mouse,"_scratchX",{get(){return this.__scratchX},set(t){c=t,r(),this.__scratchX=t}}),Object.defineProperty(o.runtime.ioDevices.mouse,"_scratchY",{get(){return this.__scratchY},set(t){n=t,r(),this.__scratchY=t}}),t.tab.redux.state&&"small"===t.tab.redux.state.scratchGui.stageSize.stageSize&&document.body.classList.add("sa-mouse-pos-small"),document.addEventListener("click",(t=>{t.target.closest("[class*='stage-header_stage-button-first']")?document.body.classList.add("sa-mouse-pos-small"):t.target.closest("[class*='stage-header_stage-button-last']")&&document.body.classList.remove("sa-mouse-pos-small")}),{capture:1});;)await t.tab.waitForElement('[class*="controls_controls-container"]',{markAsSeen:1,reduxEvents:["scratch-gui/mode/SET_PLAYER","fontsLoaded/SET_FONTS_LOADED","scratch-gui/locales/SELECT_LOCALE"]}),"editor"===t.tab.editorMode&&t.tab.appendToSharedSpace({space:"afterStopButton",element:e,order:1})}

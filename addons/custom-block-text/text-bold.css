@@ -1,4 +1,1 @@
-.blocklyText,
-.blocklyHtmlInput {
-  font-weight: bold;
-}
+.blocklyHtmlInput,.blocklyText{font-weight:700}

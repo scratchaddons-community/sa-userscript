@@ -1,34 +1,3 @@
-export default class BlockItem {
-  constructor(cls, procCode, labelID, y) {
-    this.cls = cls;
-    this.procCode = procCode;
-    this.labelID = labelID;
-    this.y = y;
-    this.lower = procCode.toLowerCase();
-    /**
-     * An Array of block ids
-     * @type {Array.<string>}
-     */
-    this.clones = null;
-    this.eventName = null;
-  }
-
-  /**
-   * True if the blockID matches a black represented by this BlockItem
-   * @param id
-   * @returns {boolean}
-   */
-  matchesID(id) {
-    if (this.labelID === id) {
-      return true;
-    }
-    if (this.clones) {
-      for (const cloneID of this.clones) {
-        if (cloneID === id) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-}
+export default class t{constructor(t,s,i,h){this.cls=t,this.procCode=s,this.labelID=i,this.y=h,this.lower=s.toLowerCase(),this.clones=null,this.eventName=null}matchesID(t){if(this.labelID===t)return 1
+if(this.clones)for(const s of this.clones)if(s===t)return 1
+return 0}}

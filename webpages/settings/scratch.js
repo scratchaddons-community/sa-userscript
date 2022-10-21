@@ -1,33 +1,9 @@
-import "../../background/declare-scratchaddons-object.js";
-import "../../background/load-addon-manifests.js";
-import "../../background/get-addon-settings.js";
-import "../set-lang.js";
-import "../../background/handle-settings-page.js";
-
-const iframe = document.querySelector("iframe");
-
-window.addEventListener("message", async (event) => {
-  if (![iframe.contentWindow, window].includes(event.source) || event.data.reqId || !event.data?.message) return;
-
-  function sendResponse(res = {}) {
-    return event.source.postMessage({ res, reqId: `${event.data.id}r` }, event.origin);
-  }
-
-  const data = event.data.message;
-
-  if (data.title) {
-    document.title = data.title;
-
-    return sendResponse();
-  }
-
-  if (data === "waitForState") {
-    return scratchAddons.localState.allReady
-      ? sendResponse()
-      : scratchAddons.localEvents.addEventListener("ready", () => sendResponse());
-  }
-
-  if (data === "areListenersReady") return event.source.postMessage("listeners ready", event.origin);
-});
-
-iframe.contentWindow.postMessage("listeners ready", "*");
+import"../../background/declare-scratchaddons-object.js"
+import"../../background/load-addon-manifests.js"
+import"../../background/get-addon-settings.js"
+import"../set-lang.js"
+import"../../background/handle-settings-page.js"
+const e=document.querySelector("iframe")
+window.addEventListener("message",(async r=>{function s(e={}){return r.source.postMessage({res:e,reqId:`${r.data.id}r`},r.origin)}if(![e.contentWindow,window].includes(r.source)||r.data.reqId||!r.data?.message)return
+const t=r.data.message
+return t.title?(document.title=t.title,s()):"waitForState"===t?scratchAddons.localState.allReady?s():scratchAddons.localEvents.addEventListener("ready",(()=>s())):"areListenersReady"===t?r.source.postMessage("listeners ready",r.origin):void 0})),e.contentWindow.postMessage("listeners ready","*")

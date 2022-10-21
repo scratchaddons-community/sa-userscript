@@ -1,10 +1,1 @@
-.sa-search-profile-invalid {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sa-search-profile-invalid li:hover,
-.sa-search-profile-invalid li:active {
-  background-color: transparent;
-  border: none;
-}
+.sa-search-profile-invalid{cursor:default;opacity:.5}.sa-search-profile-invalid li:active,.sa-search-profile-invalid li:hover{background-color:initial;border:none}

@@ -1,103 +1,17 @@
-let enableCherryPicking = false;
-let invertCherryPicking = false;
-export function setCherryPicking(newEnabled, newInverted) {
-  enableCherryPicking = newEnabled;
-  invertCherryPicking = newInverted;
-}
-
-let enableDuplication = false;
-export function setDuplication(newEnabled) {
-  enableDuplication = newEnabled;
-}
-
-// mostRecentEvent_ is sometimes a fake event, so we can't rely on reading its properties.
-let ctrlOrMetaPressed = false;
-let altPressed = false;
-document.addEventListener(
-  "mousedown",
-  function (e) {
-    ctrlOrMetaPressed = e.ctrlKey || e.metaKey;
-    altPressed = e.altKey;
-  },
-  {
-    capture: true,
-  }
-);
-
-let loaded = false;
-
-export async function load(addon) {
-  if (loaded) {
-    return;
-  }
-  loaded = true;
-
-  const ScratchBlocks = await addon.tab.traps.getBlockly();
-
-  // https://github.com/LLK/scratch-blocks/blob/912b8cc728bea8fd91af85078c64fcdbfe21c87a/core/gesture.js#L454
-  const originalStartDraggingBlock = ScratchBlocks.Gesture.prototype.startDraggingBlock_;
-  ScratchBlocks.Gesture.prototype.startDraggingBlock_ = function (...args) {
-    let block = this.targetBlock_;
-
-    // Scratch uses fake mouse events to implement right click > duplicate
-    const isRightClickDuplicate = !(this.mostRecentEvent_ instanceof MouseEvent);
-
-    const isDuplicating =
-      enableDuplication &&
-      altPressed &&
-      !isRightClickDuplicate &&
-      !this.flyout_ &&
-      !this.shouldDuplicateOnDrag_ &&
-      this.targetBlock_.type !== "procedures_definition";
-
-    const isCherryPickingInverted = invertCherryPicking && !isRightClickDuplicate && block.getParent();
-    const isCherryPicking = isDuplicating
-      ? ctrlOrMetaPressed
-      : enableCherryPicking && ctrlOrMetaPressed === !isCherryPickingInverted && !block.isShadow();
-
-    if (isDuplicating || isCherryPicking) {
-      if (!ScratchBlocks.Events.getGroup()) {
-        // Scratch will disable grouping on its own later.
-        ScratchBlocks.Events.setGroup(true);
-      }
-    }
-
-    if (isDuplicating) {
-      // Based on https://github.com/LLK/scratch-blocks/blob/feda366947432b9d82a4f212f43ff6d4ab6f252f/core/scratch_blocks_utils.js#L171
-      // Setting this.shouldDuplicateOnDrag_ = true does NOT work because it doesn't call changeObscuredShadowIds
-      this.startWorkspace_.setResizesEnabled(false);
-      ScratchBlocks.Events.disable();
-      let newBlock;
-      try {
-        const xmlBlock = ScratchBlocks.Xml.blockToDom(block);
-        newBlock = ScratchBlocks.Xml.domToBlock(xmlBlock, this.startWorkspace_);
-        ScratchBlocks.scratchBlocksUtils.changeObscuredShadowIds(newBlock);
-        const xy = block.getRelativeToSurfaceXY();
-        newBlock.moveBy(xy.x, xy.y);
-      } catch (e) {
-        console.error(e);
-      }
-      ScratchBlocks.Events.enable();
-
-      if (newBlock) {
-        block = newBlock;
-        this.targetBlock_ = newBlock;
-        if (ScratchBlocks.Events.isEnabled()) {
-          ScratchBlocks.Events.fire(new ScratchBlocks.Events.BlockCreate(newBlock));
-        }
-      }
-    }
-
-    if (isCherryPicking) {
-      if (isRightClickDuplicate || isDuplicating) {
-        const nextBlock = block.getNextBlock();
-        if (nextBlock) {
-          nextBlock.dispose();
-        }
-      }
-      block.unplug(true);
-    }
-
-    return originalStartDraggingBlock.call(this, ...args);
-  };
-}
+let t=0,n=0
+export function setCherryPicking(i,e){t=i,n=e}let i=0
+export function setDuplication(t){i=t}let e=0,o=0
+document.addEventListener("mousedown",(function(t){e=t.ctrlKey||t.metaKey,o=t.altKey}),{capture:1})
+let s=0
+export async function load(c){if(s)return
+s=1
+const r=await c.tab.traps.getBlockly(),u=r.Gesture.prototype.startDraggingBlock_
+r.Gesture.prototype.startDraggingBlock_=function(...s){let c=this.targetBlock_
+const f=!(this.mostRecentEvent_ instanceof MouseEvent),h=i&&o&&!f&&!this.flyout_&&!this.shouldDuplicateOnDrag_&&"procedures_definition"!==this.targetBlock_.type,l=n&&!f&&c.getParent(),a=h?e:t&&e===!l&&!c.isShadow()
+if((h||a)&&(r.Events.getGroup()||r.Events.setGroup(1)),h){let t
+this.startWorkspace_.setResizesEnabled(0),r.Events.disable()
+try{const n=r.Xml.blockToDom(c)
+t=r.Xml.domToBlock(n,this.startWorkspace_),r.scratchBlocksUtils.changeObscuredShadowIds(t)
+const i=c.getRelativeToSurfaceXY()
+t.moveBy(i.x,i.y)}catch(t){console.error(t)}r.Events.enable(),t&&(c=t,this.targetBlock_=t,r.Events.isEnabled()&&r.Events.fire(new r.Events.BlockCreate(t)))}if(a){if(f||h){const t=c.getNextBlock()
+t&&t.dispose()}c.unplug(1)}return u.call(this,...s)}}

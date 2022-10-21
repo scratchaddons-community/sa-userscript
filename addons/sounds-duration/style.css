@@ -1,6 +1,1 @@
-.sa-sound-duration {
-  margin-inline-start: auto;
-  font-size: 0.75rem;
-  font-weight: bold;
-  user-select: none;
-}
+.sa-sound-duration{font-size:.75rem;font-weight:700;margin-inline-start:auto;-webkit-user-select:none;user-select:none}

@@ -1,32 +1,5 @@
-export default async function ({ addon, global, console, msg }) {
-  while (true) {
-    const comment = await addon.tab.waitForElement("div.comment", {
-      markAsSeen: true,
-      reduxCondition: (state) => {
-        if (!state.scratchGui) return true;
-        return state.scratchGui.mode.isPlayerOnly;
-      },
-    });
-    if (comment.querySelector("form")) continue; // Comment input
-    const newElem = document.createElement("span");
-    addon.tab.displayNoneWhileDisabled(newElem);
-    newElem.className = "comment-delete sa-comment-link";
-    newElem.textContent = msg("copyLink");
-    newElem.onclick = () => {
-      let url = `${location.origin}${location.pathname}`;
-      if (url[url.length - 1] !== "/") url += "/";
-      navigator.clipboard.writeText(`${url}#${comment.id}`);
-      newElem.textContent = msg("copied");
-      newElem.style.fontWeight = "bold";
-      setTimeout(() => {
-        newElem.textContent = msg("copyLink");
-        newElem.style.fontWeight = "";
-      }, 5000);
-    };
-    const actionList = await addon.tab.waitForElement("div.action-list", {
-      markAsSeen: true,
-      elementCondition: (e) => comment.contains(e),
-    });
-    actionList.prepend(newElem);
-  }
-}
+export default async function({addon:n,msg:o}){for(;;){const t=await n.tab.waitForElement("div.comment",{markAsSeen:1,reduxCondition(n){return n.scratchGui?n.scratchGui.mode.isPlayerOnly:1}})
+if(t.querySelector("form"))continue
+const e=document.createElement("span")
+n.tab.displayNoneWhileDisabled(e),e.className="comment-delete sa-comment-link",e.textContent=o("copyLink"),e.onclick=()=>{let n=`${location.origin}${location.pathname}`
+"/"!==n[n.length-1]&&(n+="/"),navigator.clipboard.writeText(`${n}#${t.id}`),e.textContent=o("copied"),e.style.fontWeight="bold",setTimeout((()=>{e.textContent=o("copyLink"),e.style.fontWeight=""}),5e3)},(await n.tab.waitForElement("div.action-list",{markAsSeen:1,elementCondition(n){return t.contains(n)}})).prepend(e)}}

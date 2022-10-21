@@ -1,52 +1,9 @@
-export default async function ({ addon, global, console, msg }) {
-  const messages = document.createElement("a");
-  messages.href = "/messages/";
-  messages.title = msg("messages");
-  messages.className = addon.tab.scratchClass("menu-bar_menu-bar-item", "menu-bar_hoverable", {
-    others: "sa-editormessages",
-  });
-  let messageCount = document.createElement("span");
-  messageCount.classList.add("sa-editormessages-count");
-  messages.appendChild(messageCount);
-  const setMessages = async () => {
-    const msgCount = Number(await addon.account.getMsgCount());
-    messageCount.innerText = msgCount;
-    if (msgCount === 0) {
-      messageCount.setAttribute("style", `display: none;`);
-    } else {
-      messageCount.setAttribute("style", "");
-    }
-  };
-
-  let interval;
-  function createInterval() {
-    if (addon.tab.editorMode === "editor") {
-      setMessages();
-      interval = setInterval(setMessages, 5000);
-    } else {
-      addon.tab.addEventListener("urlChange", function thisFunction() {
-        if (addon.tab.editorMode === "editor") {
-          setMessages();
-          interval = setInterval(setMessages, 5000);
-          addon.tab.removeEventListener("urlChange", thisFunction);
-        }
-      });
-    }
-  }
-  createInterval();
-
-  addon.self.addEventListener("disabled", () => {
-    clearInterval(interval);
-  });
-  addon.self.addEventListener("reenabled", createInterval);
-
-  addon.tab.displayNoneWhileDisabled(messages);
-  while (true) {
-    let nav = await addon.tab.waitForElement("[class^='menu-bar_account-info-group'] > [href^='/my']", {
-      markAsSeen: true,
-      reduxEvents: ["scratch-gui/mode/SET_PLAYER", "fontsLoaded/SET_FONTS_LOADED", "scratch-gui/locales/SELECT_LOCALE"],
-      reduxCondition: (state) => !state.scratchGui.mode.isPlayerOnly,
-    });
-    document.querySelector("[class^='menu-bar_account-info-group']").insertBefore(messages, nav);
-  }
-}
+export default async function({addon:e,msg:a}){function n(){"editor"===e.tab.editorMode?(o(),r=setInterval(o,5e3)):e.tab.addEventListener("urlChange",(function a(){"editor"===e.tab.editorMode&&(o(),r=setInterval(o,5e3),e.tab.removeEventListener("urlChange",a))}))}const s=document.createElement("a")
+s.href="/messages/",s.title=a("messages"),s.className=e.tab.scratchClass("menu-bar_menu-bar-item","menu-bar_hoverable",{others:"sa-editormessages"})
+let t=document.createElement("span")
+t.classList.add("sa-editormessages-count"),s.appendChild(t)
+const o=async()=>{const a=Number(await e.account.getMsgCount())
+t.innerText=a,t.setAttribute("style",0===a?"display: none;":"")}
+let r
+for(n(),e.self.addEventListener("disabled",(()=>{clearInterval(r)})),e.self.addEventListener("reenabled",n),e.tab.displayNoneWhileDisabled(s);;){let a=await e.tab.waitForElement("[class^='menu-bar_account-info-group'] > [href^='/my']",{markAsSeen:1,reduxEvents:["scratch-gui/mode/SET_PLAYER","fontsLoaded/SET_FONTS_LOADED","scratch-gui/locales/SELECT_LOCALE"],reduxCondition(e){return!e.scratchGui.mode.isPlayerOnly}})
+document.querySelector("[class^='menu-bar_account-info-group']").insertBefore(s,a)}}

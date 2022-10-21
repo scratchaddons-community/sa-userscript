@@ -1,253 +1,44 @@
-// this script was happily stolen from the color-picker addon, developed by Richie Bendall and apple502j
-
-// import required libraries
-import { normalizeHex } from "../../libraries/common/cs/normalize-color.js";
-import RateLimiter from "../../libraries/common/cs/rate-limiter.js";
-
-export default async ({ addon, console, msg }) => {
-  let prevEventHandler;
-  // 250-ms rate limit
-  const rateLimiter = new RateLimiter(250);
-
-  // get the color from scratch
-  const getColor = (element) => {
-    let fillOrStroke;
-    const state = addon.tab.redux.state;
-    if (state.scratchPaint.modals.fillColor) {
-      fillOrStroke = "fill";
-    } else if (state.scratchPaint.modals.strokeColor) {
-      fillOrStroke = "stroke";
-    } else {
-      return;
-    }
-    const colorType = state.scratchPaint.fillMode.colorIndex;
-    const primaryOrSecondary = ["primary", "secondary"][colorType];
-    const color = state.scratchPaint.color[`${fillOrStroke}Color`][primaryOrSecondary];
-    if (color === null || color === "scratch-paint/style-path/mixed") return;
-    // This value can be arbitrary - it can be HEX, RGB, etc.
-    // Use tinycolor to convert them.
-    return tinycolor(color).toHex();
-  };
-
-  // load the new color to scratch
-  const setColor = (hex, element) => {
-    hex = normalizeHex(hex);
-    if (!addon.tab.redux.state || !addon.tab.redux.state.scratchPaint) return;
-    // The only way to reliably set color is to invoke eye dropper via click()
-    // then faking that the eye dropper reported the value.
-    const onEyeDropperOpened = ({ detail }) => {
-      if (detail.action.type !== "scratch-paint/eye-dropper/ACTIVATE_COLOR_PICKER") return;
-      addon.tab.redux.removeEventListener("statechanged", onEyeDropperOpened);
-      setTimeout(() => {
-        const previousTool = addon.tab.redux.state.scratchPaint.color.eyeDropper.previousTool;
-        if (previousTool) previousTool.activate();
-        addon.tab.redux.state.scratchPaint.color.eyeDropper.callback(hex);
-        addon.tab.redux.dispatch({
-          type: "scratch-paint/eye-dropper/DEACTIVATE_COLOR_PICKER",
-        });
-      }, 50);
-    };
-    addon.tab.redux.addEventListener("statechanged", onEyeDropperOpened);
-    element.children[1].children[0].click();
-  };
-
-  // for the color picker's background color
-  const convertToGeneralColor = (hex) => {
-    let h = tinycolor(hex).toHsv();
-    h.s = 1;
-    h.v = 1;
-    return tinycolor(h).toHex();
-  };
-
-  // le loop
-  while (true) {
-    // wait for color dialog box appearance
-    const element = await addon.tab.waitForElement('div[class*="color-picker_swatch-row"]', {
-      markAsSeen: true,
-      reduxCondition: (state) => state.scratchGui.editorTab.activeTabIndex === 1 && !state.scratchGui.mode.isPlayerOnly,
-    });
-    rateLimiter.abort(false);
-    if (!("colorIndex" in addon.tab.redux.state.scratchPaint.fillMode)) {
-      console.error("Detected new paint editor; this will be supported in future versions.");
-      return;
-    }
-
-    // update the bg color of the picker
-    function updateColor() {
-      rateLimiter.limit(() => {
-        let c = getColor(element);
-        let chsv = tinycolor(c).toHsv();
-        updateHandleFinal(chsv.s, chsv.v);
-        saColorPicker.style.background = "#" + convertToGeneralColor(getColor(element));
-      });
-    }
-
-    // redux stuff
-    addon.tab.redux.initialize();
-    addon.tab.redux.addEventListener("statechanged", (e) =>
-      e.detail.action.type === "scratch-paint/fill-style/CHANGE_FILL_COLOR" ||
-      e.detail.action.type === "scratch-paint/fill-style/CHANGE_FILL_COLOR_2" ||
-      e.detail.action.type === "scratch-paint/stroke-style/CHANGE_STROKE_COLOR" ||
-      e.detail.action.type === "scratch-paint/stroke-style/CHANGE_STROKE_COLOR_2"
-        ? updateColor()
-        : 0
-    );
-    if (addon.tab.redux && typeof prevEventHandler === "function") {
-      addon.tab.redux.removeEventListener("statechanged", prevEventHandler);
-      prevEventHandler = null;
-    }
-
-    // get the color
-    if (addon.tab.editorMode !== "editor") continue;
-    let defaultColor = getColor(element);
-
-    // create the color picker element and all it's child elements
-    const saColorPicker = document.createElement("div");
-    saColorPicker.className = "sa-2dcolor-picker";
-    saColorPicker.style.background = "#" + convertToGeneralColor(defaultColor || "ff0000");
-
-    const saColorPickerImage = Object.assign(document.createElement("img"), {
-      className: "sa-2dcolor-picker-image",
-      src: addon.self.dir + "/assets/sv-gr.png",
-      draggable: false,
-    });
-    const saColorPickerHandle = Object.assign(document.createElement("div"), {
-      className: addon.tab.scratchClass("slider_handle"),
-    });
-    saColorPickerHandle.style.pointerEvents = "none";
-
-    // create the label
-    const saColorLabel = document.createElement("div");
-    saColorLabel.className = addon.tab.scratchClass("color-picker_row-header", { others: "sa-2dcolor-label" });
-    const saColorLabelName = document.createElement("span");
-    saColorLabelName.className = addon.tab.scratchClass("color-picker_label-name", { others: "sa-2dcolor-label-name" });
-    saColorLabelName.innerText = msg("shade");
-    const saColorLabelVal = document.createElement("span");
-    saColorLabelVal.className = addon.tab.scratchClass("color-picker_label-readout", {
-      others: "sa-2dcolor-label-val",
-    });
-    saColorLabel.appendChild(saColorLabelName);
-    saColorLabel.appendChild(saColorLabelVal);
-
-    let keyPressed = -1;
-    let originalPos = { x: 0, y: 0 };
-    window.addEventListener("keydown", (e) => (keyPressed = e.keyCode));
-    window.addEventListener("keyup", () => (keyPressed = -1));
-
-    let origHue = 0;
-    let el = null;
-
-    let mousemovefunc = function (e) {
-      updateHandle(e, keyPressed, originalPos);
-      return false;
-    };
-
-    let mouseupfunc = function (e) {
-      updateFinal(e, keyPressed, originalPos);
-    };
-
-    function updateHandle(e, keyPressed, originalPos) {
-      let cx = Math.min(Math.max(e.clientX - saColorPicker.getBoundingClientRect().x, 0), 150);
-      let cy = Math.min(Math.max(e.clientY - saColorPicker.getBoundingClientRect().y, 0), 150);
-      if (keyPressed === 16) {
-        if (Math.abs(cx - originalPos.x) > Math.abs(cy - originalPos.y)) cy = originalPos.y;
-        else cx = originalPos.x;
-      }
-      saColorPickerHandle.style.left = cx - 8 + "px";
-      saColorPickerHandle.style.top = cy - 8 + "px";
-      saColorLabelVal.innerText = `${Math.round((cx / 150) * 100)}, ${100 - Math.round((cy / 150) * 100)}`;
-
-      //update color in real-time (i only bothered to do that for solid colors)
-      if (
-        (!addon.tab.redux.state.scratchPaint.fillMode.gradientType ||
-          addon.tab.redux.state.scratchPaint.fillMode.gradientType === "SOLID") &&
-        el
-      ) {
-        let c = tinycolor({ h: origHue, s: cx / 150, v: 1 - cy / 150 }).toHex();
-        if (c.startsWith("#")) el.style.background = c;
-        else el.style.background = "#" + c;
-      }
-    }
-
-    function updateHandleFinal(s, v) {
-      saColorPickerHandle.style.left = s * 150 - 8 + "px";
-      saColorPickerHandle.style.top = (1 - v) * 150 - 8 + "px";
-      saColorLabelVal.innerText = `${Math.round(s * 100)}, ${Math.round(v * 100)}`;
-    }
-
-    function updateFinal(e, keyPressed, originalPos) {
-      rateLimiter.limit(() => {
-        let ox = Math.min(Math.max(e.clientX - saColorPicker.getBoundingClientRect().x, 0), 150);
-        let oy = Math.min(Math.max(e.clientY - saColorPicker.getBoundingClientRect().y, 0), 150);
-        if (keyPressed === 16) {
-          if (Math.abs(ox - originalPos.x) > Math.abs(oy - originalPos.y)) oy = originalPos.y;
-          else ox = originalPos.x;
-        }
-
-        let color = tinycolor(getColor(element)).toHsv();
-        let s = ox / 150;
-        let v = 1 - oy / 150;
-        let newColor = tinycolor({ h: color.h, s: s, v: v }).toHex();
-        setColor(newColor, element);
-        updateHandleFinal(s, v);
-      });
-
-      window.removeEventListener("pointermove", mousemovefunc);
-      window.removeEventListener("pointerup", mouseupfunc);
-    }
-
-    if (defaultColor) {
-      let defaultHexColor = tinycolor(defaultColor).toHsv();
-      updateHandleFinal(defaultHexColor.s, defaultHexColor.v);
-    } else updateHandleFinal(1, 1);
-
-    saColorPicker.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-
-      originalPos = {
-        x: parseFloat(saColorPickerHandle.style.left) + 8,
-        y: parseFloat(saColorPickerHandle.style.top) + 8,
-      };
-
-      let fillOrStroke;
-      const state = addon.tab.redux.state;
-      if (state.scratchPaint.modals.fillColor) {
-        fillOrStroke = "fill";
-      } else if (state.scratchPaint.modals.strokeColor) {
-        fillOrStroke = "stroke";
-      } else {
-        fillOrStroke = "wh";
-      }
-
-      el = null;
-      if (fillOrStroke === "fill")
-        el = document.getElementsByClassName(addon.tab.scratchClass("color-button_color-button-swatch"))[0];
-      else if (fillOrStroke === "stroke")
-        el = document.getElementsByClassName(addon.tab.scratchClass("color-button_color-button-swatch"))[1];
-      if (el) origHue = tinycolor(el.style.background).toHsv().h;
-
-      updateHandle(e);
-
-      window.addEventListener("pointermove", mousemovefunc);
-      window.addEventListener("pointerup", mouseupfunc);
-    });
-    prevEventHandler = ({ detail }) => {
-      if (detail.action.type === "scratch-paint/color-index/CHANGE_COLOR_INDEX") {
-        setTimeout(() => {
-          updateColor();
-        }, 100);
-      }
-    };
-    addon.tab.redux.addEventListener("statechanged", prevEventHandler);
-    saColorPicker.appendChild(saColorPickerImage);
-    saColorPicker.appendChild(saColorPickerHandle);
-
-    const [colorSlider, saturationSlider, brightnessSlider] = [
-      ...element.parentElement.querySelectorAll('[class^="color-picker_row-header"]'),
-    ].map((i) => i.parentElement);
-    saturationSlider.style.display = "none";
-    brightnessSlider.style.display = "none";
-    colorSlider.insertAdjacentElement("afterend", saColorPicker);
-    colorSlider.insertAdjacentElement("afterend", saColorLabel);
-  }
-};
+import{normalizeHex as t}from"../../libraries/common/cs/normalize-color.js"
+import o from"../../libraries/common/cs/rate-limiter.js"
+export default async({addon:e,console:n,msg:r})=>{let c
+const a=new o(250),l=()=>{let t
+const o=e.tab.redux.state
+if(o.scratchPaint.modals.fillColor)t="fill"
+else{if(!o.scratchPaint.modals.strokeColor)return
+t="stroke"}const n=o.scratchPaint.color[`${t}Color`][["primary","secondary"][o.scratchPaint.fillMode.colorIndex]]
+if(null!==n&&"scratch-paint/style-path/mixed"!==n)return tinycolor(n).toHex()},i=(o,n)=>{if(o=t(o),!e.tab.redux.state||!e.tab.redux.state.scratchPaint)return
+const r=({detail:t})=>{"scratch-paint/eye-dropper/ACTIVATE_COLOR_PICKER"===t.action.type&&(e.tab.redux.removeEventListener("statechanged",r),setTimeout((()=>{const t=e.tab.redux.state.scratchPaint.color.eyeDropper.previousTool
+t&&t.activate(),e.tab.redux.state.scratchPaint.color.eyeDropper.callback(o),e.tab.redux.dispatch({type:"scratch-paint/eye-dropper/DEACTIVATE_COLOR_PICKER"})}),50))}
+e.tab.redux.addEventListener("statechanged",r),n.children[1].children[0].click()},s=t=>{let o=tinycolor(t).toHsv()
+return o.s=1,o.v=1,tinycolor(o).toHex()}
+for(;;){const m=await e.tab.waitForElement('div[class*="color-picker_swatch-row"]',{markAsSeen:1,reduxCondition(t){return 1===t.scratchGui.editorTab.activeTabIndex&&!t.scratchGui.mode.isPlayerOnly}})
+if(a.abort(0),!("colorIndex"in e.tab.redux.state.scratchPaint.fillMode))return void n.error("Detected new paint editor; this will be supported in future versions.")
+function d(){a.limit((()=>{let t=l(),o=tinycolor(t).toHsv()
+h(o.s,o.v),w.style.background="#"+s(l())}))}if(e.tab.redux.initialize(),e.tab.redux.addEventListener("statechanged",(t=>"scratch-paint/fill-style/CHANGE_FILL_COLOR"===t.detail.action.type||"scratch-paint/fill-style/CHANGE_FILL_COLOR_2"===t.detail.action.type||"scratch-paint/stroke-style/CHANGE_STROKE_COLOR"===t.detail.action.type||"scratch-paint/stroke-style/CHANGE_STROKE_COLOR_2"===t.detail.action.type?d():0)),e.tab.redux&&"function"==typeof c&&(e.tab.redux.removeEventListener("statechanged",c),c=null),"editor"!==e.tab.editorMode)continue
+let f=l()
+const w=document.createElement("div")
+w.className="sa-2dcolor-picker",w.style.background="#"+s(f||"ff0000")
+const y=Object.assign(document.createElement("img"),{className:"sa-2dcolor-picker-image",src:e.self.dir+"/assets/sv-gr.png",draggable:0}),_=Object.assign(document.createElement("div"),{className:e.tab.scratchClass("slider_handle")})
+_.style.pointerEvents="none"
+const O=document.createElement("div")
+O.className=e.tab.scratchClass("color-picker_row-header",{others:"sa-2dcolor-label"})
+const C=document.createElement("span")
+C.className=e.tab.scratchClass("color-picker_label-name",{others:"sa-2dcolor-label-name"}),C.innerText=r("shade")
+const M=document.createElement("span")
+M.className=e.tab.scratchClass("color-picker_label-readout",{others:"sa-2dcolor-label-val"}),O.appendChild(C),O.appendChild(M)
+let b=-1,k={x:0,y:0}
+window.addEventListener("keydown",(t=>b=t.keyCode)),window.addEventListener("keyup",(()=>b=-1))
+let E=0,g=null,v=function(t){return p(t,b,k),0},L=function(t){u(t,b,k)}
+function p(t,o,n){let r=Math.min(Math.max(t.clientX-w.getBoundingClientRect().x,0),150),c=Math.min(Math.max(t.clientY-w.getBoundingClientRect().y,0),150)
+if(16===o&&(Math.abs(r-n.x)>Math.abs(c-n.y)?c=n.y:r=n.x),_.style.left=r-8+"px",_.style.top=c-8+"px",M.innerText=`${Math.round(r/150*100)}, ${100-Math.round(c/150*100)}`,(!e.tab.redux.state.scratchPaint.fillMode.gradientType||"SOLID"===e.tab.redux.state.scratchPaint.fillMode.gradientType)&&g){let t=tinycolor({h:E,s:r/150,v:1-c/150}).toHex()
+g.style.background=t.startsWith("#")?t:"#"+t}}function h(t,o){_.style.left=150*t-8+"px",_.style.top=150*(1-o)-8+"px",M.innerText=`${Math.round(100*t)}, ${Math.round(100*o)}`}function u(t,o,e){a.limit((()=>{let n=Math.min(Math.max(t.clientX-w.getBoundingClientRect().x,0),150),r=Math.min(Math.max(t.clientY-w.getBoundingClientRect().y,0),150)
+16===o&&(Math.abs(n-e.x)>Math.abs(r-e.y)?r=e.y:n=e.x)
+let c=tinycolor(l()).toHsv(),a=n/150,s=1-r/150,d=tinycolor({h:c.h,s:a,v:s}).toHex()
+i(d,m),h(a,s)})),window.removeEventListener("pointermove",v),window.removeEventListener("pointerup",L)}if(f){let I=tinycolor(f).toHsv()
+h(I.s,I.v)}else h(1,1)
+w.addEventListener("pointerdown",(t=>{let o
+t.preventDefault(),k={x:parseFloat(_.style.left)+8,y:parseFloat(_.style.top)+8}
+const n=e.tab.redux.state
+o=n.scratchPaint.modals.fillColor?"fill":n.scratchPaint.modals.strokeColor?"stroke":"wh",g=null,"fill"===o?g=document.getElementsByClassName(e.tab.scratchClass("color-button_color-button-swatch"))[0]:"stroke"===o&&(g=document.getElementsByClassName(e.tab.scratchClass("color-button_color-button-swatch"))[1]),g&&(E=tinycolor(g.style.background).toHsv().h),p(t),window.addEventListener("pointermove",v),window.addEventListener("pointerup",L)})),c=({detail:t})=>{"scratch-paint/color-index/CHANGE_COLOR_INDEX"===t.action.type&&setTimeout((()=>{d()}),100)},e.tab.redux.addEventListener("statechanged",c),w.appendChild(y),w.appendChild(_)
+const[x,R,A]=[...m.parentElement.querySelectorAll('[class^="color-picker_row-header"]')].map((t=>t.parentElement))
+R.style.display="none",A.style.display="none",x.insertAdjacentElement("afterend",w),x.insertAdjacentElement("afterend",O)}}

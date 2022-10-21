@@ -1,222 +1,28 @@
-export default async function ({ addon, global, console, msg, safeMsg }) {
-  const ScratchBlocks = await addon.tab.traps.getBlockly();
-
-  const SMALL_GAP = 8;
-  const BIG_GAP = 24;
-
-  const vm = addon.tab.traps.vm;
-
-  // Used in setting change handler. Updated in getBlocksXML.
-  // (Yes this is weird but it's how it was originally and I'm too scared to change it)
-  let hasSeparateListCategory = false;
-
-  const separateVariablesByType = (toolboxXML) => {
-    const listButtonIndex = toolboxXML.findIndex(
-      (i) => i.getAttribute("callbackkey") === "CREATE_LIST" || i.getAttribute("type") === "data_addtolist"
-    );
-    return {
-      variables: toolboxXML.slice(0, listButtonIndex),
-      lists: toolboxXML.slice(listButtonIndex, toolboxXML.length),
-    };
-  };
-
-  const separateLocalVariables = (workspace, toolboxXML) => {
-    const { variables, lists } = separateVariablesByType(toolboxXML);
-
-    const makeLabel = (l10n) => {
-      const label = document.createElement("label");
-      label.setAttribute("text", msg(l10n));
-      return label;
-    };
-
-    const fixGaps = (variables) => {
-      if (variables.length > 0) {
-        for (var i = 0; i < variables.length - 1; i++) {
-          variables[i].setAttribute("gap", SMALL_GAP);
-        }
-        variables[i].setAttribute("gap", BIG_GAP);
-      }
-    };
-
-    const separateVariablesByScope = (xml) => {
-      const before = [];
-      const global = [];
-      const local = [];
-      const after = [];
-
-      for (const blockXML of xml) {
-        if (blockXML.hasAttribute("id")) {
-          const id = blockXML.getAttribute("id");
-          const variable = workspace.getVariableById(id);
-          if (!variable || !variable.isLocal) {
-            global.push(blockXML);
-          } else {
-            local.push(blockXML);
-          }
-        } else if (global.length || local.length) {
-          after.push(blockXML);
-        } else {
-          before.push(blockXML);
-        }
-      }
-
-      const result = before;
-
-      if (global.length) {
-        result.push(makeLabel("for-all-sprites"));
-        fixGaps(global);
-        result.push(...global);
-      }
-
-      if (local.length) {
-        result.push(makeLabel("for-this-sprite-only"));
-        fixGaps(local);
-        result.push(...local);
-      }
-
-      return result.concat(after);
-    };
-
-    return separateVariablesByScope(variables).concat(separateVariablesByScope(lists));
-  };
-
-  const moveReportersDown = (toolboxXML) => {
-    const { variables, lists } = separateVariablesByType(toolboxXML);
-
-    const moveReportersToEnd = (xml) => {
-      const reporters = [];
-      const everythingElse = [];
-
-      for (const blockXML of xml) {
-        if (blockXML.hasAttribute("id") || blockXML.tagName === "BUTTON") {
-          // Round reporters and the create variable button
-          reporters.push(blockXML);
-        } else {
-          // Everything else like "change variable by 1"
-          everythingElse.push(blockXML);
-        }
-      }
-
-      if (everythingElse.length) {
-        everythingElse[everythingElse.length - 1].setAttribute("gap", BIG_GAP);
-      }
-
-      return everythingElse.concat(reporters);
-    };
-
-    return moveReportersToEnd(variables).concat(moveReportersToEnd(lists));
-  };
-
-  const DataCategory = ScratchBlocks.DataCategory;
-  let variableCategory;
-  let listCategory;
-  const variableCategoryCallback = (workspace) => {
-    let result = DataCategory(workspace);
-
-    if (!addon.self.disabled && addon.settings.get("moveReportersDown")) {
-      result = moveReportersDown(result);
-    }
-
-    if (!addon.self.disabled && addon.settings.get("separateLocalVariables")) {
-      result = separateLocalVariables(workspace, result);
-    }
-
-    if (addon.self.disabled || !hasSeparateListCategory) {
-      return result;
-    }
-
-    const { variables, lists } = separateVariablesByType(result);
-    variableCategory = variables;
-    listCategory = lists;
-    return variableCategory;
-  };
-  const listCategoryCallback = () => {
-    // Computed in variable category callback, which should be called before this method.
-    return listCategory;
-  };
-
-  // Each time a new workspace is made, these callbacks are reset, so re-register whenever a flyout is shown.
-  // https://github.com/LLK/scratch-blocks/blob/61f02e4cac0f963abd93013842fe536ef24a0e98/core/flyout_base.js#L469
-  const oldShow = ScratchBlocks.Flyout.prototype.show;
-  ScratchBlocks.Flyout.prototype.show = function (xmlList) {
-    this.workspace_.registerToolboxCategoryCallback("VARIABLE", variableCategoryCallback);
-    this.workspace_.registerToolboxCategoryCallback("LIST", listCategoryCallback);
-    return oldShow.call(this, xmlList);
-  };
-
-  // Use Scratch's extension category mechanism to replace the data category with our own.
-  // https://github.com/LLK/scratch-gui/blob/ddd2fa06f2afa140a46ec03be91796ded861e65c/src/containers/blocks.jsx#L344
-  // https://github.com/LLK/scratch-gui/blob/2ceab00370ad7bd8ecdf5c490e70fd02152b3e2a/src/lib/make-toolbox-xml.js#L763
-  // https://github.com/LLK/scratch-vm/blob/a0c11d6d8664a4f2d55632e70630d09ec6e9ae28/src/engine/runtime.js#L1381
-  const originalGetBlocksXML = vm.runtime.getBlocksXML;
-  vm.runtime.getBlocksXML = function (target) {
-    const result = originalGetBlocksXML.call(this, target);
-    hasSeparateListCategory = addon.settings.get("separateListCategory");
-    if (!addon.self.disabled && hasSeparateListCategory) {
-      result.push({
-        id: "data",
-        xml: `
-        <category
-          name="%{BKY_CATEGORY_VARIABLES}"
-          id="variables"
-          colour="#FF8C1A"
-          secondaryColour="#DB6E00"
-          custom="VARIABLE">
-        </category>
-        <category
-          name="${safeMsg("list-category")}"
-          id="lists"
-          colour="#FF661A"
-          secondaryColour="#FF5500"
-          custom="LIST">
-        </category>`,
-      });
-    }
-    return result;
-  };
-
-  // If editingTarget is set, the editor has already rendered and we have to tell it to rerender.
-  if (vm.editingTarget) {
-    vm.emitWorkspaceUpdate();
-  }
-
-  addon.settings.addEventListener("change", (e) => {
-    // When the separate list category option changes, we need to do a workspace update.
-    // For all other options, just refresh the toolbox.
-    // Always doing both of these in response to a settings change causes many issues.
-    if (addon.settings.get("separateListCategory") !== hasSeparateListCategory) {
-      if (vm.editingTarget) {
-        vm.emitWorkspaceUpdate();
-      }
-    } else {
-      const workspace = Blockly.getMainWorkspace();
-      if (workspace) {
-        workspace.refreshToolboxSelection_();
-      }
-    }
-  });
-
-  const dynamicEnableOrDisable = () => {
-    // Enabling/disabling is similar to changing settings.
-    // If separate list category is enabled, a workspace update is needed.
-    // If any other setting is enabled, refresh the toolbox.
-    if (addon.settings.get("separateListCategory")) {
-      if (vm.editingTarget) {
-        vm.emitWorkspaceUpdate();
-      }
-    }
-    if (addon.settings.get("separateLocalVariables") || addon.settings.get("moveReportersDown")) {
-      const workspace = Blockly.getMainWorkspace();
-      if (workspace) {
-        workspace.refreshToolboxSelection_();
-      }
-    }
-  };
-
-  addon.self.addEventListener("disabled", () => {
-    dynamicEnableOrDisable();
-  });
-  addon.self.addEventListener("reenabled", () => {
-    dynamicEnableOrDisable();
-  });
-}
+export default async function({addon:t,msg:e,safeMsg:s}){const o=await t.tab.traps.getBlockly(),n=t.tab.traps.vm
+let a=0
+const r=t=>{const e=t.findIndex((t=>"CREATE_LIST"===t.getAttribute("callbackkey")||"data_addtolist"===t.getAttribute("type")))
+return{variables:t.slice(0,e),lists:t.slice(e,t.length)}},c=o.DataCategory
+let i,l
+const u=s=>{let o=c(s)
+if(!t.self.disabled&&t.settings.get("moveReportersDown")&&(o=(t=>{const{variables:e,lists:s}=r(t),o=t=>{const e=[],s=[]
+for(const o of t)o.hasAttribute("id")||"BUTTON"===o.tagName?e.push(o):s.push(o)
+return s.length&&s[s.length-1].setAttribute("gap",24),s.concat(e)}
+return o(e).concat(o(s))})(o)),!t.self.disabled&&t.settings.get("separateLocalVariables")&&(o=((t,s)=>{const{variables:o,lists:n}=r(s),a=t=>{const s=document.createElement("label")
+return s.setAttribute("text",e(t)),s},c=t=>{if(t.length>0){for(var e=0;t.length-1>e;e++)t[e].setAttribute("gap",8)
+t[e].setAttribute("gap",24)}},i=e=>{const s=[],o=[],n=[],r=[]
+for(const a of e)if(a.hasAttribute("id")){const e=a.getAttribute("id"),s=t.getVariableById(e)
+s&&s.isLocal?n.push(a):o.push(a)}else o.length||n.length?r.push(a):s.push(a)
+const i=s
+return o.length&&(i.push(a("for-all-sprites")),c(o),i.push(...o)),n.length&&(i.push(a("for-this-sprite-only")),c(n),i.push(...n)),i.concat(r)}
+return i(o).concat(i(n))})(s,o)),t.self.disabled||!a)return o
+const{variables:n,lists:u}=r(o)
+return i=n,l=u,i},d=()=>l,f=o.Flyout.prototype.show
+o.Flyout.prototype.show=function(t){return this.workspace_.registerToolboxCategoryCallback("VARIABLE",u),this.workspace_.registerToolboxCategoryCallback("LIST",d),f.call(this,t)}
+const y=n.runtime.getBlocksXML
+n.runtime.getBlocksXML=function(e){const o=y.call(this,e)
+return a=t.settings.get("separateListCategory"),!t.self.disabled&&a&&o.push({id:"data",xml:`\n        <category\n          name="%{BKY_CATEGORY_VARIABLES}"\n          id="variables"\n          colour="#FF8C1A"\n          secondaryColour="#DB6E00"\n          custom="VARIABLE">\n        </category>\n        <category\n          name="${s("list-category")}"\n          id="lists"\n          colour="#FF661A"\n          secondaryColour="#FF5500"\n          custom="LIST">\n        </category>`}),o},n.editingTarget&&n.emitWorkspaceUpdate(),t.settings.addEventListener("change",(()=>{if(t.settings.get("separateListCategory")!==a)n.editingTarget&&n.emitWorkspaceUpdate()
+else{const t=Blockly.getMainWorkspace()
+t&&t.refreshToolboxSelection_()}}))
+const g=()=>{if(t.settings.get("separateListCategory")&&n.editingTarget&&n.emitWorkspaceUpdate(),t.settings.get("separateLocalVariables")||t.settings.get("moveReportersDown")){const t=Blockly.getMainWorkspace()
+t&&t.refreshToolboxSelection_()}}
+t.self.addEventListener("disabled",(()=>{g()})),t.self.addEventListener("reenabled",(()=>{g()}))}

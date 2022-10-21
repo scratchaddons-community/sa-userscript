@@ -1,19 +1,8 @@
-export default async ({ addon, console }) => {
-  if (!addon.tab.redux.state) return console.warn("Redux is not available!");
-  addon.tab.redux.initialize();
-  addon.tab.redux.addEventListener("statechanged", ({ detail }) => {
-    if (addon.self.disabled) return;
-    const e = detail;
-    if (!e.action || e.action.type !== "scratch-paint/clipboard/SET") return;
-    const items = e.next.scratchPaint.clipboard.items;
-    if (items.length !== 1) return;
-    const firstItem = items[0];
-    // TODO vector support
-    if (!Array.isArray(firstItem) || firstItem[0] !== "Raster") return console.log("copied element is vector");
-    const dataURL = firstItem[1].source;
-    addon.tab
-      .copyImage(dataURL)
-      .then(() => console.log("Image successfully copied"))
-      .catch((e) => console.error(`Image could not be copied: ${e}`));
-  });
-};
+export default async({addon:e,console:t})=>{if(!e.tab.redux.state)return t.warn("Redux is not available!")
+e.tab.redux.initialize(),e.tab.redux.addEventListener("statechanged",(({detail:r})=>{if(e.self.disabled)return
+if(!r.action||"scratch-paint/clipboard/SET"!==r.action.type)return
+const a=r.next.scratchPaint.clipboard.items
+if(1!==a.length)return
+const c=a[0]
+if(!Array.isArray(c)||"Raster"!==c[0])return t.log("copied element is vector")
+e.tab.copyImage(c[1].source).then((()=>t.log("Image successfully copied"))).catch((e=>t.error(`Image could not be copied: ${e}`)))}))}

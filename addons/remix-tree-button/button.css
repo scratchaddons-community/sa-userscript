@@ -1,12 +1,1 @@
-.remixtree-button::before {
-  background-image: url("https://scratch.mit.edu/svgs/project/remix-white.svg");
-  display: inline-block;
-  margin-right: 0.25rem;
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: contain;
-  width: 0.875rem;
-  height: 0.875rem;
-  vertical-align: bottom;
-  content: "";
-}
+.remixtree-button:before{background-image:url(https://scratch.mit.edu/svgs/project/remix-white.svg);background-position:50%;background-repeat:no-repeat;background-size:contain;content:"";display:inline-block;height:.875rem;margin-right:.25rem;vertical-align:bottom;width:.875rem}

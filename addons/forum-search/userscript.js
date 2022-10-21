@@ -1,314 +1,69 @@
-let isCurrentlyProcessing = false;
-let currentPage = 0;
-let hits = 10000; // elastic default
-let currentQuery;
-let currentSort = "relevance";
-let locationQuery = "";
-
-const ALLOWED_TAGS = {
-  A: ["href"],
-  BR: [],
-  BLOCKQUOTE: [],
-  DIV: ["class", "style"],
-  IMG: ["src"],
-  LI: [],
-  OL: ["style"],
-  P: ["class"],
-  PRE: ["class"],
-  SPAN: ["class", "style"],
-  UL: [],
-};
-
-class SanitizerFailed extends Error {}
-
-function cleanPost(post) {
-  // Thanks Jeffalo
-  const dom = new DOMParser();
-  const readableDom = dom.parseFromString(post, "text/html");
-
-  const recursiveCheck = (elem) => {
-    if (!(elem instanceof Element)) return;
-    const allowed = ALLOWED_TAGS[elem.tagName];
-    if (!allowed) {
-      throw new SanitizerFailed(`forum-search: Warning: Potential XSS attempt found: ${elem.tagName} is not allowed`);
-    }
-    Array.prototype.forEach.call(elem.attributes, (attr) => {
-      if (!allowed.includes(attr.name)) {
-        throw new SanitizerFailed(
-          `forum-search: Warning: Potential XSS attempt found: ${attr.name} is not allowed for ${elem.tagName}`
-        );
-      }
-      if (attr.name === "href" && !(elem.protocol === "https:" || elem.protocol === "http:")) {
-        throw new SanitizerFailed(
-          `forum-search: Warning: Potential XSS attempt found: protocol ${elem.protocol} is not allowed`
-        );
-      }
-    });
-    Array.prototype.forEach.call(elem.children, recursiveCheck);
-  };
-  try {
-    Array.prototype.forEach.call(readableDom.body.children, recursiveCheck);
-  } catch (e) {
-    if (!(e instanceof SanitizerFailed)) throw e;
-    console.warn(e.message);
-    return [document.createTextNode(readableDom.body.innerHTML)];
-  }
-  return readableDom.body.cloneNode(true).childNodes;
-}
-
-function triggerNewSearch(searchContent, query, sort, msg) {
-  searchContent.classList.add("show");
-  while (searchContent.firstChild) {
-    searchContent.removeChild(searchContent.firstChild);
-  }
-  currentQuery = query;
-  appendSearch(searchContent, query, 0, sort, msg);
-}
-
-function appendSearch(box, query, page, term, msg) {
-  if (page * 50 > hits) return 0;
-  isCurrentlyProcessing = true;
-  let loading = document.createTextNode(msg("loading"));
-  currentPage = page;
-  box.appendChild(loading);
-  window
-    .fetch(`https://scratchdb.lefty.one/v3/forum/search?q=${encodeURIComponent(query)}&page=${page}&o=${term}`)
-    .catch((err) => {
-      box.removeChild(box.lastChild);
-      box.appendChild(document.createTextNode(msg("error")));
-    })
-    .then((res) => res.json())
-    .then((data) => {
-      hits = data.hits;
-      if (hits === 0) {
-        //there were no hits
-        box.removeChild(box.lastChild);
-        box.appendChild(document.createTextNode(msg("none")));
-
-        return;
-      }
-      box.removeChild(box.lastChild);
-      for (let post of data.posts) {
-        function createTextBox(data, classes, times) {
-          let element = document.createElement("span");
-          element.classList = classes;
-          element.appendChild(document.createTextNode(data));
-          for (let i = 0; i < times || 0; i++) {
-            element.appendChild(document.createElement("br"));
-          }
-          return element;
-        }
-        function createLabel(text) {
-          let container = document.createElement("div");
-          let textElement = document.createElement("strong");
-          container.appendChild(textElement);
-          textElement.innerText = text;
-          return container;
-        }
-        // the post
-        let postElem = document.createElement("div");
-        postElem.classList = "blockpost roweven firstpost";
-
-        // the post box
-        let postBox = document.createElement("div");
-        postBox.classList = ["box"];
-        postElem.appendChild(postBox);
-
-        // all header stuffs
-        let boxHead = document.createElement("div");
-        boxHead.classList = ["box-head"];
-        postBox.appendChild(boxHead);
-
-        let boxLink = document.createElement("a");
-        boxLink.setAttribute("href", `https://scratch.mit.edu/discuss/post/${post.id}`);
-        boxLink.appendChild(document.createTextNode(`${post.topic.category} » ${post.topic.title}`));
-        boxHead.appendChild(boxLink);
-
-        let boxTime = document.createElement("span");
-        boxTime.classList = "conr";
-        const localizedPostDate = scratchAddons.l10n.datetime(new Date(post.time.posted));
-        boxTime.appendChild(document.createTextNode(localizedPostDate));
-        boxHead.appendChild(boxTime);
-
-        // post content
-        let postContent = document.createElement("div");
-        postContent.classList = "box-content";
-        postBox.appendChild(postContent);
-
-        let postLeft = document.createElement("div");
-        postLeft.classList = "postleft";
-        postContent.appendChild(postLeft);
-
-        let postLeftDl = document.createElement("dl");
-        postLeft.appendChild(postLeftDl);
-
-        postLeftDl.appendChild(createLabel(msg("username")));
-        let userLink = document.createElement("a"); // this one is an `a` and not a `span`, so it isnt in the createTextBox function
-        userLink.setAttribute("href", `https://scratch.mit.edu/users/${post.username}`);
-        userLink.appendChild(document.createTextNode(post.username));
-        postLeftDl.appendChild(userLink);
-
-        postLeftDl.appendChild(document.createElement("br"));
-        postLeftDl.appendChild(document.createElement("br"));
-
-        if (locationQuery !== "") {
-          let userPostButton = document.createElement("a");
-          userPostButton.appendChild(document.createTextNode(msg("posts-here")));
-          userPostButton.addEventListener("click", () => {
-            document.getElementById("forum-search-input").value = `+username:"${post.username}" ${locationQuery}`;
-            triggerNewSearch(
-              document.getElementById("forum-search-list"),
-              document.getElementById("forum-search-input").value,
-              document.getElementById("forum-search-dropdown").value,
-              msg
-            );
-          });
-          postLeftDl.appendChild(userPostButton);
-
-          postLeftDl.appendChild(document.createElement("br"));
-        }
-
-        let userGlobalButton = document.createElement("a");
-        userGlobalButton.appendChild(document.createTextNode(msg("posts-sitewide")));
-        userGlobalButton.addEventListener("click", () => {
-          document.getElementById("forum-search-input").value = `+username:"${post.username}"`;
-          triggerNewSearch(
-            document.getElementById("forum-search-list"),
-            document.getElementById("forum-search-input").value,
-            document.getElementById("forum-search-dropdown").value,
-            msg
-          );
-        });
-        postLeftDl.appendChild(userGlobalButton);
-
-        postLeftDl.appendChild(document.createElement("br"));
-        postLeftDl.appendChild(document.createElement("br"));
-
-        postLeftDl.appendChild(createLabel(msg("first-checked")));
-        postLeftDl.appendChild(createTextBox(scratchAddons.l10n.datetime(new Date(post.time.first_checked)), "", 2));
-
-        postLeftDl.appendChild(createLabel(msg("last-checked")));
-        postLeftDl.appendChild(
-          createTextBox(scratchAddons.l10n.datetime(new Date(post.time.html_last_checked)), "", 2)
-        );
-
-        let postRight = document.createElement("div");
-        postRight.classList = "postright";
-        postContent.appendChild(postRight);
-
-        let postMsg = document.createElement("div");
-        postMsg.classList = "postmsg";
-        postRight.appendChild(postMsg);
-
-        let postHTML = document.createElement("div");
-        postHTML.classList = "post_body_html";
-        postHTML.append(...cleanPost(post.content.html));
-        postMsg.appendChild(postHTML);
-
-        if (post.editor) {
-          let postEdit = document.createElement("p");
-          postEdit.classList = "postedit";
-          let postEditMessage = document.createElement("em");
-          postEditMessage.classList = "posteditmessage";
-          postEditMessage.appendChild(
-            document.createTextNode(
-              msg("last-edited-by", {
-                username: post.editor,
-                datetime: scratchAddons.l10n.datetime(new Date(post.time.edited)),
-              })
-            )
-          );
-          postEdit.appendChild(postEditMessage);
-          postMsg.appendChild(postEdit);
-        }
-
-        let clearer = document.createElement("div"); // i guess this is extremely important for formatting
-        clearer.classList = "clearer";
-        postContent.appendChild(clearer);
-
-        box.appendChild(postElem);
-      }
-      scratchblocks.renderMatching(".forum-search-list pre.blocks");
-      isCurrentlyProcessing = false;
-    });
-}
-
-export default async function ({ addon, global, console, msg }) {
-  if (!window.scratchAddons._scratchblocks3Enabled) {
-    window.scratchblocks = (await import(addon.self.lib + "/thirdparty/cs/scratchblocks.min.es.js")).default;
-  }
-
-  // create the search bar
-  let search = document.createElement("form");
-  addon.tab.displayNoneWhileDisabled(search, { display: "flex" });
-  search.id = "forum-search-form";
-  let searchBar = document.createElement("input");
-  searchBar.id = "forum-search-input";
-  searchBar.setAttribute("type", "text");
-  let pathSplit = window.location.pathname.split("/");
-  let searchPlaceholder = msg("placeholder");
-  if (pathSplit[2] !== "settings") {
-    switch (pathSplit.length) {
-      case 5: {
-        let topicTitle = document
-          .getElementsByClassName("linkst")[0]
-          .getElementsByTagName("li")[2]
-          .innerText.substring(2)
-          .trim();
-        locationQuery = ` +topic:${pathSplit[3]}`;
-        searchPlaceholder = msg("search-topic", { topic: topicTitle });
-        break;
-      }
-      case 4: {
-        let category = document.getElementsByClassName("box-head")[1].getElementsByTagName("span")[0].textContent;
-        locationQuery = ` +category:"${category}"`;
-        searchPlaceholder = msg("search-cat", { cat: category });
-        break;
-      }
-    }
-  }
-
-  searchBar.setAttribute("placeholder", searchPlaceholder);
-  search.appendChild(searchBar);
-
-  let searchDropdown = document.createElement("select");
-  searchDropdown.id = "forum-search-dropdown";
-  let types = ["relevance", "newest", "oldest"];
-  for (let type of types) {
-    let dropdownOption = document.createElement("option");
-    dropdownOption.value = type;
-    dropdownOption.appendChild(document.createTextNode(msg(type)));
-    searchDropdown.appendChild(dropdownOption);
-  }
-  search.appendChild(searchDropdown);
-
-  let searchContent = document.createElement("div");
-  searchContent.addEventListener("scroll", (e) => {
-    let et = e.target;
-    if (et.scrollHeight - et.scrollTop === et.clientHeight) {
-      if (!isCurrentlyProcessing) {
-        appendSearch(searchContent, currentQuery, currentPage + 1, currentSort, msg);
-      }
-    }
-  });
-
-  searchContent.classList = "forum-search-list";
-  searchContent.id = "forum-search-list";
-  searchContent.style.display = "none"; // overridden by userstyle if the addon is enabled
-
-  // now add the search bar
-  let navIndex = document.querySelector("#brdmenu");
-  navIndex.after(searchContent);
-  navIndex.after(search);
-
-  search.addEventListener("submit", (e) => {
-    triggerNewSearch(searchContent, searchBar.value + locationQuery, searchDropdown.value, msg);
-    e.preventDefault();
-  });
-
-  searchDropdown.addEventListener("change", (e) => {
-    if (searchBar.value !== "") {
-      triggerNewSearch(searchContent, searchBar.value + locationQuery, searchDropdown.value, msg);
-    }
-  });
-}
+function t(t){const e=(new DOMParser).parseFromString(t,"text/html"),o=t=>{if(!(t instanceof Element))return
+const e=u[t.tagName]
+if(!e)throw new m(`forum-search: Warning: Potential XSS attempt found: ${t.tagName} is not allowed`);[].forEach.call(t.attributes,(o=>{if(!e.includes(o.name))throw new m(`forum-search: Warning: Potential XSS attempt found: ${o.name} is not allowed for ${t.tagName}`)
+if("href"===o.name&&"https:"!==t.protocol&&"http:"!==t.protocol)throw new m(`forum-search: Warning: Potential XSS attempt found: protocol ${t.protocol} is not allowed`)})),[].forEach.call(t.children,o)}
+try{[].forEach.call(e.body.children,o)}catch(t){if(!(t instanceof m))throw t
+return console.warn(t.message),[document.createTextNode(e.body.innerHTML)]}return e.body.cloneNode(1).childNodes}function e(t,e,c,r){for(t.classList.add("show");t.firstChild;)t.removeChild(t.firstChild)
+n=e,o(t,e,0,c,r)}function o(o,n,u,m,a){if(50*u>s)return 0
+c=1
+let l=document.createTextNode(a("loading"))
+r=u,o.appendChild(l),window.fetch(`https://scratchdb.lefty.one/v3/forum/search?q=${encodeURIComponent(n)}&page=${u}&o=${m}`).catch((()=>{o.removeChild(o.lastChild),o.appendChild(document.createTextNode(a("error")))})).then((t=>t.json())).then((n=>{if(s=n.hits,0===s)return o.removeChild(o.lastChild),void o.appendChild(document.createTextNode(a("none")))
+o.removeChild(o.lastChild)
+for(let m of n.posts){function r(t,e,o){let n=document.createElement("span")
+n.classList=e,n.appendChild(document.createTextNode(t))
+for(let t=0;o>t;t++)n.appendChild(document.createElement("br"))
+return n}function u(t){let e=document.createElement("div"),o=document.createElement("strong")
+return e.appendChild(o),o.innerText=t,e}let l=document.createElement("div")
+l.classList="blockpost roweven firstpost"
+let i=document.createElement("div")
+i.classList=["box"],l.appendChild(i)
+let f=document.createElement("div")
+f.classList=["box-head"],i.appendChild(f)
+let h=document.createElement("a")
+h.setAttribute("href",`https://scratch.mit.edu/discuss/post/${m.id}`),h.appendChild(document.createTextNode(`${m.topic.category} » ${m.topic.title}`)),f.appendChild(h)
+let p=document.createElement("span")
+p.classList="conr"
+const w=scratchAddons.l10n.datetime(new Date(m.time.posted))
+p.appendChild(document.createTextNode(w)),f.appendChild(p)
+let b=document.createElement("div")
+b.classList="box-content",i.appendChild(b)
+let v=document.createElement("div")
+v.classList="postleft",b.appendChild(v)
+let g=document.createElement("dl")
+v.appendChild(g),g.appendChild(u(a("username")))
+let y=document.createElement("a")
+if(y.setAttribute("href",`https://scratch.mit.edu/users/${m.username}`),y.appendChild(document.createTextNode(m.username)),g.appendChild(y),g.appendChild(document.createElement("br")),g.appendChild(document.createElement("br")),""!==d){let D=document.createElement("a")
+D.appendChild(document.createTextNode(a("posts-here"))),D.addEventListener("click",(()=>{document.getElementById("forum-search-input").value=`+username:"${m.username}" ${d}`,e(document.getElementById("forum-search-list"),document.getElementById("forum-search-input").value,document.getElementById("forum-search-dropdown").value,a)})),g.appendChild(D),g.appendChild(document.createElement("br"))}let k=document.createElement("a")
+k.appendChild(document.createTextNode(a("posts-sitewide"))),k.addEventListener("click",(()=>{document.getElementById("forum-search-input").value=`+username:"${m.username}"`,e(document.getElementById("forum-search-list"),document.getElementById("forum-search-input").value,document.getElementById("forum-search-dropdown").value,a)})),g.appendChild(k),g.appendChild(document.createElement("br")),g.appendChild(document.createElement("br")),g.appendChild(u(a("first-checked"))),g.appendChild(r(scratchAddons.l10n.datetime(new Date(m.time.first_checked)),"",2)),g.appendChild(u(a("last-checked"))),g.appendChild(r(scratchAddons.l10n.datetime(new Date(m.time.html_last_checked)),"",2))
+let x=document.createElement("div")
+x.classList="postright",b.appendChild(x)
+let P=document.createElement("div")
+P.classList="postmsg",x.appendChild(P)
+let S=document.createElement("div")
+if(S.classList="post_body_html",S.append(...t(m.content.html)),P.appendChild(S),m.editor){let E=document.createElement("p")
+E.classList="postedit"
+let I=document.createElement("em")
+I.classList="posteditmessage",I.appendChild(document.createTextNode(a("last-edited-by",{username:m.editor,datetime:scratchAddons.l10n.datetime(new Date(m.time.edited))}))),E.appendChild(I),P.appendChild(E)}let A=document.createElement("div")
+A.classList="clearer",b.appendChild(A),o.appendChild(l)}scratchblocks.renderMatching(".forum-search-list pre.blocks"),c=0}))}let n,c=0,r=0,s=1e4,d=""
+const u={A:["href"],BR:[],BLOCKQUOTE:[],DIV:["class","style"],IMG:["src"],LI:[],OL:["style"],P:["class"],PRE:["class"],SPAN:["class","style"],UL:[]}
+class m extends Error{}export default async function({addon:t,msg:s}){window.scratchAddons._scratchblocks3Enabled||(window.scratchblocks=(await import(t.self.lib+"/thirdparty/cs/scratchblocks.min.es.js")).default)
+let u=document.createElement("form")
+t.tab.displayNoneWhileDisabled(u,{display:"flex"}),u.id="forum-search-form"
+let m=document.createElement("input")
+m.id="forum-search-input",m.setAttribute("type","text")
+let a=window.location.pathname.split("/"),l=s("placeholder")
+if("settings"!==a[2])switch(a.length){case 5:{let t=document.getElementsByClassName("linkst")[0].getElementsByTagName("li")[2].innerText.substring(2).trim()
+d=` +topic:${a[3]}`,l=s("search-topic",{topic:t})
+break}case 4:{let t=document.getElementsByClassName("box-head")[1].getElementsByTagName("span")[0].textContent
+d=` +category:"${t}"`,l=s("search-cat",{cat:t})
+break}}m.setAttribute("placeholder",l),u.appendChild(m)
+let i=document.createElement("select")
+i.id="forum-search-dropdown"
+let f=["relevance","newest","oldest"]
+for(let t of f){let e=document.createElement("option")
+e.value=t,e.appendChild(document.createTextNode(s(t))),i.appendChild(e)}u.appendChild(i)
+let h=document.createElement("div")
+h.addEventListener("scroll",(t=>{let e=t.target
+e.scrollHeight-e.scrollTop===e.clientHeight&&(c||o(h,n,r+1,"relevance",s))})),h.classList="forum-search-list",h.id="forum-search-list",h.style.display="none"
+let p=document.querySelector("#brdmenu")
+p.after(h),p.after(u),u.addEventListener("submit",(t=>{e(h,m.value+d,i.value,s),t.preventDefault()})),i.addEventListener("change",(()=>{""!==m.value&&e(h,m.value+d,i.value,s)}))}

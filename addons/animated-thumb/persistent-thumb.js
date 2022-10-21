@@ -1,44 +1,10 @@
-let disabled = true;
-const isDisabled = () => disabled;
-export const init = (console) => {
-  // animated-thumb uses fetch to set thumbnails.
-  // Therefore all XMLHttpRequest to thumbnail endpoint is ones we need to block.
-  const xhrOpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function (method, path, ...args) {
-    if (!isDisabled() && method === "POST" && String(path).startsWith("/internalapi/project/thumbnail/")) {
-      console.log("Blocked overwriting thumbnails.");
-      method = "OPTIONS"; // This makes sure thumbnail request errors.
-    }
-    return xhrOpen.call(this, method, path, ...args);
-  };
-};
-
-export const blockOverwriting = (value) => {
-  disabled = !value;
-};
-
-export const isOverwritingEnabled = (projectId) => {
-  const value = localStorage.getItem("saPersistentThumb");
-  if (value) {
-    const settings = JSON.parse(value);
-    return settings.includes(Number(projectId));
-  }
-  return false;
-};
-
-export const saveConfig = (projectId, enabled) => {
-  blockOverwriting(enabled);
-  const value = localStorage.getItem("saPersistentThumb");
-  if (value) {
-    const settings = new Set(JSON.parse(value));
-    if (enabled) {
-      settings.add(Number(projectId));
-    } else {
-      settings.delete(Number(projectId));
-    }
-    localStorage.setItem("saPersistentThumb", JSON.stringify([...settings]));
-    return;
-  } else if (enabled) {
-    localStorage.setItem("saPersistentThumb", JSON.stringify([Number(projectId)]));
-  }
-};
+let t=1
+export const init=e=>{const r=XMLHttpRequest.prototype.open
+XMLHttpRequest.prototype.open=function(n,o,...s){return!t&&"POST"===n&&String(o).startsWith("/internalapi/project/thumbnail/")&&(e.log("Blocked overwriting thumbnails."),n="OPTIONS"),r.call(this,n,o,...s)}}
+export const blockOverwriting=e=>{t=!e}
+export const isOverwritingEnabled=t=>{const e=localStorage.getItem("saPersistentThumb")
+return e?JSON.parse(e).includes(Number(t)):0}
+export const saveConfig=(t,e)=>{blockOverwriting(e)
+const r=localStorage.getItem("saPersistentThumb")
+if(r){const n=new Set(JSON.parse(r))
+return e?n.add(Number(t)):n.delete(Number(t)),void localStorage.setItem("saPersistentThumb",JSON.stringify([...n]))}e&&localStorage.setItem("saPersistentThumb",JSON.stringify([Number(t)]))}

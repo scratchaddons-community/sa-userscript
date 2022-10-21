@@ -1,23 +1,4 @@
-const checkIfUnsupported = () => {
-  const getVersion = () => {
-    let userAgent = /(Firefox|Chrome)\/([0-9.]+)/.exec(navigator.userAgent);
-    if (!userAgent) return { browser: null, version: null };
-    return { browser: userAgent[1], version: userAgent[2].split(".")[0] };
-  };
-
-  let { browser, version } = getVersion();
-  return (browser === "Chrome" && version < 80) || (browser === "Firefox" && version < 86);
-};
-
-if (checkIfUnsupported()) {
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request === "checkIfUnsupported") {
-      const uiLanguage = chrome.i18n.getUILanguage();
-      const localeSlash = uiLanguage.startsWith("en") ? "" : `${uiLanguage.split("-")[0]}/`;
-      const utm = `utm_source=userscript&utm_medium=tabscreate&utm_campaign=v${chrome.runtime.getManifest().version}`;
-      const url = `https://scratchaddons.com/${localeSlash}unsupported-browser/?${utm}`;
-      if (sender.tab) chrome.tabs.update(sender.tab.id, { url });
-      else chrome.tabs.create({ url });
-    }
-  });
-}
+(()=>{let{browser:r,version:e}=(()=>{let r=/(Firefox|Chrome)\/([0-9.]+)/.exec(navigator.userAgent)
+return r?{browser:r[1],version:r[2].split(".")[0]}:{browser:null,version:null}})()
+return"Chrome"===r&&80>e||"Firefox"===r&&86>e})()&&chrome.runtime.onMessage.addListener(((r,e)=>{if("checkIfUnsupported"===r){const r=chrome.i18n.getUILanguage(),o=`https://scratchaddons.com/${r.startsWith("en")?"":`${r.split("-")[0]}/`}unsupported-browser/?utm_source=userscript&utm_medium=tabscreate&utm_campaign=v${chrome.runtime.getManifest().version}`
+e.tab?chrome.tabs.update(e.tab.id,{url:o}):chrome.tabs.create({url:o})}}))

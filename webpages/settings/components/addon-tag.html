@@ -1,8 +1,4 @@
-<template>
-  <div
-    class="badge"
-    v-if="shouldShow"
-    :class="{
+<template><div class=badge v-if=shouldShow :class="{
       'tooltip': tagInfo.tooltipText,
       'blue': tagInfo.color === 'blue',
       'yellow': tagInfo.color === 'yellow',
@@ -11,9 +7,4 @@
       'green': tagInfo.color === 'green',
       'darkgreen': tagInfo.color === 'darkgreen',
       'purple': tagInfo.color === 'purple'
-      }"
-  >
-    {{ tagName }}
-    <span v-if="tagInfo.tooltipText" class="tooltiptext">{{ tagTooltip }}</span>
-  </div>
-</template>
+      }">{{ tagName }} <span class=tooltiptext v-if=tagInfo.tooltipText>{{ tagTooltip }}</span></div></template>

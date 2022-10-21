@@ -1,346 +1,45 @@
-import runAddonUserscripts from "./run-userscript.js";
-import Localization from "./l10n.js";
-
-scratchAddons.classNames = { loaded: false };
-scratchAddons.eventTargets = {
-  auth: [],
-  settings: [],
-  tab: [],
-  self: [],
-};
-scratchAddons.session = {};
-scratchAddons.loadedScripts = {};
-const consoleOutput = (logAuthor = "[page]") => {
-  const style = {
-    // Remember to change these as well on cs.js
-    leftPrefix: "background:  #ff7b26; color: white; border-radius: 0.5rem 0 0 0.5rem; padding: 0 0.5rem",
-    rightPrefix:
-      "background: #222; color: white; border-radius: 0 0.5rem 0.5rem 0; padding: 0 0.5rem; font-weight: bold",
-    text: "",
-  };
-  return [`%cSA%c${logAuthor}%c`, style.leftPrefix, style.rightPrefix, style.text];
-};
-scratchAddons.console = {
-  log: _realConsole.log.bind(_realConsole, ...consoleOutput()),
-  warn: _realConsole.warn.bind(_realConsole, ...consoleOutput()),
-  error: _realConsole.error.bind(_realConsole, ...consoleOutput()),
-  logForAddon: (addonId) => _realConsole.log.bind(_realConsole, ...consoleOutput(addonId)),
-  warnForAddon: (addonId) => _realConsole.warn.bind(_realConsole, ...consoleOutput(addonId)),
-  errorForAddon: (addonId) => _realConsole.error.bind(_realConsole, ...consoleOutput(addonId)),
-};
-
-const pendingPromises = {};
-pendingPromises.msgCount = [];
-
-const comlinkIframe1 = document.getElementById("scratchaddons-iframe-1");
-const comlinkIframe2 = document.getElementById("scratchaddons-iframe-2");
-const comlinkIframe3 = document.getElementById("scratchaddons-iframe-3");
-const comlinkIframe4 = document.getElementById("scratchaddons-iframe-4");
-const _cs_ = Comlink.wrap(Comlink.windowEndpoint(comlinkIframe2.contentWindow, comlinkIframe1.contentWindow));
-
-const page = {
-  _globalState: null,
-  get globalState() {
-    return this._globalState;
-  },
-  set globalState(val) {
-    this._globalState = scratchAddons.globalState = val;
-  },
-
-  l10njson: null, // Only set once
-  addonsWithUserscripts: null, // Only set once
-
-  _dataReady: false,
-  get dataReady() {
-    return this._dataReady;
-  },
-  set dataReady(val) {
-    this._dataReady = val;
-    onDataReady(); // Assume set to true
-    this.refetchSession();
-  },
-
-  runAddonUserscripts, // Gets called by cs.js when addon enabled late
-
-  fireEvent(info) {
-    if (info.addonId) {
-      if (info.name === "disabled") {
-        document.documentElement.style.setProperty(
-          `--${info.addonId.replace(/-([a-z])/g, (g) => g[1].toUpperCase())}-_displayNoneWhileDisabledValue`,
-          "none"
-        );
-      } else if (info.name === "reenabled") {
-        document.documentElement.style.removeProperty(
-          `--${info.addonId.replace(/-([a-z])/g, (g) => g[1].toUpperCase())}-_displayNoneWhileDisabledValue`
-        );
-      }
-
-      // Addon specific events, like settings change and self disabled
-      const eventTarget = scratchAddons.eventTargets[info.target].find(
-        (eventTarget) => eventTarget._addonId === info.addonId
-      );
-      if (eventTarget) eventTarget.dispatchEvent(new CustomEvent(info.name));
-    } else {
-      // Global events, like auth change
-      scratchAddons.eventTargets[info.target].forEach((eventTarget) =>
-        eventTarget.dispatchEvent(new CustomEvent(info.name))
-      );
-    }
-  },
-  isFetching: false,
-  async refetchSession() {
-    let res;
-    let d;
-    if (this.isFetching) return;
-    this.isFetching = true;
-    scratchAddons.eventTargets.auth.forEach((auth) => auth._refresh());
-    try {
-      res = await fetch("https://scratch.mit.edu/session/", {
-        headers: {
-          "X-Requested-With": "XMLHttpRequest",
-        },
-      });
-      d = await res.json();
-    } catch (e) {
-      d = {};
-      scratchAddons.console.warn("Session fetch failed: ", e);
-      if ((res && !res.ok) || !res) setTimeout(() => this.refetchSession(), 60000);
-    }
-    scratchAddons.session = d;
-    scratchAddons.eventTargets.auth.forEach((auth) => auth._update(d));
-    this.isFetching = false;
-  },
-};
-Comlink.expose(page, Comlink.windowEndpoint(comlinkIframe4.contentWindow, comlinkIframe3.contentWindow));
-
-class SharedObserver {
-  constructor() {
-    this.inactive = true;
-    this.pending = new Set();
-    this.observer = new MutationObserver((mutation, observer) => {
-      for (const item of this.pending) {
-        if (item.condition && !item.condition()) continue;
-        for (const match of document.querySelectorAll(item.query)) {
-          if (item.seen?.has(match)) continue;
-          if (item.elementCondition && !item.elementCondition(match)) continue;
-          item.seen?.add(match);
-          this.pending.delete(item);
-          item.resolve(match);
-          break;
-        }
-      }
-      if (this.pending.size === 0) {
-        this.inactive = true;
-        this.observer.disconnect();
-      }
-    });
-  }
-
-  /**
-   * Watches an element.
-   * @param {object} opts - options
-   * @param {string} opts.query - query.
-   * @param {WeakSet=} opts.seen - a WeakSet that tracks whether an element has already been seen.
-   * @param {function=} opts.condition - a function that returns whether to resolve the selector or not.
-   * @param {function=} opts.elementCondition - A function that returns whether to resolve the selector or not, given an element.
-   * @returns {Promise<Node>} Promise that is resolved with modified element.
-   */
-  watch(opts) {
-    if (this.inactive) {
-      this.inactive = false;
-      this.observer.observe(document.documentElement, {
-        subtree: true,
-        childList: true,
-      });
-    }
-    return new Promise((resolve) =>
-      this.pending.add({
-        resolve,
-        ...opts,
-      })
-    );
-  }
-}
-
-async function requestMsgCount() {
-  let count = null;
-  if (scratchAddons.session.user?.username) {
-    const username = scratchAddons.session.user.username;
-    try {
-      const resp = await fetch(`https://api.scratch.mit.edu/users/${username}/messages/count`);
-      count = (await resp.json()).count || 0;
-    } catch (e) {
-      scratchAddons.console.warn("Could not fetch message count: ", e);
-    }
-  }
-  pendingPromises.msgCount.forEach((resolve) => resolve(count));
-  pendingPromises.msgCount = [];
-}
-
-function onDataReady() {
-  const addons = page.addonsWithUserscripts;
-
-  scratchAddons.l10n = new Localization(page.l10njson);
-
-  scratchAddons.methods = {};
-  scratchAddons.methods.getMsgCount = () => {
-    let promiseResolver;
-    const promise = new Promise((resolve) => (promiseResolver = resolve));
-    pendingPromises.msgCount.push(promiseResolver);
-    // 1 because the array was just pushed
-    if (pendingPromises.msgCount.length === 1) requestMsgCount();
-    return promise;
-  };
-  scratchAddons.methods.copyImage = async (dataURL) => {
-    return _cs_.copyImage(dataURL);
-  };
-  scratchAddons.methods.getEnabledAddons = (tag) => _cs_.getEnabledAddons(tag);
-
-  scratchAddons.sharedObserver = new SharedObserver();
-
-  const runUserscripts = () => {
-    for (const addon of addons) {
-      if (addon.scripts.length) runAddonUserscripts(addon);
-    }
-  };
-
-  // Note: we currently load userscripts and locales after head loaded
-  // We could do that before head loaded just fine, as long as we don't
-  // actually *run* the addons before document.head is defined.
-  if (document.head) runUserscripts();
-  else {
-    const observer = new MutationObserver(() => {
-      if (document.head) {
-        runUserscripts();
-        observer.disconnect();
-      }
-    });
-    observer.observe(document.documentElement, { subtree: true, childList: true });
-  }
-}
-
-function bodyIsEditorClassCheck() {
-  const pathname = location.pathname.toLowerCase();
-  const split = pathname.split("/").filter(Boolean);
-  if (!split[0] || split[0] !== "projects") return;
-  if (split.includes("editor") || split.includes("fullscreen")) document.body.classList.add("sa-body-editor");
-  else document.body.classList.remove("sa-body-editor");
-}
-if (!document.body) document.addEventListener("DOMContentLoaded", bodyIsEditorClassCheck);
-else bodyIsEditorClassCheck();
-
-const originalReplaceState = history.replaceState;
-history.replaceState = function () {
-  const oldUrl = location.href;
-  const newUrl = arguments[2] ? new URL(arguments[2], document.baseURI).href : oldUrl;
-  const returnValue = originalReplaceState.apply(history, arguments);
-  _cs_.url = newUrl;
-  for (const eventTarget of scratchAddons.eventTargets.tab) {
-    eventTarget.dispatchEvent(new CustomEvent("urlChange", { detail: { oldUrl, newUrl } }));
-  }
-  bodyIsEditorClassCheck();
-  return returnValue;
-};
-
-const originalPushState = history.pushState;
-history.pushState = function () {
-  const oldUrl = location.href;
-  const newUrl = arguments[2] ? new URL(arguments[2], document.baseURI).href : oldUrl;
-  const returnValue = originalPushState.apply(history, arguments);
-  _cs_.url = newUrl;
-  for (const eventTarget of scratchAddons.eventTargets.tab) {
-    eventTarget.dispatchEvent(new CustomEvent("urlChange", { detail: { oldUrl, newUrl } }));
-  }
-  bodyIsEditorClassCheck();
-  return returnValue;
-};
-
-// replaceState or pushState will not trigger onpopstate.
-window.addEventListener("popstate", () => {
-  const newUrl = (_cs_.url = location.href);
-  for (const eventTarget of scratchAddons.eventTargets.tab) {
-    // There isn't really a way to get the previous URL from popstate event.
-    eventTarget.dispatchEvent(new CustomEvent("urlChange", { detail: { oldUrl: "", newUrl } }));
-  }
-  bodyIsEditorClassCheck();
-});
-
-function loadClasses() {
-  scratchAddons.classNames.arr = [
-    ...new Set(
-      [...document.styleSheets]
-        .filter(
-          (styleSheet) =>
-            !(
-              styleSheet.ownerNode.textContent.startsWith(
-                "/* DO NOT EDIT\n@todo This file is copied from GUI and should be pulled out into a shared library."
-              ) &&
-              (styleSheet.ownerNode.textContent.includes("input_input-form") ||
-                styleSheet.ownerNode.textContent.includes("label_input-group_"))
-            )
-        )
-        .map((e) => {
-          try {
-            return [...e.cssRules];
-          } catch (e) {
-            return [];
-          }
-        })
-        .flat()
-        .map((e) => e.selectorText)
-        .filter((e) => e)
-        .map((e) => e.match(/(([\w-]+?)_([\w-]+)_([\w\d-]+))/g))
-        .filter((e) => e)
-        .flat()
-    ),
-  ];
-  scratchAddons.classNames.loaded = true;
-
-  const fixPlaceHolderClasses = () =>
-    document.querySelectorAll("[class*='scratchAddonsScratchClass/']").forEach((el) => {
-      [...el.classList]
-        .filter((className) => className.startsWith("scratchAddonsScratchClass"))
-        .map((className) => className.substring(className.indexOf("/") + 1))
-        .forEach((classNameToFind) =>
-          el.classList.replace(
-            `scratchAddonsScratchClass/${classNameToFind}`,
-            scratchAddons.classNames.arr.find(
-              (className) =>
-                className.startsWith(classNameToFind + "_") && className.length === classNameToFind.length + 6
-            ) || `scratchAddonsScratchClass/${classNameToFind}`
-          )
-        );
-    });
-
-  fixPlaceHolderClasses();
-  new MutationObserver(() => fixPlaceHolderClasses()).observe(document.documentElement, {
-    attributes: false,
-    childList: true,
-    subtree: true,
-  });
-}
-
-if (document.querySelector("title")) loadClasses();
-else {
-  const stylesObserver = new MutationObserver((mutationsList) => {
-    if (document.querySelector("title")) {
-      stylesObserver.disconnect();
-      loadClasses();
-    }
-  });
-  stylesObserver.observe(document.documentElement, { childList: true, subtree: true });
-}
-
-if (location.pathname === "/discuss/3/topic/add/") {
-  const checkUA = () => {
-    if (!window.mySettings) return false;
-    const ua = window.mySettings.markupSet.find((x) => x.className);
-    ua.openWith = window._simple_http_agent = ua.openWith.replace("version", "versions");
-    const textarea = document.getElementById("id_body");
-    if (textarea?.value) {
-      textarea.value = ua.openWith;
-      return true;
-    }
-  };
-  if (!checkUA()) window.addEventListener("DOMContentLoaded", () => checkUA(), { once: true });
-}
+function t(){const t=location.pathname.toLowerCase().split("/").filter(Boolean)
+t[0]&&"projects"===t[0]&&(t.includes("editor")||t.includes("fullscreen")?document.body.classList.add("sa-body-editor"):document.body.classList.remove("sa-body-editor"))}function o(){scratchAddons.classNames.arr=[...new Set([...document.styleSheets].filter((t=>!(t.ownerNode.textContent.startsWith("/* DO NOT EDIT\n@todo This file is copied from GUI and should be pulled out into a shared library.")&&(t.ownerNode.textContent.includes("input_input-form")||t.ownerNode.textContent.includes("label_input-group_"))))).map((t=>{try{return[...t.cssRules]}catch(t){return[]}})).flat().map((t=>t.selectorText)).filter((t=>t)).map((t=>t.match(/(([\w-]+?)_([\w-]+)_([\w\d-]+))/g))).filter((t=>t)).flat())],scratchAddons.classNames.loaded=1
+const t=()=>document.querySelectorAll("[class*='scratchAddonsScratchClass/']").forEach((t=>{[...t.classList].filter((t=>t.startsWith("scratchAddonsScratchClass"))).map((t=>t.substring(t.indexOf("/")+1))).forEach((o=>t.classList.replace(`scratchAddonsScratchClass/${o}`,scratchAddons.classNames.arr.find((t=>t.startsWith(o+"_")&&t.length===o.length+6))||`scratchAddonsScratchClass/${o}`)))}))
+t(),new MutationObserver((()=>t())).observe(document.documentElement,{attributes:0,childList:1,subtree:1})}import s from"./run-userscript.js"
+import e from"./l10n.js"
+scratchAddons.classNames={loaded:0},scratchAddons.eventTargets={auth:[],settings:[],tab:[],self:[]},scratchAddons.session={},scratchAddons.loadedScripts={}
+const n=(t="[page]")=>[`%cSA%c${t}%c`,"background:  #ff7b26; color: white; border-radius: 0.5rem 0 0 0.5rem; padding: 0 0.5rem","background: #222; color: white; border-radius: 0 0.5rem 0.5rem 0; padding: 0 0.5rem; font-weight: bold",""]
+scratchAddons.console={log:_realConsole.log.bind(_realConsole,...n()),warn:_realConsole.warn.bind(_realConsole,...n()),error:_realConsole.error.bind(_realConsole,...n()),logForAddon(t){return _realConsole.log.bind(_realConsole,...n(t))},warnForAddon(t){return _realConsole.warn.bind(_realConsole,...n(t))},errorForAddon(t){return _realConsole.error.bind(_realConsole,...n(t))}}
+const c={msgCount:[]},r=document.getElementById("scratchaddons-iframe-1"),d=document.getElementById("scratchaddons-iframe-2"),a=document.getElementById("scratchaddons-iframe-3"),i=document.getElementById("scratchaddons-iframe-4"),l=Comlink.wrap(Comlink.windowEndpoint(d.contentWindow,r.contentWindow)),h={_globalState:null,get globalState(){return this._globalState},set globalState(t){this._globalState=scratchAddons.globalState=t},l10njson:null,addonsWithUserscripts:null,_dataReady:0,get dataReady(){return this._dataReady},set dataReady(t){this._dataReady=t,function(){const t=h.addonsWithUserscripts
+scratchAddons.l10n=new e(h.l10njson),scratchAddons.methods={},scratchAddons.methods.getMsgCount=()=>{let t
+const o=new Promise((o=>t=o))
+return c.msgCount.push(t),1===c.msgCount.length&&async function(){let t=null
+if(scratchAddons.session.user?.username){const o=scratchAddons.session.user.username
+try{const s=await fetch(`https://api.scratch.mit.edu/users/${o}/messages/count`)
+t=(await s.json()).count||0}catch(t){scratchAddons.console.warn("Could not fetch message count: ",t)}}c.msgCount.forEach((o=>o(t))),c.msgCount=[]}(),o},scratchAddons.methods.copyImage=async t=>l.copyImage(t),scratchAddons.methods.getEnabledAddons=t=>l.getEnabledAddons(t),scratchAddons.sharedObserver=new u
+const o=()=>{for(const o of t)o.scripts.length&&s(o)}
+if(document.head)o()
+else{const t=new MutationObserver((()=>{document.head&&(o(),t.disconnect())}))
+t.observe(document.documentElement,{subtree:1,childList:1})}}(),this.refetchSession()},runAddonUserscripts:s,fireEvent(t){if(t.addonId){"disabled"===t.name?document.documentElement.style.setProperty(`--${t.addonId.replace(/-([a-z])/g,(t=>t[1].toUpperCase()))}-_displayNoneWhileDisabledValue`,"none"):"reenabled"===t.name&&document.documentElement.style.removeProperty(`--${t.addonId.replace(/-([a-z])/g,(t=>t[1].toUpperCase()))}-_displayNoneWhileDisabledValue`)
+const o=scratchAddons.eventTargets[t.target].find((o=>o._addonId===t.addonId))
+o&&o.dispatchEvent(new CustomEvent(t.name))}else scratchAddons.eventTargets[t.target].forEach((o=>o.dispatchEvent(new CustomEvent(t.name))))},isFetching:0,async refetchSession(){let t,o
+if(!this.isFetching){this.isFetching=1,scratchAddons.eventTargets.auth.forEach((t=>t._refresh()))
+try{t=await fetch("https://scratch.mit.edu/session/",{headers:{"X-Requested-With":"XMLHttpRequest"}}),o=await t.json()}catch(s){o={},scratchAddons.console.warn("Session fetch failed: ",s),(t&&!t.ok||!t)&&setTimeout((()=>this.refetchSession()),6e4)}scratchAddons.session=o,scratchAddons.eventTargets.auth.forEach((t=>t._update(o))),this.isFetching=0}}}
+Comlink.expose(h,Comlink.windowEndpoint(i.contentWindow,a.contentWindow))
+class u{constructor(){this.inactive=1,this.pending=new Set,this.observer=new MutationObserver((()=>{for(const t of this.pending)if(!t.condition||t.condition())for(const o of document.querySelectorAll(t.query))if(!t.seen?.has(o)&&(!t.elementCondition||t.elementCondition(o))){t.seen?.add(o),this.pending.delete(t),t.resolve(o)
+break}0===this.pending.size&&(this.inactive=1,this.observer.disconnect())}))}watch(t){return this.inactive&&(this.inactive=0,this.observer.observe(document.documentElement,{subtree:1,childList:1})),new Promise((o=>this.pending.add({resolve:o,...t})))}}document.body?t():document.addEventListener("DOMContentLoaded",t)
+const m=history.replaceState
+history.replaceState=function(o,s,e){const n=location.href,c=e?new URL(e,document.baseURI).href:n,r=m.apply(history,arguments)
+l.url=c
+for(const t of scratchAddons.eventTargets.tab)t.dispatchEvent(new CustomEvent("urlChange",{detail:{oldUrl:n,newUrl:c}}))
+return t(),r}
+const f=history.pushState
+if(history.pushState=function(o,s,e){const n=location.href,c=e?new URL(e,document.baseURI).href:n,r=f.apply(history,arguments)
+l.url=c
+for(const t of scratchAddons.eventTargets.tab)t.dispatchEvent(new CustomEvent("urlChange",{detail:{oldUrl:n,newUrl:c}}))
+return t(),r},window.addEventListener("popstate",(()=>{const o=l.url=location.href
+for(const t of scratchAddons.eventTargets.tab)t.dispatchEvent(new CustomEvent("urlChange",{detail:{oldUrl:"",newUrl:o}}))
+t()})),document.querySelector("title"))o()
+else{const t=new MutationObserver((()=>{document.querySelector("title")&&(t.disconnect(),o())}))
+t.observe(document.documentElement,{childList:1,subtree:1})}if("/discuss/3/topic/add/"===location.pathname){const t=()=>{if(!window.mySettings)return 0
+const t=window.mySettings.markupSet.find((t=>t.className))
+t.openWith=window._simple_http_agent=t.openWith.replace("version","versions")
+const o=document.getElementById("id_body")
+return o?.value?(o.value=t.openWith,1):void 0}
+t()||window.addEventListener("DOMContentLoaded",(()=>t()),{once:1})}

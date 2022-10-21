@@ -1,9 +1,2 @@
-export default function ({ addon }) {
-  const usernameHeader = document.querySelector(".header-text").firstElementChild;
-  const userId = Object.assign(document.createElement("span"), {
-    innerText: `#${Scratch.INIT_DATA.PROFILE.model.userId}`,
-    className: "sa-user-id",
-  });
-  addon.tab.displayNoneWhileDisabled(userId);
-  usernameHeader.appendChild(userId);
-}
+export default function({addon:e}){const t=document.querySelector(".header-text").firstElementChild,n=Object.assign(document.createElement("span"),{innerText:`#${Scratch.INIT_DATA.PROFILE.model.userId}`,className:"sa-user-id"})
+e.tab.displayNoneWhileDisabled(n),t.appendChild(n)}

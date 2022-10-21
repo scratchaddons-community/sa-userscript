@@ -1,12 +1,3 @@
-import * as sharedModule from "../block-duplicate/module.js";
-
-export default async function ({ addon, global, console }) {
-  const update = () => {
-    sharedModule.setCherryPicking(!addon.self.disabled, addon.settings.get("invertDrag"));
-  };
-  addon.self.addEventListener("disabled", update);
-  addon.self.addEventListener("reenabled", update);
-  addon.settings.addEventListener("change", update);
-  update();
-  sharedModule.load(addon);
-}
+import*as e from"../block-duplicate/module.js"
+export default async function({addon:a}){const d=()=>{e.setCherryPicking(!a.self.disabled,a.settings.get("invertDrag"))}
+a.self.addEventListener("disabled",d),a.self.addEventListener("reenabled",d),a.settings.addEventListener("change",d),d(),e.load(a)}

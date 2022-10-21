@@ -1,11 +1,3 @@
-import * as sharedModule from "./module.js";
-
-export default async function ({ addon, global, console }) {
-  const update = () => {
-    sharedModule.setDuplication(!addon.self.disabled);
-  };
-  addon.self.addEventListener("disabled", update);
-  addon.self.addEventListener("reenabled", update);
-  update();
-  sharedModule.load(addon);
-}
+import*as d from"./module.js"
+export default async function({addon:e}){const o=()=>{d.setDuplication(!e.self.disabled)}
+e.self.addEventListener("disabled",o),e.self.addEventListener("reenabled",o),o(),d.load(e)}

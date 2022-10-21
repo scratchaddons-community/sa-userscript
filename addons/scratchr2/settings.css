@@ -1,8 +1,1 @@
-#content {
-  padding-top: 173px;
-}
-#main-content,
-#main-content h4,
-#main-content label {
-  color: var(--darkWww-page-text, #575e75);
-}
+#content{padding-top:173px}#main-content,#main-content h4,#main-content label{color:var(--darkWww-page-text,#575e75)}

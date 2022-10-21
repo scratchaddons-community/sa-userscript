@@ -1,334 +1,45 @@
-import downloadBlob from "../../libraries/common/cs/download-blob.js";
-
-export default async ({ addon, console, msg }) => {
-  let recordElem;
-  let isRecording = false;
-  let isWaitingForFlag = false;
-  let waitingForFlagFunc = null;
-  let abortController = null;
-  let stopSignFunc = null;
-  let recordBuffer = [];
-  let recorder;
-  let timeout;
-  while (true) {
-    const elem = await addon.tab.waitForElement('div[class*="menu-bar_file-group"] > div:last-child:not(.sa-record)', {
-      markAsSeen: true,
-      reduxEvents: ["scratch-gui/mode/SET_PLAYER", "fontsLoaded/SET_FONTS_LOADED", "scratch-gui/locales/SELECT_LOCALE"],
-    });
-    const getOptions = () => {
-      const { backdrop, container, content, closeButton, remove } = addon.tab.createModal(msg("option-title"), {
-        isOpen: true,
-        useEditorClasses: true,
-      });
-      container.classList.add("mediaRecorderPopup");
-      content.classList.add("mediaRecorderPopupContent");
-
-      content.appendChild(
-        Object.assign(document.createElement("p"), {
-          textContent: msg("record-description"),
-          className: "recordOptionDescription",
-        })
-      );
-
-      // Seconds
-      const recordOptionSeconds = document.createElement("p");
-      const recordOptionSecondsInput = Object.assign(document.createElement("input"), {
-        type: "number",
-        min: 1,
-        max: 300,
-        defaultValue: 30,
-        id: "recordOptionSecondsInput",
-        className: addon.tab.scratchClass("prompt_variable-name-text-input"),
-      });
-      const recordOptionSecondsLabel = Object.assign(document.createElement("label"), {
-        htmlFor: "recordOptionSecondsInput",
-        textContent: msg("record-duration"),
-      });
-      recordOptionSeconds.appendChild(recordOptionSecondsLabel);
-      recordOptionSeconds.appendChild(recordOptionSecondsInput);
-      content.appendChild(recordOptionSeconds);
-
-      // Delay
-      const recordOptionDelay = document.createElement("p");
-      const recordOptionDelayInput = Object.assign(document.createElement("input"), {
-        type: "number",
-        min: 0,
-        max: 300,
-        defaultValue: 0,
-        id: "recordOptionDelayInput",
-        className: addon.tab.scratchClass("prompt_variable-name-text-input"),
-      });
-      const recordOptionDelayLabel = Object.assign(document.createElement("label"), {
-        htmlFor: "recordOptionDelayInput",
-        textContent: msg("start-delay"),
-      });
-      recordOptionDelay.appendChild(recordOptionDelayLabel);
-      recordOptionDelay.appendChild(recordOptionDelayInput);
-      content.appendChild(recordOptionDelay);
-
-      // Audio
-      const recordOptionAudio = Object.assign(document.createElement("p"), {
-        className: "mediaRecorderPopupOption",
-      });
-      const recordOptionAudioInput = Object.assign(document.createElement("input"), {
-        type: "checkbox",
-        defaultChecked: true,
-        id: "recordOptionAudioInput",
-      });
-      const recordOptionAudioLabel = Object.assign(document.createElement("label"), {
-        htmlFor: "recordOptionAudioInput",
-        textContent: msg("record-audio"),
-        title: msg("record-audio-description"),
-      });
-      recordOptionAudio.appendChild(recordOptionAudioInput);
-      recordOptionAudio.appendChild(recordOptionAudioLabel);
-      content.appendChild(recordOptionAudio);
-
-      // Mic
-      const recordOptionMic = Object.assign(document.createElement("p"), {
-        className: "mediaRecorderPopupOption",
-      });
-      const recordOptionMicInput = Object.assign(document.createElement("input"), {
-        type: "checkbox",
-        defaultChecked: false,
-        id: "recordOptionMicInput",
-      });
-      const recordOptionMicLabel = Object.assign(document.createElement("label"), {
-        htmlFor: "recordOptionMicInput",
-        textContent: msg("record-mic"),
-      });
-      recordOptionMic.appendChild(recordOptionMicInput);
-      recordOptionMic.appendChild(recordOptionMicLabel);
-      content.appendChild(recordOptionMic);
-
-      // Green flag
-      const recordOptionFlag = Object.assign(document.createElement("p"), {
-        className: "mediaRecorderPopupOption",
-      });
-      const recordOptionFlagInput = Object.assign(document.createElement("input"), {
-        type: "checkbox",
-        defaultChecked: true,
-        id: "recordOptionFlagInput",
-      });
-      const recordOptionFlagLabel = Object.assign(document.createElement("label"), {
-        htmlFor: "recordOptionFlagInput",
-        textContent: msg("record-after-flag"),
-      });
-      recordOptionFlag.appendChild(recordOptionFlagInput);
-      recordOptionFlag.appendChild(recordOptionFlagLabel);
-      content.appendChild(recordOptionFlag);
-
-      // Stop sign
-      const recordOptionStop = Object.assign(document.createElement("p"), {
-        className: "mediaRecorderPopupOption",
-      });
-      const recordOptionStopInput = Object.assign(document.createElement("input"), {
-        type: "checkbox",
-        defaultChecked: true,
-        id: "recordOptionStopInput",
-      });
-      const recordOptionStopLabel = Object.assign(document.createElement("label"), {
-        htmlFor: "recordOptionStopInput",
-        textContent: msg("record-until-stop"),
-      });
-      recordOptionFlagInput.addEventListener("change", () => {
-        const disabled = (recordOptionStopInput.disabled = !recordOptionFlagInput.checked);
-        if (disabled) {
-          recordOptionStopLabel.title = msg("record-until-stop-disabled", {
-            afterFlagOption: msg("record-after-flag"),
-          });
-        }
-      });
-      recordOptionStop.appendChild(recordOptionStopInput);
-      recordOptionStop.appendChild(recordOptionStopLabel);
-      content.appendChild(recordOptionStop);
-
-      let resolvePromise = null;
-      const optionPromise = new Promise((resolve) => {
-        resolvePromise = resolve;
-      });
-      let handleOptionClose = null;
-
-      backdrop.addEventListener("click", () => handleOptionClose(null));
-      closeButton.addEventListener("click", () => handleOptionClose(null));
-
-      handleOptionClose = (value) => {
-        resolvePromise(value);
-        remove();
-      };
-
-      const buttonRow = Object.assign(document.createElement("div"), {
-        className: addon.tab.scratchClass("prompt_button-row", { others: "mediaRecorderPopupButtons" }),
-      });
-      const cancelButton = Object.assign(document.createElement("button"), {
-        textContent: msg("cancel"),
-      });
-      cancelButton.addEventListener("click", () => handleOptionClose(null), { once: true });
-      buttonRow.appendChild(cancelButton);
-      const startButton = Object.assign(document.createElement("button"), {
-        textContent: msg("start"),
-        className: addon.tab.scratchClass("prompt_ok-button"),
-      });
-      startButton.addEventListener(
-        "click",
-        () =>
-          handleOptionClose({
-            secs: Number(recordOptionSecondsInput.value),
-            delay: Number(recordOptionDelayInput.value),
-            audioEnabled: recordOptionAudioInput.checked,
-            micEnabled: recordOptionMicInput.checked,
-            waitUntilFlag: recordOptionFlagInput.checked,
-            useStopSign: !recordOptionStopInput.disabled && recordOptionStopInput.checked,
-          }),
-        { once: true }
-      );
-      buttonRow.appendChild(startButton);
-      content.appendChild(buttonRow);
-
-      return optionPromise;
-    };
-    const disposeRecorder = () => {
-      isRecording = false;
-      recordElem.textContent = msg("record");
-      recordElem.title = "";
-      recorder = null;
-      recordBuffer = [];
-      clearTimeout(timeout);
-      timeout = 0;
-      if (stopSignFunc) {
-        addon.tab.traps.vm.runtime.off("PROJECT_STOP_ALL", stopSignFunc);
-        stopSignFunc = null;
-      }
-    };
-    const stopRecording = (force) => {
-      if (isWaitingForFlag) {
-        addon.tab.traps.vm.runtime.off("PROJECT_START", waitingForFlagFunc);
-        isWaitingForFlag = false;
-        waitingForFlagFunc = null;
-        abortController.abort();
-        abortController = null;
-        disposeRecorder();
-        return;
-      }
-      if (!isRecording || !recorder || recorder.state === "inactive") return;
-      if (force) {
-        disposeRecorder();
-      } else {
-        recorder.onstop = () => {
-          const blob = new Blob(recordBuffer, { type: "video/webm" });
-          downloadBlob("video.webm", blob);
-          disposeRecorder();
-        };
-        recorder.stop();
-      }
-    };
-    const startRecording = async (opts) => {
-      // Timer
-      const secs = Math.min(300, Math.max(1, opts.secs));
-
-      // Initialize MediaRecorder
-      recordBuffer = [];
-      isRecording = true;
-      const vm = addon.tab.traps.vm;
-      let micStream;
-      if (opts.micEnabled) {
-        // Show permission dialog before green flag is clicked
-        try {
-          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (e) {
-          if (e.name !== "NotAllowedError" && e.name !== "NotFoundError") throw e;
-          opts.micEnabled = false;
-        }
-      }
-      if (opts.waitUntilFlag) {
-        isWaitingForFlag = true;
-        Object.assign(recordElem, {
-          textContent: msg("click-flag"),
-          title: msg("click-flag-description"),
-        });
-        abortController = new AbortController();
-        try {
-          await Promise.race([
-            new Promise((resolve) => {
-              waitingForFlagFunc = () => resolve();
-              vm.runtime.once("PROJECT_START", waitingForFlagFunc);
-            }),
-            new Promise((_, reject) => {
-              abortController.signal.addEventListener("abort", () => reject("aborted"), { once: true });
-            }),
-          ]);
-        } catch (e) {
-          if (e.message === "aborted") return;
-          throw e;
-        }
-      }
-      isWaitingForFlag = false;
-      waitingForFlagFunc = abortController = null;
-      const stream = new MediaStream();
-      const videoStream = vm.runtime.renderer.canvas.captureStream();
-      stream.addTrack(videoStream.getVideoTracks()[0]);
-
-      const ctx = new AudioContext();
-      const dest = ctx.createMediaStreamDestination();
-      if (opts.audioEnabled) {
-        const mediaStreamDestination = vm.runtime.audioEngine.audioContext.createMediaStreamDestination();
-        vm.runtime.audioEngine.inputNode.connect(mediaStreamDestination);
-        const audioSource = ctx.createMediaStreamSource(mediaStreamDestination.stream);
-        audioSource.connect(dest);
-      }
-      if (opts.micEnabled) {
-        const micSource = ctx.createMediaStreamSource(micStream);
-        micSource.connect(dest);
-      }
-      if (opts.audioEnabled || opts.micEnabled) {
-        stream.addTrack(dest.stream.getAudioTracks()[0]);
-      }
-      recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
-      recorder.ondataavailable = (e) => {
-        recordBuffer.push(e.data);
-      };
-      recorder.onerror = (e) => {
-        console.warn("Recorder error:", e.error);
-        stopRecording(true);
-      };
-      timeout = setTimeout(() => stopRecording(false), secs * 1000);
-      if (opts.useStopSign) {
-        stopSignFunc = () => stopRecording();
-        vm.runtime.once("PROJECT_STOP_ALL", stopSignFunc);
-      }
-
-      // Delay
-      const delay = opts.delay || 0;
-      const roundedDelay = Math.floor(delay);
-      for (let index = 0; index < roundedDelay; index++) {
-        recordElem.textContent = msg("starting-in", { secs: roundedDelay - index });
-        await new Promise((resolve) => setTimeout(resolve, 975));
-      }
-      setTimeout(() => {
-        recordElem.textContent = msg("stop");
-
-        recorder.start(1000);
-      }, (delay - roundedDelay) * 1000);
-    };
-    if (!recordElem) {
-      recordElem = Object.assign(document.createElement("div"), {
-        className: "sa-record " + elem.className,
-        textContent: msg("record"),
-        title: msg("added-by"),
-      });
-      recordElem.addEventListener("click", async () => {
-        if (isRecording) {
-          stopRecording();
-        } else {
-          const opts = await getOptions();
-          if (!opts) {
-            console.log("Canceled");
-            return;
-          }
-          startRecording(opts);
-        }
-      });
-    }
-    elem.parentElement.appendChild(recordElem);
-  }
-};
+import e from"../../libraries/common/cs/download-blob.js"
+export default async({addon:t,console:o,msg:n})=>{let c,r,d,i=0,a=0,l=null,u=null,s=null,p=[]
+for(;;){const m=await t.tab.waitForElement('div[class*="menu-bar_file-group"] > div:last-child:not(.sa-record)',{markAsSeen:1,reduxEvents:["scratch-gui/mode/SET_PLAYER","fontsLoaded/SET_FONTS_LOADED","scratch-gui/locales/SELECT_LOCALE"]}),b=()=>{const{backdrop:e,container:o,content:c,closeButton:r,remove:d}=t.tab.createModal(n("option-title"),{isOpen:1,useEditorClasses:1})
+o.classList.add("mediaRecorderPopup"),c.classList.add("mediaRecorderPopupContent"),c.appendChild(Object.assign(document.createElement("p"),{textContent:n("record-description"),className:"recordOptionDescription"}))
+const i=document.createElement("p"),a=Object.assign(document.createElement("input"),{type:"number",min:1,max:300,defaultValue:30,id:"recordOptionSecondsInput",className:t.tab.scratchClass("prompt_variable-name-text-input")}),l=Object.assign(document.createElement("label"),{htmlFor:"recordOptionSecondsInput",textContent:n("record-duration")})
+i.appendChild(l),i.appendChild(a),c.appendChild(i)
+const u=document.createElement("p"),s=Object.assign(document.createElement("input"),{type:"number",min:0,max:300,defaultValue:0,id:"recordOptionDelayInput",className:t.tab.scratchClass("prompt_variable-name-text-input")}),p=Object.assign(document.createElement("label"),{htmlFor:"recordOptionDelayInput",textContent:n("start-delay")})
+u.appendChild(p),u.appendChild(s),c.appendChild(u)
+const m=Object.assign(document.createElement("p"),{className:"mediaRecorderPopupOption"}),b=Object.assign(document.createElement("input"),{type:"checkbox",defaultChecked:1,id:"recordOptionAudioInput"}),O=Object.assign(document.createElement("label"),{htmlFor:"recordOptionAudioInput",textContent:n("record-audio"),title:n("record-audio-description")})
+m.appendChild(b),m.appendChild(O),c.appendChild(m)
+const f=Object.assign(document.createElement("p"),{className:"mediaRecorderPopupOption"}),h=Object.assign(document.createElement("input"),{type:"checkbox",defaultChecked:0,id:"recordOptionMicInput"}),C=Object.assign(document.createElement("label"),{htmlFor:"recordOptionMicInput",textContent:n("record-mic")})
+f.appendChild(h),f.appendChild(C),c.appendChild(f)
+const j=Object.assign(document.createElement("p"),{className:"mediaRecorderPopupOption"}),w=Object.assign(document.createElement("input"),{type:"checkbox",defaultChecked:1,id:"recordOptionFlagInput"}),x=Object.assign(document.createElement("label"),{htmlFor:"recordOptionFlagInput",textContent:n("record-after-flag")})
+j.appendChild(w),j.appendChild(x),c.appendChild(j)
+const P=Object.assign(document.createElement("p"),{className:"mediaRecorderPopupOption"}),T=Object.assign(document.createElement("input"),{type:"checkbox",defaultChecked:1,id:"recordOptionStopInput"}),k=Object.assign(document.createElement("label"),{htmlFor:"recordOptionStopInput",textContent:n("record-until-stop")})
+w.addEventListener("change",(()=>{(T.disabled=!w.checked)&&(k.title=n("record-until-stop-disabled",{afterFlagOption:n("record-after-flag")}))})),P.appendChild(T),P.appendChild(k),c.appendChild(P)
+let y=null
+const E=new Promise((e=>{y=e}))
+let g=null
+e.addEventListener("click",(()=>g(null))),r.addEventListener("click",(()=>g(null))),g=e=>{y(e),d()}
+const R=Object.assign(document.createElement("div"),{className:t.tab.scratchClass("prompt_button-row",{others:"mediaRecorderPopupButtons"})}),S=Object.assign(document.createElement("button"),{textContent:n("cancel")})
+S.addEventListener("click",(()=>g(null)),{once:1}),R.appendChild(S)
+const v=Object.assign(document.createElement("button"),{textContent:n("start"),className:t.tab.scratchClass("prompt_ok-button")})
+return v.addEventListener("click",(()=>g({secs:Number(a.value),delay:Number(s.value),audioEnabled:b.checked,micEnabled:h.checked,waitUntilFlag:w.checked,useStopSign:!T.disabled&&T.checked})),{once:1}),R.appendChild(v),c.appendChild(R),E},O=()=>{i=0,c.textContent=n("record"),c.title="",r=null,p=[],clearTimeout(d),d=0,s&&(t.tab.traps.vm.runtime.off("PROJECT_STOP_ALL",s),s=null)},f=o=>{if(a)return t.tab.traps.vm.runtime.off("PROJECT_START",l),a=0,l=null,u.abort(),u=null,void O()
+i&&r&&"inactive"!==r.state&&(o?O():(r.onstop=()=>{const t=new Blob(p,{type:"video/webm"})
+e("video.webm",t),O()},r.stop()))},h=async e=>{const m=Math.min(300,Math.max(1,e.secs))
+p=[],i=1
+const b=t.tab.traps.vm
+let O
+if(e.micEnabled)try{O=await navigator.mediaDevices.getUserMedia({audio:1})}catch(t){if("NotAllowedError"!==t.name&&"NotFoundError"!==t.name)throw t
+e.micEnabled=0}if(e.waitUntilFlag){a=1,Object.assign(c,{textContent:n("click-flag"),title:n("click-flag-description")}),u=new AbortController
+try{await Promise.race([new Promise((e=>{l=()=>e(),b.runtime.once("PROJECT_START",l)})),new Promise(((e,t)=>{u.signal.addEventListener("abort",(()=>t("aborted")),{once:1})}))])}catch(e){if("aborted"===e.message)return
+throw e}}a=0,l=u=null
+const h=new MediaStream,C=b.runtime.renderer.canvas.captureStream()
+h.addTrack(C.getVideoTracks()[0])
+const j=new AudioContext,w=j.createMediaStreamDestination()
+if(e.audioEnabled){const e=b.runtime.audioEngine.audioContext.createMediaStreamDestination()
+b.runtime.audioEngine.inputNode.connect(e),j.createMediaStreamSource(e.stream).connect(w)}e.micEnabled&&j.createMediaStreamSource(O).connect(w),(e.audioEnabled||e.micEnabled)&&h.addTrack(w.stream.getAudioTracks()[0]),r=new MediaRecorder(h,{mimeType:"video/webm"}),r.ondataavailable=e=>{p.push(e.data)},r.onerror=e=>{o.warn("Recorder error:",e.error),f(1)},d=setTimeout((()=>f(0)),1e3*m),e.useStopSign&&(s=()=>f(),b.runtime.once("PROJECT_STOP_ALL",s))
+const x=e.delay||0,P=Math.floor(x)
+for(let e=0;P>e;e++)c.textContent=n("starting-in",{secs:P-e}),await new Promise((e=>setTimeout(e,975)))
+setTimeout((()=>{c.textContent=n("stop"),r.start(1e3)}),1e3*(x-P))}
+c||(c=Object.assign(document.createElement("div"),{className:"sa-record "+m.className,textContent:n("record"),title:n("added-by")}),c.addEventListener("click",(async()=>{if(i)f()
+else{const e=await b()
+if(!e)return void o.log("Canceled")
+h(e)}}))),m.parentElement.appendChild(c)}}

@@ -1,13 +1,5 @@
-import chrome from "../../libraries/common/chrome.js";
-
-const browserLevelPermissions = ["notifications"];
-if (typeof browser !== "undefined") browserLevelPermissions.push("clipboardWrite");
-
-export const getMissingOptionalPermissions = () => {
-  return new Promise((resolve) => {
-    chrome.permissions.getAll(({ permissions }) => {
-      const missing = browserLevelPermissions.filter((p) => !permissions.includes(p));
-      resolve(missing);
-    });
-  });
-};
+import chrome from"../../libraries/common/chrome.js"
+const o=["notifications"]
+"undefined"!=typeof browser&&o.push("clipboardWrite")
+export const getMissingOptionalPermissions=()=>new Promise((i=>{chrome.permissions.getAll((({permissions:s})=>{const e=o.filter((o=>!s.includes(o)))
+i(e)}))}))

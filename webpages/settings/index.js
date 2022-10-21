@@ -1,722 +1,88 @@
-import downloadBlob from "../../libraries/common/cs/download-blob.js";
-import getDirection from "../rtl-list.js";
-import loadVueComponent from "../../libraries/common/load-vue-components.js";
-import Fuse from "../../libraries/thirdparty/cs/fuse.esm.min.js";
-import tags from "./data/tags.js";
-import addonGroups from "./data/addon-groups.js";
-import categories from "./data/categories.js";
-import exampleManifest from "./data/example-manifest.js";
-import fuseOptions from "./data/fuse-options.js";
-import globalTheme from "../../libraries/common/global-theme.js";
-import minifySettings from "../../libraries/common/minify-settings.js";
-import chrome from "../../../libraries/common/chrome.js";
-
-let isIframe = false;
-
-let vue;
-let fuse;
-
-(async () => {
-  const { theme: initialTheme, setGlobalTheme } = await globalTheme();
-
-  await loadVueComponent([
-    "webpages/settings/components/picker-component",
-    "webpages/settings/components/reset-dropdown",
-    "webpages/settings/components/addon-setting",
-    "webpages/settings/components/addon-tag",
-    "webpages/settings/components/addon-group-header",
-    "webpages/settings/components/addon-body",
-    "webpages/settings/components/category-selector",
-    "webpages/settings/components/modal",
-    "webpages/settings/components/previews/editor-dark-mode",
-    "webpages/settings/components/previews/palette",
-  ]);
-
-  Vue.directive("click-outside", {
-    priority: 700,
-    bind() {
-      let self = this;
-      this.event = function (event) {
-        self.vm.$emit(self.expression, event);
-      };
-      this.el.addEventListener("mousedown", this.stopProp);
-      document.body.addEventListener("mousedown", this.event);
-    },
-
-    unbind() {
-      this.el.removeEventListener("mousedown", this.stopProp);
-      document.body.removeEventListener("mousedown", this.event);
-    },
-    stopProp(event) {
-      event.stopPropagation();
-    },
-  });
-
-  const browserLevelPermissions = ["notifications"];
-  if (typeof browser !== "undefined") browserLevelPermissions.push("clipboardWrite");
-  let grantedOptionalPermissions = [];
-  const updateGrantedPermissions = () =>
-    chrome.permissions.getAll(({ permissions }) => {
-      grantedOptionalPermissions = permissions.filter((p) => browserLevelPermissions.includes(p));
-    });
-  updateGrantedPermissions();
-  chrome.permissions.onAdded?.addListener(updateGrantedPermissions);
-  chrome.permissions.onRemoved?.addListener(updateGrantedPermissions);
-
-  const promisify =
-    (callbackFn) =>
-    (...args) =>
-      new Promise((resolve) => callbackFn(...args, resolve));
-
-  let handleConfirmClicked = null;
-
-  const serializeSettings = async () => {
-    const syncGet = promisify(chrome.storage.sync.get.bind(chrome.storage.sync));
-    const storedSettings = await syncGet(["globalTheme", "addonSettings", "addonsEnabled"]);
-    const serialized = {
-      core: {
-        lightTheme: storedSettings.globalTheme,
-        version: chrome.runtime.getManifest().version_name,
-      },
-      addons: {},
-    };
-    for (const addonId of Object.keys(storedSettings.addonsEnabled)) {
-      serialized.addons[addonId] = {
-        enabled: storedSettings.addonsEnabled[addonId],
-        settings: storedSettings.addonSettings[addonId] || {},
-      };
-    }
-    return JSON.stringify(serialized);
-  };
-
-  const deserializeSettings = async (str, manifests, confirmElem) => {
-    const obj = JSON.parse(str);
-    const syncGet = promisify(chrome.storage.sync.get.bind(chrome.storage.sync));
-    const syncSet = promisify(chrome.storage.sync.set.bind(chrome.storage.sync));
-    const { addonSettings, addonsEnabled } = await syncGet(["addonSettings", "addonsEnabled"]);
-    const pendingPermissions = {};
-    for (const addonId of Object.keys(obj.addons)) {
-      const addonValue = obj.addons[addonId];
-      const addonManifest = manifests.find((m) => m._addonId === addonId);
-      if (!addonManifest) continue;
-      const permissionsRequired = addonManifest.permissions || [];
-      const browserPermissionsRequired = permissionsRequired.filter((p) => browserLevelPermissions.includes(p));
-      if (addonValue.enabled && browserPermissionsRequired.length) {
-        pendingPermissions[addonId] = browserPermissionsRequired;
-      } else {
-        addonsEnabled[addonId] = addonValue.enabled;
-      }
-      addonSettings[addonId] = Object.assign({}, addonSettings[addonId], addonValue.settings);
-    }
-    if (handleConfirmClicked) confirmElem.removeEventListener("click", handleConfirmClicked, { once: true });
-    let resolvePromise = null;
-    const resolveOnConfirmPromise = new Promise((resolve) => {
-      resolvePromise = resolve;
-    });
-    handleConfirmClicked = async () => {
-      handleConfirmClicked = null;
-      if (Object.keys(pendingPermissions).length) {
-        const granted = await promisify(chrome.permissions.request.bind(chrome.permissions))({
-          permissions: Object.values(pendingPermissions).flat(),
-        });
-        Object.keys(pendingPermissions).forEach((addonId) => {
-          addonsEnabled[addonId] = granted;
-        });
-      }
-      const prerelease = chrome.runtime.getManifest().version_name.endsWith("-prerelease");
-      await syncSet({
-        globalTheme: !!obj.core.lightTheme,
-        addonsEnabled,
-        addonSettings: minifySettings(addonSettings, prerelease ? null : manifests),
-      });
-      resolvePromise();
-    };
-    confirmElem.classList.remove("hidden-button");
-    confirmElem.addEventListener("click", handleConfirmClicked, { once: true });
-    return resolveOnConfirmPromise;
-  };
-
-  vue = window.vue = new Vue({
-    el: "body",
-    data() {
-      return {
-        smallMode: false,
-        theme: initialTheme,
-        forceEnglishSetting: null,
-        forceEnglishSettingInitial: null,
-        switchPath: "../../images/icons/switch.svg",
-        moreSettingsOpen: false,
-        categoryOpen: true,
-        loaded: false,
-        searchLoaded: false,
-        manifests: [],
-        manifestsById: {},
-        selectedCategory: "all",
-        searchInput: "",
-        searchInputReal: "",
-        addonSettings: {},
-        addonToEnable: null,
-        showPopupModal: false,
-        isIframe,
-        addonGroups: addonGroups.filter((g) => (isIframe ? g.iframeShow : g.fullscreenShow)),
-        categories,
-        searchMsg: this.msg("search"),
-        browserLevelPermissions,
-        grantedOptionalPermissions,
-        addonListObjs: [],
-        sidebarUrls: (() => {
-          const uiLanguage = chrome.i18n.getUILanguage();
-          const localeSlash = uiLanguage.startsWith("en") ? "" : `${uiLanguage.split("-")[0]}/`;
-          const version = chrome.runtime.getManifest().version;
-          const versionName = chrome.runtime.getManifest().version_name;
-          const utm = `utm_source=userscript&utm_medium=settingspage&utm_campaign=v${version}`;
-          return {
-            contributors: `https://scratchaddons.com/${localeSlash}credits?${utm}`,
-            feedback: `https://scratchaddons.com/${localeSlash}feedback/?ext_version=${versionName}&${utm}`,
-            changelog: `https://scratchaddons.com/${localeSlash}changelog?${utm}`,
-          };
-        })(),
-      };
-    },
-    computed: {
-      themePath() {
-        return this.theme ? "../../images/icons/moon.svg" : "../../images/icons/theme.svg";
-      },
-      addonList() {
-        if (!this.searchInput) {
-          this.addonListObjs.forEach((obj) => {
-            // Hide addons from _iframeSearch pseudogroup when not searching (popup)
-            if (obj.group.id === "_iframeSearch") obj.matchesSearch = false;
-            else obj.matchesSearch = true;
-          });
-          return this.addonListObjs.sort((b, a) => b.naturalIndex - a.naturalIndex);
-        }
-
-        if (!fuse) return [];
-        const addonListObjs = Object.values(
-          this.addonListObjs.reduce((acc, cur) => {
-            if (
-              !acc[cur.manifest._addonId] ||
-              (acc[cur.manifest._addonId] && cur.group.id !== "featuredNew" && cur.group.id !== "new")
-            ) {
-              acc[cur.manifest._addonId] = cur;
-            }
-            return acc;
-          }, Object.create(null))
-        );
-        const fuseSearch = fuse.search(this.searchInput).sort((a, b) => {
-          // Sort very good matches at the top no matter what
-          if ((a.score < 0.1) ^ (b.score < 0.1)) return a.score < 0.1 ? -1 : 1;
-          // Enabled addons at top
-          else return b.item._enabled - a.item._enabled;
-        });
-        const results = fuseSearch.map((result) =>
-          addonListObjs.find((obj) => obj.manifest._addonId === result.item._addonId)
-        );
-        for (const obj of addonListObjs) obj.matchesSearch = results.includes(obj);
-        return addonListObjs.sort((b, a) => results.indexOf(b) - results.indexOf(a));
-      },
-      hasNoResults() {
-        return !this.addonList.some((addon) => addon.matchesSearch && addon.matchesCategory);
-      },
-      version() {
-        return chrome.runtime.getManifest().version;
-      },
-      versionName() {
-        return chrome.runtime.getManifest().version_name;
-      },
-      addonAmt() {
-        return `${Math.floor(this.manifests.filter((addon) => !addon.tags.includes("easterEgg")).length / 5) * 5}+`;
-      },
-      selectedCategoryName() {
-        return this.categories.find((category) => category.id === this.selectedCategory)?.name;
-      },
-    },
-
-    methods: {
-      openMoreSettings: function () {
-        this.closePickers();
-        this.moreSettingsOpen = true;
-        if (vue.smallMode) {
-          vue.sidebarToggle();
-        }
-      },
-      sidebarToggle: function () {
-        this.categoryOpen = !this.categoryOpen;
-        if (this.categoryOpen) {
-          vue.switchPath = "../../images/icons/close.svg";
-        } else {
-          vue.switchPath = "../../images/icons/switch.svg";
-        }
-      },
-      msg(message, ...params) {
-        return chrome.i18n.getMessage(message, ...params);
-      },
-      direction() {
-        return getDirection(chrome.i18n.getUILanguage());
-      },
-      openReview() {
-        if (typeof browser !== "undefined") {
-          window.open(`https://addons.mozilla.org/en-US/firefox/addon/scratch-messaging-extension/reviews/`);
-        } else {
-          window.open(
-            `https://chrome.google.com/webstore/detail/scratch-addons/fbeffbjdlemaoicjdapfpikkikjoneco/reviews`
-          );
-        }
-      },
-      clearSearch() {
-        this.searchInputReal = "";
-      },
-      setTheme(mode) {
-        setGlobalTheme(mode);
-        this.theme = mode;
-      },
-      stopPropagation(e) {
-        e.stopPropagation();
-      },
-      updateSettings(addon, { wait = 0, settingId = null } = {}) {
-        const value = settingId && this.addonSettings[addon._addonId][settingId];
-        setTimeout(() => {
-          if (!settingId || this.addonSettings[addon._addonId][settingId] === value) {
-            chrome.runtime.sendMessage({
-              changeAddonSettings: { addonId: addon._addonId, newSettings: this.addonSettings[addon._addonId] },
-            });
-            console.log("Updated", this.addonSettings[addon._addonId]);
-          }
-        }, wait);
-      },
-      closePickers(e, leaveOpen, { callCloseDropdowns = true } = {}) {
-        this.$emit("close-pickers", leaveOpen);
-        if (callCloseDropdowns) this.closeResetDropdowns();
-      },
-      closeResetDropdowns(e, leaveOpen) {
-        this.$emit("close-reset-dropdowns", leaveOpen);
-      },
-      exportSettings() {
-        serializeSettings().then((serialized) => {
-          const blob = new Blob([serialized], { type: "application/json" });
-          downloadBlob("scratch-addons-settings.json", blob);
-        });
-      },
-      viewSettings() {
-        const openedWindow = window.open("about:blank");
-        serializeSettings().then((serialized) => {
-          const blob = new Blob([serialized], { type: "text/plain" });
-          openedWindow.location.replace(URL.createObjectURL(blob));
-        });
-      },
-      importSettings() {
-        const inputElem = Object.assign(document.createElement("input"), {
-          hidden: true,
-          type: "file",
-          accept: "application/json",
-        });
-        inputElem.addEventListener(
-          "change",
-          async (e) => {
-            const file = inputElem.files[0];
-            if (!file) {
-              inputElem.remove();
-              alert(chrome.i18n.getMessage("fileNotSelected"));
-              return;
-            }
-            const text = await file.text();
-            inputElem.remove();
-            const confirmElem = document.getElementById("confirmImport");
-            try {
-              await deserializeSettings(text, vue.manifests, confirmElem);
-            } catch (e) {
-              console.warn("Error when importing settings:", e);
-              confirmElem.classList.add("hidden-button");
-              alert(chrome.i18n.getMessage("importFailed"));
-              return;
-            }
-            alert(chrome.i18n.getMessage("importSuccess"));
-            chrome.runtime.reload();
-          },
-          { once: true }
-        );
-        document.body.appendChild(inputElem);
-        inputElem.click();
-      },
-      applyLanguageSettings() {
-        alert(chrome.i18n.getMessage("importSuccess"));
-        chrome.runtime.reload();
-      },
-      openFullSettings() {
-        window.open(
-          `${chrome.runtime.getURL("webpages/settings/index.html")}#addon-${
-            this.addonToEnable && this.addonToEnable._addonId
-          }`
-        );
-        setTimeout(() => window.parent.close(), 100);
-      },
-      hidePopup() {
-        document.querySelector(".popup").style.animation = "closePopup 1.6s 1";
-        document.querySelector(".popup").addEventListener(
-          "animationend",
-          () => {
-            this.showPopupModal = false;
-          },
-          { once: true }
-        );
-      },
-      groupShownCount(group) {
-        if (group.id === "_iframeSearch") return -1;
-        return this.addonListObjs.filter(
-          (addon) => addon.group === group && addon.matchesSearch && addon.matchesCategory
-        ).length;
-      },
-      groupMarginAbove(group) {
-        const firstVisibleGroup = this.addonGroups.find((group) => this.groupShownCount(group) > 0);
-        return group !== firstVisibleGroup;
-      },
-    },
-    events: {
-      closesidebar(event) {
-        if (event?.target.classList[0] === "toggle") return;
-        if (this.categoryOpen && this.smallMode) {
-          this.sidebarToggle();
-        }
-      },
-    },
-    watch: {
-      searchInputReal(newValue) {
-        if (newValue === "") return (this.searchInput = newValue);
-        setTimeout(() => {
-          if (this.searchInputReal === newValue) this.searchInput = newValue;
-        }, 150);
-      },
-      selectedCategory(newValue) {
-        this.addonListObjs.forEach((obj) => {
-          const shouldHideAsEasterEgg =
-            obj.manifest._categories[0] === "easterEgg" &&
-            newValue !== "easterEgg" &&
-            obj.manifest._wasEverEnabled === false;
-          obj.matchesCategory =
-            !shouldHideAsEasterEgg && (newValue === "all" || obj.manifest._categories.includes(newValue));
-        });
-        if (newValue === "forums") this.addonGroups.find((group) => group.id === "forums").expanded = true;
-      },
-      forceEnglishSetting(newValue, oldValue) {
-        if (oldValue !== null) chrome.storage.local.set({ forceEnglish: this.forceEnglishSetting });
-      },
-    },
-    ready() {
-      // Autofocus search bar in iframe mode for both browsers
-      // autofocus attribute only works in Chrome for us, so
-      // we also manually focus on Firefox, even in fullscreen
-      if (isIframe || typeof browser !== "undefined")
-        setTimeout(() => document.getElementById("searchBox")?.focus(), 0);
-
-      const exampleAddonListItem = {
-        // Need to specify all used properties for reactivity!
-        group: addonGroups[0],
-        manifest: JSON.parse(JSON.stringify(exampleManifest)),
-        matchesSearch: true,
-        matchesCategory: true,
-        naturalIndex: -1,
-        headerAbove: false,
-        footerBelow: false,
-        duplicate: false,
-      };
-
-      setTimeout(() => {
-        if (!this.loaded) {
-          this.addonListObjs = Array(25)
-            .fill("")
-            .map(() => JSON.parse(JSON.stringify(exampleAddonListItem)));
-        }
-      }, 0);
-
-      chrome.storage.local.get("forceEnglish", ({ forceEnglish }) => {
-        this.forceEnglishSettingInitial = forceEnglish;
-        this.forceEnglishSetting = forceEnglish;
-      });
-
-      window.addEventListener(
-        "hashchange",
-        (e) => {
-          const addonId = location.hash.replace(/^#addon-/, "");
-          const groupWithAddon = this.addonGroups.find((group) => group.addonIds.includes(addonId));
-          if (!groupWithAddon) return; //Don't run if hash is invalid
-          const addon = this.manifestsById[addonId];
-
-          groupWithAddon.expanded = true;
-          this.selectedCategory = addon?.tags.includes("easterEgg") ? "easterEgg" : "all";
-          this.clearSearch();
-          setTimeout(() => document.getElementById("addon-" + addonId)?.scrollIntoView(), 0);
-        },
-        { capture: false }
-      );
-    },
-  });
-
-  const getRunningAddons = (manifests, addonsEnabled) => {
-    return new Promise((resolve) => {
-      chrome.tabs.query({ currentWindow: true, active: true }, (tabs) => {
-        if (!tabs[0].id) return;
-        chrome.tabs.sendMessage(tabs[0].id, "getRunningAddons", { frameId: 0 }, (res) => {
-          // Just so we don't get any errors in the console if we don't get any response from a non scratch tab.
-          void chrome.runtime.lastError;
-          const addonsCurrentlyOnTab = res ? [...res.userscripts, ...res.userstyles] : [];
-          const addonsPreviouslyOnTab = res ? res.disabledDynamicAddons : [];
-          resolve({ addonsCurrentlyOnTab, addonsPreviouslyOnTab });
-        });
-      });
-    });
-  };
-
-  chrome.runtime.sendMessage("getSettingsInfo", async ({ manifests, addonsEnabled, addonSettings }) => {
-    vue.addonSettings = addonSettings;
-    const cleanManifests = [];
-    let iframeData;
-    if (isIframe) {
-      iframeData = await getRunningAddons(manifests, addonsEnabled);
-    }
-    const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
-    for (const { manifest, addonId } of manifests) {
-      manifest._categories = [];
-      manifest._categories[0] = manifest.tags.includes("popup")
-        ? "popup"
-        : manifest.tags.includes("easterEgg")
-        ? "easterEgg"
-        : manifest.tags.includes("theme")
-        ? "theme"
-        : manifest.tags.includes("community")
-        ? "community"
-        : "editor";
-
-      const addCategoryIfTag = (arr) => {
-        let count = 0;
-        for (const objOrString of arr) {
-          const tagName = typeof objOrString === "object" ? objOrString.tag : objOrString;
-          const categoryName = typeof objOrString === "object" ? objOrString.category : tagName;
-          if (manifest.tags.includes(tagName)) {
-            manifest._categories.push(categoryName);
-            count++;
-          }
-        }
-        return count;
-      };
-      if (manifest._categories[0] === "theme") {
-        // All themes should have either "editor" or "community" tag
-        addCategoryIfTag([
-          {
-            tag: "editor",
-            category: "themesForEditor",
-          },
-        ]) ||
-          addCategoryIfTag([
-            {
-              tag: "community",
-              category: "themesForWebsite",
-            },
-          ]);
-      } else if (manifest._categories[0] === "editor") {
-        const addedCategories = addCategoryIfTag(["codeEditor", "costumeEditor", "projectPlayer"]);
-        if (addedCategories === 0) manifest._categories.push("editorOthers");
-      } else if (manifest._categories[0] === "community") {
-        const addedCategories = addCategoryIfTag(["profiles", "projectPage", "forums"]);
-        if (addedCategories === 0) manifest._categories.push("communityOthers");
-      }
-
-      // Exception: show cat-blocks after konami code, even tho
-      // it's categorized as an editor addon, not as easterEgg
-      if (addonId === "cat-blocks") manifest._categories.push("easterEgg");
-
-      manifest._icon = manifest._categories[0];
-
-      manifest._enabled = addonsEnabled[addonId];
-      manifest._wasEverEnabled = manifest._enabled;
-      manifest._addonId = addonId;
-      manifest._groups = [];
-
-      if (manifest.versionAdded) {
-        const [extMajor, extMinor, _] = vue.version.split(".");
-        const [addonMajor, addonMinor, __] = manifest.versionAdded.split(".");
-        if (extMajor === addonMajor && extMinor === addonMinor) {
-          manifest.tags.push("new");
-          manifest._groups.push(
-            manifest.tags.includes("recommended") || manifest.tags.includes("featured") ? "featuredNew" : "new"
-          );
-        }
-      }
-
-      if (manifest.latestUpdate) {
-        const [extMajor, extMinor, _] = vue.version.split(".");
-        const [addonMajor, addonMinor, __] = manifest.latestUpdate.version.split(".");
-        if (extMajor === addonMajor && extMinor === addonMinor) {
-          manifest.tags.push(manifest.latestUpdate.newSettings?.length ? "updatedWithSettings" : "updated");
-          manifest._groups.push(manifest.latestUpdate.isMajor ? "featuredNew" : "new");
-        }
-      }
-
-      // Sort tags to preserve consistent order
-      const order = tags.map((obj) => obj.matchName);
-      manifest.tags.sort((b, a) => order.indexOf(b) - order.indexOf(a));
-
-      // Iframe only
-      if (iframeData?.addonsCurrentlyOnTab.includes(addonId)) manifest._groups.push("runningOnTab");
-      else if (iframeData?.addonsPreviouslyOnTab.includes(addonId)) manifest._groups.push("recentlyUsed");
-
-      if (manifest._enabled) manifest._groups.push("enabled");
-      else {
-        // Addon is disabled
-        if (manifest.tags.includes("recommended")) manifest._groups.push("recommended");
-        else if (manifest.tags.includes("featured")) manifest._groups.push("featured");
-        else if (manifest.tags.includes("beta") || manifest.tags.includes("danger")) manifest._groups.push("beta");
-        else if (manifest.tags.includes("forums")) manifest._groups.push("forums");
-        else manifest._groups.push("others");
-      }
-
-      for (const groupId of manifest._groups) {
-        vue.addonGroups.find((g) => g.id === groupId)?.addonIds.push(manifest._addonId);
-      }
-      cleanManifests.push(deepClone(manifest));
-    }
-
-    // Manifest objects will now be owned by Vue
-    for (const { manifest } of manifests) {
-      Vue.set(vue.manifestsById, manifest._addonId, manifest);
-    }
-    vue.manifests = manifests.map(({ manifest }) => manifest);
-
-    fuse = new Fuse(cleanManifests, fuseOptions);
-
-    const checkTag = (tagOrTags, manifestA, manifestB) => {
-      const tags = Array.isArray(tagOrTags) ? tagOrTags : [tagOrTags];
-      const aHasTag = tags.some((tag) => manifestA.tags.includes(tag));
-      const bHasTag = tags.some((tag) => manifestB.tags.includes(tag));
-      if (aHasTag ^ bHasTag) {
-        // If only one has the tag
-        return bHasTag - aHasTag;
-      } else if (aHasTag && bHasTag) return manifestA.name.localeCompare(manifestB.name);
-      else return null;
-    };
-    const order = [["danger", "beta"], "editor", "community", "popup"];
-
-    vue.addonGroups.forEach((group) => {
-      group.addonIds = group.addonIds
-        .map((id) => vue.manifestsById[id])
-        .sort((manifestA, manifestB) => {
-          for (const tag of group.customOrder || order) {
-            const val = checkTag(tag, manifestA, manifestB);
-            if (val !== null) return val;
-          }
-          return 0; // just to suppress linter
-        })
-        .map((addon) => addon._addonId);
-    });
-
-    if (isIframe) {
-      const addonsInGroups = [];
-      for (const group of vue.addonGroups) group.addonIds.forEach((addonId) => addonsInGroups.push(addonId));
-      const searchGroup = vue.addonGroups.find((group) => group.id === "_iframeSearch");
-      searchGroup.addonIds = Object.keys(vue.manifestsById).filter((addonId) => addonsInGroups.indexOf(addonId) === -1);
-    }
-
-    let naturalIndex = 0; // Index when not searching
-    for (const group of vue.addonGroups) {
-      group.addonIds.forEach((addonId, groupIndex) => {
-        const cachedObj = vue.addonListObjs.find((o) => o.manifest._addonId === "example");
-        const obj = cachedObj || {};
-        // Some addons might be twice in the list, such as in "new" and "enabled"
-        // Before setting manifest, check whether this object will be a duplicate.
-        obj.duplicate = Boolean(vue.addonListObjs.find((addon) => addon.manifest._addonId === addonId));
-        obj.manifest = vue.manifestsById[addonId];
-        obj.group = group;
-        obj.matchesSearch = false; // Later set to true by vue.addonList if needed
-        const shouldHideAsEasterEgg = obj.manifest._categories[0] === "easterEgg" && obj.manifest._enabled === false;
-        obj.matchesCategory = !shouldHideAsEasterEgg;
-        obj.naturalIndex = naturalIndex;
-        obj.headerAbove = groupIndex === 0;
-        obj.footerBelow = groupIndex === group.addonIds.length - 1;
-        // Note: when adding new properties here, make sure to also add them to the
-        // exampleAddonListItem object on the vue.ready method, so that it's reactive!
-        if (!cachedObj) vue.addonListObjs.push(obj);
-        naturalIndex++;
-      });
-    }
-    // Remove unused remaining cached objects. Can only happen in iframe mode
-    vue.addonListObjs = vue.addonListObjs.filter((o) => o.manifest._addonId !== "example");
-
-    vue.loaded = true;
-    setTimeout(() => {
-      const hash = window.location.hash;
-      if (hash.startsWith("#addon-")) {
-        const addonId = hash.substring(7);
-        const groupWithAddon = vue.addonGroups.find((group) => group.addonIds.includes(addonId));
-        if (!groupWithAddon) return;
-        groupWithAddon.expanded = true;
-
-        const addon = vue.manifestsById[addonId];
-        vue.selectedCategory = addon?.tags.includes("easterEgg") ? "easterEgg" : "all";
-        setTimeout(() => {
-          const addonElem = document.getElementById("addon-" + addonId);
-          if (!addonElem) return;
-          addonElem.scrollIntoView();
-          // Browsers sometimes ignore :target for the elements dynamically appended.
-          // Use CSS class to initiate the blink animation.
-          addonElem.classList.add("addon-blink");
-          // 2s (animation length) + 1ms
-          setTimeout(() => addonElem.classList.remove("addon-blink"), 2001);
-        }, 0);
-      }
-    }, 0);
-
-    let binaryNum = "";
-    manifests.forEach(({ addonId }) => (binaryNum += addonsEnabled[addonId] === true ? "1" : "0"));
-    const addonsEnabledBase36 = BigInt(`0b${binaryNum}`).toString(36);
-    vue.sidebarUrls.feedback += `#_${addonsEnabledBase36}`;
-  });
-
-  window.addEventListener("keydown", function (e) {
-    if (e.ctrlKey && e.key === "f") {
-      e.preventDefault();
-      document.querySelector("#searchBox").focus();
-    } else if (e.key === "Escape" && document.activeElement === document.querySelector("#searchBox")) {
-      e.preventDefault();
-      vue.searchInputReal = "";
-    }
-  });
-
-  document.title = chrome.i18n.getMessage("settingsTitle");
-  function resize() {
-    if (window.innerWidth < 1100) {
-      vue.smallMode = true;
-      vue.categoryOpen = false;
-      vue.switchPath = "../../images/icons/switch.svg";
-    } else if (vue.smallMode !== false) {
-      vue.smallMode = false;
-      vue.categoryOpen = true;
-      vue.switchPath = "../../images/icons/close.svg";
-    }
-  }
-  window.onresize = resize;
-  resize();
-
-  // Konami code easter egg
-  let cursor = 0;
-  const KONAMI_CODE = [
-    "ArrowUp",
-    "ArrowUp",
-    "ArrowDown",
-    "ArrowDown",
-    "ArrowLeft",
-    "ArrowRight",
-    "ArrowLeft",
-    "ArrowRight",
-    "KeyB",
-    "KeyA",
-  ];
-  document.addEventListener("keydown", (e) => {
-    cursor = e.code === KONAMI_CODE[cursor] ? cursor + 1 : 0;
-    if (cursor === KONAMI_CODE.length) {
-      vue.selectedCategory = "easterEgg";
-      setTimeout(() => (vue.searchInputReal = ""), 0); // Allow konami code in autofocused search bar
-    }
-  });
-
-  chrome.runtime.sendMessage("checkPermissions");
-})();
+import e from"../../libraries/common/cs/download-blob.js"
+import t from"../rtl-list.js"
+import o from"../../libraries/common/load-vue-components.js"
+import s from"../../libraries/thirdparty/cs/fuse.esm.min.js"
+import n from"./data/tags.js"
+import i from"./data/addon-groups.js"
+import r from"./data/categories.js"
+import a from"./data/example-manifest.js"
+import c from"./data/fuse-options.js"
+import d from"../../libraries/common/global-theme.js"
+import m from"../../libraries/common/minify-settings.js"
+import chrome from"../../../libraries/common/chrome.js"
+let vue,l;(async()=>{function g(){1100>window.innerWidth?(vue.smallMode=1,vue.categoryOpen=0,vue.switchPath="../../images/icons/switch.svg"):0!=vue.smallMode&&(vue.smallMode=0,vue.categoryOpen=1,vue.switchPath="../../images/icons/close.svg")}const{theme:h,setGlobalTheme:p}=await d()
+await o(["webpages/settings/components/picker-component","webpages/settings/components/reset-dropdown","webpages/settings/components/addon-setting","webpages/settings/components/addon-tag","webpages/settings/components/addon-group-header","webpages/settings/components/addon-body","webpages/settings/components/category-selector","webpages/settings/components/modal","webpages/settings/components/previews/editor-dark-mode","webpages/settings/components/previews/palette"]),Vue.directive("click-outside",{priority:700,bind(){let e=this
+this.event=function(t){e.vm.$emit(e.expression,t)},this.el.addEventListener("mousedown",this.stopProp),document.body.addEventListener("mousedown",this.event)},unbind(){this.el.removeEventListener("mousedown",this.stopProp),document.body.removeEventListener("mousedown",this.event)},stopProp(e){e.stopPropagation()}})
+const u=["notifications"]
+"undefined"!=typeof browser&&u.push("clipboardWrite")
+let f=[]
+const w=()=>chrome.permissions.getAll((({permissions:e})=>{f=e.filter((e=>u.includes(e)))}))
+w(),chrome.permissions.onAdded?.addListener(w),chrome.permissions.onRemoved?.addListener(w)
+const b=e=>(...t)=>new Promise((o=>e(...t,o)))
+let y=null
+const S=async()=>{const e=b(chrome.storage.sync.get.bind(chrome.storage.sync)),t=await e(["globalTheme","addonSettings","addonsEnabled"]),o={core:{lightTheme:t.globalTheme,version:chrome.runtime.getManifest().version_name},addons:{}}
+for(const e of Object.keys(t.addonsEnabled))o.addons[e]={enabled:t.addonsEnabled[e],settings:t.addonSettings[e]||{}}
+return JSON.stringify(o)}
+vue=window.vue=new Vue({el:"body",data(){return{smallMode:0,theme:h,forceEnglishSetting:null,forceEnglishSettingInitial:null,switchPath:"../../images/icons/switch.svg",moreSettingsOpen:0,categoryOpen:1,loaded:0,searchLoaded:0,manifests:[],manifestsById:{},selectedCategory:"all",searchInput:"",searchInputReal:"",addonSettings:{},addonToEnable:null,showPopupModal:0,isIframe:0,addonGroups:i.filter((e=>e.fullscreenShow)),categories:r,searchMsg:this.msg("search"),browserLevelPermissions:u,grantedOptionalPermissions:f,addonListObjs:[],sidebarUrls:(()=>{const e=chrome.i18n.getUILanguage(),t=e.startsWith("en")?"":`${e.split("-")[0]}/`,o=`utm_source=userscript&utm_medium=settingspage&utm_campaign=v${chrome.runtime.getManifest().version}`
+return{contributors:`https://scratchaddons.com/${t}credits?${o}`,feedback:`https://scratchaddons.com/${t}feedback/?ext_version=${chrome.runtime.getManifest().version_name}&${o}`,changelog:`https://scratchaddons.com/${t}changelog?${o}`}})()}},computed:{themePath(){return this.theme?"../../images/icons/moon.svg":"../../images/icons/theme.svg"},addonList(){if(!this.searchInput)return this.addonListObjs.forEach((e=>{e.matchesSearch="_iframeSearch"===e.group.id?0:1})),this.addonListObjs.sort(((e,t)=>e.naturalIndex-t.naturalIndex))
+if(!l)return[]
+const e=Object.values(this.addonListObjs.reduce(((e,t)=>((!e[t.manifest._addonId]||e[t.manifest._addonId]&&"featuredNew"!==t.group.id&&"new"!==t.group.id)&&(e[t.manifest._addonId]=t),e)),Object.create(null))),t=l.search(this.searchInput).sort(((e,t)=>.1>e.score^.1>t.score?.1>e.score?-1:1:t.item._enabled-e.item._enabled)).map((t=>e.find((e=>e.manifest._addonId===t.item._addonId))))
+for(const o of e)o.matchesSearch=t.includes(o)
+return e.sort(((e,o)=>t.indexOf(e)-t.indexOf(o)))},hasNoResults(){return!this.addonList.some((e=>e.matchesSearch&&e.matchesCategory))},version:()=>chrome.runtime.getManifest().version,versionName:()=>chrome.runtime.getManifest().version_name,addonAmt(){return 5*Math.floor(this.manifests.filter((e=>!e.tags.includes("easterEgg"))).length/5)+"+"},selectedCategoryName(){return this.categories.find((e=>e.id===this.selectedCategory))?.name}},methods:{openMoreSettings(){this.closePickers(),this.moreSettingsOpen=1,vue.smallMode&&vue.sidebarToggle()},sidebarToggle(){this.categoryOpen=!this.categoryOpen,vue.switchPath=this.categoryOpen?"../../images/icons/close.svg":"../../images/icons/switch.svg"},msg:(e,...t)=>chrome.i18n.getMessage(e,...t),direction:()=>t(chrome.i18n.getUILanguage()),openReview(){"undefined"!=typeof browser?window.open("https://addons.mozilla.org/en-US/firefox/addon/scratch-messaging-extension/reviews/"):window.open("https://chrome.google.com/webstore/detail/scratch-addons/fbeffbjdlemaoicjdapfpikkikjoneco/reviews")},clearSearch(){this.searchInputReal=""},setTheme(e){p(e),this.theme=e},stopPropagation(e){e.stopPropagation()},updateSettings(e,{wait:t=0,settingId:o=null}={}){const s=o&&this.addonSettings[e._addonId][o]
+setTimeout((()=>{o&&this.addonSettings[e._addonId][o]!==s||(chrome.runtime.sendMessage({changeAddonSettings:{addonId:e._addonId,newSettings:this.addonSettings[e._addonId]}}),console.log("Updated",this.addonSettings[e._addonId]))}),t)},closePickers(e,t,{callCloseDropdowns:o=1}={}){this.$emit("close-pickers",t),o&&this.closeResetDropdowns()},closeResetDropdowns(e,t){this.$emit("close-reset-dropdowns",t)},exportSettings(){S().then((t=>{const o=new Blob([t],{type:"application/json"})
+e("scratch-addons-settings.json",o)}))},viewSettings(){const e=window.open("about:blank")
+S().then((t=>{const o=new Blob([t],{type:"text/plain"})
+e.location.replace(URL.createObjectURL(o))}))},importSettings(){const e=Object.assign(document.createElement("input"),{hidden:1,type:"file",accept:"application/json"})
+e.addEventListener("change",(async t=>{const o=e.files[0]
+if(!o)return e.remove(),void alert(chrome.i18n.getMessage("fileNotSelected"))
+const s=await o.text()
+e.remove()
+const n=document.getElementById("confirmImport")
+try{await(async(e,t,o)=>{const s=JSON.parse(e),n=b(chrome.storage.sync.get.bind(chrome.storage.sync)),i=b(chrome.storage.sync.set.bind(chrome.storage.sync)),{addonSettings:r,addonsEnabled:a}=await n(["addonSettings","addonsEnabled"]),c={}
+for(const e of Object.keys(s.addons)){const o=s.addons[e],n=t.find((t=>t._addonId===e))
+if(!n)continue
+const i=(n.permissions||[]).filter((e=>u.includes(e)))
+o.enabled&&i.length?c[e]=i:a[e]=o.enabled,r[e]=Object.assign({},r[e],o.settings)}y&&o.removeEventListener("click",y,{once:1})
+let d=null
+const l=new Promise((e=>{d=e}))
+return y=async()=>{if(y=null,Object.keys(c).length){const e=await b(chrome.permissions.request.bind(chrome.permissions))({permissions:Object.values(c).flat()})
+Object.keys(c).forEach((t=>{a[t]=e}))}const e=chrome.runtime.getManifest().version_name.endsWith("-prerelease")
+await i({globalTheme:!!s.core.lightTheme,addonsEnabled:a,addonSettings:m(r,e?null:t)}),d()},o.classList.remove("hidden-button"),o.addEventListener("click",y,{once:1}),l})(s,vue.manifests,n)}catch(t){return console.warn("Error when importing settings:",t),n.classList.add("hidden-button"),void alert(chrome.i18n.getMessage("importFailed"))}alert(chrome.i18n.getMessage("importSuccess")),chrome.runtime.reload()}),{once:1}),document.body.appendChild(e),e.click()},applyLanguageSettings(){alert(chrome.i18n.getMessage("importSuccess")),chrome.runtime.reload()},openFullSettings(){window.open(`${chrome.runtime.getURL("webpages/settings/index.html")}#addon-${this.addonToEnable&&this.addonToEnable._addonId}`),setTimeout((()=>window.parent.close()),100)},hidePopup(){document.querySelector(".popup").style.animation="closePopup 1.6s 1",document.querySelector(".popup").addEventListener("animationend",(()=>{this.showPopupModal=0}),{once:1})},groupShownCount(e){return"_iframeSearch"===e.id?-1:this.addonListObjs.filter((t=>t.group===e&&t.matchesSearch&&t.matchesCategory)).length},groupMarginAbove(e){const t=this.addonGroups.find((e=>this.groupShownCount(e)>0))
+return e!==t}},events:{closesidebar(e){"toggle"!==e?.target.classList[0]&&this.categoryOpen&&this.smallMode&&this.sidebarToggle()}},watch:{searchInputReal(e){if(""===e)return this.searchInput=e
+setTimeout((()=>{this.searchInputReal===e&&(this.searchInput=e)}),150)},selectedCategory(e){this.addonListObjs.forEach((t=>{t.matchesCategory=!("easterEgg"===t.manifest._categories[0]&&"easterEgg"!==e&&0==t.manifest._wasEverEnabled)&&("all"===e||t.manifest._categories.includes(e))})),"forums"===e&&(this.addonGroups.find((e=>"forums"===e.id)).expanded=1)},forceEnglishSetting(e,t){null!==t&&chrome.storage.local.set({forceEnglish:this.forceEnglishSetting})}},ready(){"undefined"!=typeof browser&&setTimeout((()=>document.getElementById("searchBox")?.focus()),0)
+const e={group:i[0],manifest:JSON.parse(JSON.stringify(a)),matchesSearch:1,matchesCategory:1,naturalIndex:-1,headerAbove:0,footerBelow:0,duplicate:0}
+setTimeout((()=>{this.loaded||(this.addonListObjs=Array(25).fill("").map((()=>JSON.parse(JSON.stringify(e)))))}),0),chrome.storage.local.get("forceEnglish",(({forceEnglish:e})=>{this.forceEnglishSettingInitial=e,this.forceEnglishSetting=e})),window.addEventListener("hashchange",(()=>{const e=location.hash.replace(/^#addon-/,""),t=this.addonGroups.find((t=>t.addonIds.includes(e)))
+if(!t)return
+const o=this.manifestsById[e]
+t.expanded=1,this.selectedCategory=o?.tags.includes("easterEgg")?"easterEgg":"all",this.clearSearch(),setTimeout((()=>document.getElementById("addon-"+e)?.scrollIntoView()),0)}),{capture:0})}}),chrome.runtime.sendMessage("getSettingsInfo",(async({manifests:e,addonsEnabled:t,addonSettings:o})=>{vue.addonSettings=o
+const i=[]
+for(const{manifest:o,addonId:s}of e){o._categories=[],o._categories[0]=o.tags.includes("popup")?"popup":o.tags.includes("easterEgg")?"easterEgg":o.tags.includes("theme")?"theme":o.tags.includes("community")?"community":"editor"
+const e=e=>{let t=0
+for(const s of e){const e="object"==typeof s?s.tag:s,n="object"==typeof s?s.category:e
+o.tags.includes(e)&&(o._categories.push(n),t++)}return t}
+if("theme"===o._categories[0]?e([{tag:"editor",category:"themesForEditor"}])||e([{tag:"community",category:"themesForWebsite"}]):"editor"===o._categories[0]?0===e(["codeEditor","costumeEditor","projectPlayer"])&&o._categories.push("editorOthers"):"community"===o._categories[0]&&0===e(["profiles","projectPage","forums"])&&o._categories.push("communityOthers"),"cat-blocks"===s&&o._categories.push("easterEgg"),o._icon=o._categories[0],o._enabled=t[s],o._wasEverEnabled=o._enabled,o._addonId=s,o._groups=[],o.versionAdded){const[e,t,s]=vue.version.split("."),[n,i,r]=o.versionAdded.split(".")
+e===n&&t===i&&(o.tags.push("new"),o._groups.push(o.tags.includes("recommended")||o.tags.includes("featured")?"featuredNew":"new"))}if(o.latestUpdate){const[e,t,s]=vue.version.split("."),[n,i,r]=o.latestUpdate.version.split(".")
+e===n&&t===i&&(o.tags.push(o.latestUpdate.newSettings?.length?"updatedWithSettings":"updated"),o._groups.push(o.latestUpdate.isMajor?"featuredNew":"new"))}const r=n.map((e=>e.matchName))
+o.tags.sort(((e,t)=>r.indexOf(e)-r.indexOf(t))),o._enabled?o._groups.push("enabled"):o.tags.includes("recommended")?o._groups.push("recommended"):o.tags.includes("featured")?o._groups.push("featured"):o.tags.includes("beta")||o.tags.includes("danger")?o._groups.push("beta"):o.tags.includes("forums")?o._groups.push("forums"):o._groups.push("others")
+for(const e of o._groups)vue.addonGroups.find((t=>t.id===e))?.addonIds.push(o._addonId)
+i.push(JSON.parse(JSON.stringify(o)))}for(const{manifest:t}of e)Vue.set(vue.manifestsById,t._addonId,t)
+vue.manifests=e.map((({manifest:e})=>e)),l=new s(i,c)
+const r=(e,t,o)=>{const s=Array.isArray(e)?e:[e],n=s.some((e=>t.tags.includes(e))),i=s.some((e=>o.tags.includes(e)))
+return n^i?i-n:n&&i?t.name.localeCompare(o.name):null},a=[["danger","beta"],"editor","community","popup"]
+vue.addonGroups.forEach((e=>{e.addonIds=e.addonIds.map((e=>vue.manifestsById[e])).sort(((t,o)=>{for(const s of e.customOrder||a){const e=r(s,t,o)
+if(null!==e)return e}return 0})).map((e=>e._addonId))}))
+let d=0
+for(const e of vue.addonGroups)e.addonIds.forEach(((t,o)=>{const s=vue.addonListObjs.find((e=>"example"===e.manifest._addonId)),n=s||{}
+n.duplicate=Boolean(vue.addonListObjs.find((e=>e.manifest._addonId===t))),n.manifest=vue.manifestsById[t],n.group=e,n.matchesSearch=0,n.matchesCategory=!("easterEgg"===n.manifest._categories[0]&&0==n.manifest._enabled),n.naturalIndex=d,n.headerAbove=0===o,n.footerBelow=o===e.addonIds.length-1,s||vue.addonListObjs.push(n),d++}))
+vue.addonListObjs=vue.addonListObjs.filter((e=>"example"!==e.manifest._addonId)),vue.loaded=1,setTimeout((()=>{const e=window.location.hash
+if(e.startsWith("#addon-")){const t=e.substring(7),o=vue.addonGroups.find((e=>e.addonIds.includes(t)))
+if(!o)return
+o.expanded=1,vue.selectedCategory=vue.manifestsById[t]?.tags.includes("easterEgg")?"easterEgg":"all",setTimeout((()=>{const e=document.getElementById("addon-"+t)
+e&&(e.scrollIntoView(),e.classList.add("addon-blink"),setTimeout((()=>e.classList.remove("addon-blink")),2001))}),0)}}),0)
+let m=""
+e.forEach((({addonId:e})=>m+=1==t[e]?"1":"0"))
+const g=BigInt(`0b${m}`).toString(36)
+vue.sidebarUrls.feedback+=`#_${g}`})),window.addEventListener("keydown",(function(e){e.ctrlKey&&"f"===e.key?(e.preventDefault(),document.querySelector("#searchBox").focus()):"Escape"===e.key&&document.activeElement===document.querySelector("#searchBox")&&(e.preventDefault(),vue.searchInputReal="")})),document.title=chrome.i18n.getMessage("settingsTitle"),window.onresize=g,g()
+let j=0
+const E=["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","KeyB","KeyA"]
+document.addEventListener("keydown",(e=>{j=e.code===E[j]?j+1:0,j===E.length&&(vue.selectedCategory="easterEgg",setTimeout((()=>vue.searchInputReal=""),0))})),chrome.runtime.sendMessage("checkPermissions")})()

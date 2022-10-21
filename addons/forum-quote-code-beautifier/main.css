@@ -1,11 +1,1 @@
-.code,
-.postmsg blockquote {
-  border: none;
-  border-left: 2px solid var(--forumQuoteCodeBeautifier-bordercolor);
-}
-.postmsg blockquote blockquote {
-  background-color: var(--darkWww-gray-forumTransparentQuote, rgba(0, 0, 0, 0.03));
-}
-.postmsg blockquote .code {
-  background-color: var(--darkWww-gray-forumTransparentCode, rgba(0, 0, 0, 0.03));
-}
+.code,.postmsg blockquote{border:none;border-left:2px solid var(--forumQuoteCodeBeautifier-bordercolor)}.postmsg blockquote blockquote{background-color:var(--darkWww-gray-forumTransparentQuote,#00000008)}.postmsg blockquote .code{background-color:var(--darkWww-gray-forumTransparentCode,#00000008)}

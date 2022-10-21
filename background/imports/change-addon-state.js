@@ -1,65 +1,7 @@
-import { updateBadge } from "../message-cache.js";
-import chrome from "../../libraries/common/chrome.js";
-
-/**
- * Changes addon state (enabled/disabled), and executes the addons if enabled,
- * or stops the execution if disabled.
- * @param {string} addonId - addon ID.
- * @param {boolean} newState - new addon state.
- */
-export default (addonId, newState) => {
-  scratchAddons.localState.addonsEnabled[addonId] = newState;
-  chrome.storage.sync.set({
-    addonsEnabled: scratchAddons.localState._target.addonsEnabled,
-  });
-  const { manifest } = scratchAddons.manifests.find((addon) => addon.addonId === addonId);
-  const { dynamicEnable, dynamicDisable } = manifest;
-  if (newState) {
-    if (dynamicEnable || dynamicDisable) {
-      scratchAddons.localEvents.dispatchEvent(new CustomEvent("addonDynamicEnable", { detail: { addonId, manifest } }));
-    }
-  } else {
-    if (dynamicDisable) {
-      scratchAddons.localEvents.dispatchEvent(
-        new CustomEvent("addonDynamicDisable", { detail: { addonId, manifest } })
-      );
-    }
-  }
-  if (addonId === "msg-count-badge") updateBadge(scratchAddons.cookieStoreId);
-  // Partial dynamicEnable (PDE)/Partial dynamicDisable (PDD)
-  // See #4188 - for now, userstyles only.
-  if (scratchAddons.dependents[addonId]?.size) {
-    for (const dependentAddonId of scratchAddons.dependents[addonId]) {
-      // Ignore disabled addons
-      if (!scratchAddons.localState.addonsEnabled[dependentAddonId]) continue;
-      const dependentManifest = scratchAddons.manifests.find(
-        (manifest) => manifest.addonId === dependentAddonId
-      ).manifest;
-      // Require dynamicEnable/dynamicDisable since this is a type of dynamic enable/disable
-      // and it might cause problems if applied to addons without support
-      if (newState && dependentManifest.dynamicEnable) {
-        // Dependent might have a userstyle that needs to be activated
-        scratchAddons.localEvents.dispatchEvent(
-          new CustomEvent("addonDynamicEnable", {
-            detail: {
-              addonId: dependentAddonId,
-              manifest: dependentManifest,
-              partialDynamicEnableBy: addonId,
-            },
-          })
-        );
-      } else if (!newState && dependentManifest.dynamicDisable) {
-        // Dependent might have a userstyle that needs to be deactivated
-        scratchAddons.localEvents.dispatchEvent(
-          new CustomEvent("addonDynamicDisable", {
-            detail: {
-              addonId: dependentAddonId,
-              manifest: dependentManifest,
-              partialDynamicDisableBy: addonId,
-            },
-          })
-        );
-      }
-    }
-  }
-};
+import{updateBadge as a}from"../message-cache.js"
+import chrome from"../../libraries/common/chrome.js"
+export default(d,n)=>{scratchAddons.localState.addonsEnabled[d]=n,chrome.storage.sync.set({addonsEnabled:scratchAddons.localState._target.addonsEnabled})
+const{manifest:s}=scratchAddons.manifests.find((a=>a.addonId===d)),{dynamicEnable:c,dynamicDisable:o}=s
+if(n?(c||o)&&scratchAddons.localEvents.dispatchEvent(new CustomEvent("addonDynamicEnable",{detail:{addonId:d,manifest:s}})):o&&scratchAddons.localEvents.dispatchEvent(new CustomEvent("addonDynamicDisable",{detail:{addonId:d,manifest:s}})),"msg-count-badge"===d&&a(scratchAddons.cookieStoreId),scratchAddons.dependents[d]?.size)for(const a of scratchAddons.dependents[d]){if(!scratchAddons.localState.addonsEnabled[a])continue
+const s=scratchAddons.manifests.find((d=>d.addonId===a)).manifest
+n&&s.dynamicEnable?scratchAddons.localEvents.dispatchEvent(new CustomEvent("addonDynamicEnable",{detail:{addonId:a,manifest:s,partialDynamicEnableBy:d}})):!n&&s.dynamicDisable&&scratchAddons.localEvents.dispatchEvent(new CustomEvent("addonDynamicDisable",{detail:{addonId:a,manifest:s,partialDynamicDisableBy:d}}))}}

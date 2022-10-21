@@ -1,15 +1,1 @@
-.sa-copyCodeDiv {
-  text-align: right;
-  height: 0px;
-}
-.sa-copyCodeButton {
-  opacity: 0.75;
-  cursor: pointer;
-  font-size: 80%;
-  position: relative;
-  bottom: 3px;
-  user-select: none;
-}
-.sa-copyCodeButton:active {
-  text-decoration: underline;
-}
+.sa-copyCodeDiv{height:0;text-align:right}.sa-copyCodeButton{bottom:3px;cursor:pointer;font-size:80%;opacity:.75;position:relative;-webkit-user-select:none;user-select:none}.sa-copyCodeButton:active{text-decoration:underline}

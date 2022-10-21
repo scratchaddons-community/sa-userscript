@@ -1,150 +1,23 @@
-export default async function ({ addon, global, console }) {
-  const vm = addon.tab.traps.vm;
-
-  const updateStyles = () => {
-    previewInner.classList.toggle("sa-comment-preview-delay", addon.settings.get("delay") !== "none");
-    previewInner.classList.toggle("sa-comment-preview-reduce-transparency", addon.settings.get("reduce-transparency"));
-    previewInner.classList.toggle("sa-comment-preview-fade", !addon.settings.get("reduce-animation"));
-  };
-
-  const afterDelay = (cb) => {
-    if (!previewInner.classList.contains("sa-comment-preview-hidden")) {
-      // If not hidden, updating immediately is preferred
-      cb();
-      return;
-    }
-    const delay = addon.settings.get("delay");
-    if (delay === "long") return setTimeout(cb, 500);
-    if (delay === "short") return setTimeout(cb, 300);
-    cb();
-  };
-
-  let hoveredElement = null;
-  let showTimeout = null;
-  let mouseX = 0;
-  let mouseY = 0;
-  let doNotShowUntilMoveMouse = false;
-
-  const previewOuter = document.createElement("div");
-  previewOuter.classList.add("sa-comment-preview-outer");
-  const previewInner = document.createElement("div");
-  previewInner.classList.add("sa-comment-preview-inner");
-  previewInner.classList.add("sa-comment-preview-hidden");
-  updateStyles();
-  addon.settings.addEventListener("change", updateStyles);
-  previewOuter.appendChild(previewInner);
-  document.body.appendChild(previewOuter);
-
-  const getBlock = (id) => vm.editingTarget.blocks.getBlock(id) || vm.runtime.flyoutBlocks.getBlock(id);
-  const getComment = (block) => block && block.comment && vm.editingTarget.comments[block.comment];
-  const getProcedureDefinitionBlock = (procCode) => {
-    const procedurePrototype = Object.values(vm.editingTarget.blocks._blocks).find(
-      (i) => i.opcode === "procedures_prototype" && i.mutation.proccode === procCode
-    );
-    if (procedurePrototype) {
-      // Usually `parent` will exist but sometimes it doesn't
-      if (procedurePrototype.parent) {
-        return getBlock(procedurePrototype.parent);
-      }
-      const id = procedurePrototype.id;
-      return Object.values(vm.editingTarget.blocks._blocks).find(
-        (i) => i.opcode === "procedures_definition" && i.inputs.custom_block && i.inputs.custom_block.block === id
-      );
-    }
-    return null;
-  };
-
-  const setText = (text) => {
-    previewInner.innerText = text;
-    previewInner.classList.remove("sa-comment-preview-hidden");
-    updateMousePosition();
-  };
-
-  const updateMousePosition = () => {
-    previewOuter.style.transform = `translate(${mouseX + 8}px, ${mouseY + 8}px)`;
-  };
-
-  const hidePreview = () => {
-    if (hoveredElement) {
-      hoveredElement = null;
-      previewInner.classList.add("sa-comment-preview-hidden");
-    }
-  };
-
-  document.addEventListener("mouseover", (e) => {
-    if (addon.self.disabled) {
-      return;
-    }
-    clearTimeout(showTimeout);
-    if (doNotShowUntilMoveMouse) {
-      return;
-    }
-
-    const el = e.target.closest(".blocklyBubbleCanvas > g, .blocklyBlockCanvas .blocklyDraggable[data-id]");
-    if (el === hoveredElement) {
-      // Nothing to do.
-      return;
-    }
-    if (!el) {
-      hidePreview();
-      return;
-    }
-
-    let text = null;
-    if (
-      addon.settings.get("hover-view") &&
-      e.target.closest(".blocklyBubbleCanvas > g") &&
-      // Hovering over the thin line that connects comments to blocks should never show a preview
-      !e.target.closest("line")
-    ) {
-      const collapsedText = el.querySelector("text.scratchCommentText");
-      if (collapsedText.getAttribute("display") !== "none") {
-        const textarea = el.querySelector("textarea");
-        text = textarea.value;
-      }
-    } else if (e.target.closest(".blocklyBlockCanvas .blocklyDraggable[data-id]")) {
-      const id = el.dataset.id;
-      const block = getBlock(id);
-      const comment = getComment(block);
-      if (addon.settings.get("hover-view-block") && comment) {
-        text = comment.text;
-      } else if (block && block.opcode === "procedures_call" && addon.settings.get("hover-view-procedure")) {
-        const procCode = block.mutation.proccode;
-        const procedureDefinitionBlock = getProcedureDefinitionBlock(procCode);
-        const procedureComment = getComment(procedureDefinitionBlock);
-        if (procedureComment) {
-          text = procedureComment.text;
-        }
-      }
-    }
-
-    if (text !== null && text.trim() !== "") {
-      showTimeout = afterDelay(() => {
-        hoveredElement = el;
-        setText(text);
-      });
-    } else {
-      hidePreview();
-    }
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-    doNotShowUntilMoveMouse = false;
-    if (addon.settings.get("follow-mouse") && !previewInner.classList.contains("sa-comment-preview-hidden")) {
-      updateMousePosition();
-    }
-  });
-
-  document.addEventListener(
-    "mousedown",
-    () => {
-      hidePreview();
-      doNotShowUntilMoveMouse = true;
-    },
-    {
-      capture: true,
-    }
-  );
-}
+export default async function({addon:e}){const n=e.tab.traps.vm,o=()=>{s.classList.toggle("sa-comment-preview-delay","none"!==e.settings.get("delay")),s.classList.toggle("sa-comment-preview-reduce-transparency",e.settings.get("reduce-transparency")),s.classList.toggle("sa-comment-preview-fade",!e.settings.get("reduce-animation"))}
+let t=null,r=null,c=0,a=0,i=0
+const l=document.createElement("div")
+l.classList.add("sa-comment-preview-outer")
+const s=document.createElement("div")
+s.classList.add("sa-comment-preview-inner"),s.classList.add("sa-comment-preview-hidden"),o(),e.settings.addEventListener("change",o),l.appendChild(s),document.body.appendChild(l)
+const d=e=>n.editingTarget.blocks.getBlock(e)||n.runtime.flyoutBlocks.getBlock(e),u=e=>e&&e.comment&&n.editingTarget.comments[e.comment],m=()=>{l.style.transform=`translate(${c+8}px, ${a+8}px)`},v=()=>{t&&(t=null,s.classList.add("sa-comment-preview-hidden"))}
+document.addEventListener("mouseover",(o=>{if(e.self.disabled)return
+if(clearTimeout(r),i)return
+const c=o.target.closest(".blocklyBubbleCanvas > g, .blocklyBlockCanvas .blocklyDraggable[data-id]")
+if(c===t)return
+if(!c)return void v()
+let a=null
+if(e.settings.get("hover-view")&&o.target.closest(".blocklyBubbleCanvas > g")&&!o.target.closest("line")){if("none"!==c.querySelector("text.scratchCommentText").getAttribute("display")){const e=c.querySelector("textarea")
+a=e.value}}else if(o.target.closest(".blocklyBlockCanvas .blocklyDraggable[data-id]")){const o=d(c.dataset.id),t=u(o)
+if(e.settings.get("hover-view-block")&&t)a=t.text
+else if(o&&"procedures_call"===o.opcode&&e.settings.get("hover-view-procedure")){const e=(e=>{const o=Object.values(n.editingTarget.blocks._blocks).find((n=>"procedures_prototype"===n.opcode&&n.mutation.proccode===e))
+if(o){if(o.parent)return d(o.parent)
+const e=o.id
+return Object.values(n.editingTarget.blocks._blocks).find((n=>"procedures_definition"===n.opcode&&n.inputs.custom_block&&n.inputs.custom_block.block===e))}return null})(o.mutation.proccode),t=u(e)
+t&&(a=t.text)}}null!==a&&""!==a.trim()?r=(n=>{if(!s.classList.contains("sa-comment-preview-hidden"))return void n()
+const o=e.settings.get("delay")
+return"long"===o?setTimeout(n,500):"short"===o?setTimeout(n,300):void n()})((()=>{t=c,(e=>{s.innerText=e,s.classList.remove("sa-comment-preview-hidden"),m()})(a)})):v()})),document.addEventListener("mousemove",(n=>{c=n.clientX,a=n.clientY,i=0,e.settings.get("follow-mouse")&&!s.classList.contains("sa-comment-preview-hidden")&&m()})),document.addEventListener("mousedown",(()=>{v(),i=1}),{capture:1})}

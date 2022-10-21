@@ -1,203 +1,42 @@
-export default async ({ addon, console, msg }) => {
-  const { redux } = addon.tab;
-  await redux.waitForState(
-    (state) => state.studio?.infoStatus === "FETCHED" && state.studio?.rolesStatus === "FETCHED",
-    // In vanilla SET_FETCH_STATUS is only used for "bad status",
-    // so we can ignore.
-    {
-      actions: ["SET_INFO", "SET_ROLES"],
-    }
-  );
-
-  const studioId = redux.state.studio.id;
-
-  const MAX_MANAGERS = 40;
-
-  let isOwner = false;
-  let isManager = false;
-  let isCurator = false;
-  let canLeave = false;
-  const checkPermissions = () => {
-    isOwner = (redux.state.studio.host || redux.state.studio.owner) === redux.state.session.session?.user?.id;
-    isManager = redux.state.studio.manager || isOwner;
-    isCurator = redux.state.studio.curator;
-    canLeave = (isCurator || isManager) && !isOwner;
-  };
-  checkPermissions();
-
-  const makeAdder = (headerMsg, btnMsg, cb, optDisable) => {
-    const disabledMessage = optDisable && optDisable();
-
-    const adderSec = document.createElement("div");
-    adderSec.className = "studio-adder-section";
-    addon.tab.displayNoneWhileDisabled(adderSec);
-
-    const adderHeader = document.createElement("h3");
-    const adderHeaderSpan = document.createElement("span");
-    adderHeaderSpan.textContent = msg(headerMsg);
-    adderHeader.appendChild(adderHeaderSpan);
-    adderSec.appendChild(adderHeader);
-
-    const adderRow = document.createElement("div");
-    adderRow.className = "studio-adder-row";
-
-    const inputTag = document.createElement("input");
-    inputTag.type = "text";
-    inputTag.placeholder = addon.tab.scratchMessage("studio.inviteCuratorPlaceholder");
-    adderRow.appendChild(inputTag);
-
-    const btn = document.createElement("button");
-    btn.className = "button";
-    btn.title = msg("added-by");
-
-    const btnSpan = document.createElement("span");
-    btnSpan.textContent = msg(btnMsg);
-    btn.addEventListener("click", () => {
-      inputTag.setAttribute("disabled", true);
-      cb(inputTag.value.trim());
-      inputTag.removeAttribute("disabled");
-    });
-
-    if (disabledMessage) {
-      inputTag.setAttribute("disabled", true);
-      btn.setAttribute("disabled", true);
-      inputTag.title = disabledMessage;
-    }
-
-    btn.appendChild(btnSpan);
-    adderRow.appendChild(btn);
-    adderSec.appendChild(adderRow);
-    return adderSec;
-  };
-
-  const isOkay = (r, optResult) => {
-    let err = "";
-    if (r.status >= 500) err = "server-down";
-    else if (r.status >= 300) err = "unknown-error";
-    switch (r.status) {
-      case 404: {
-        err = "not-curator";
-        break;
-      }
-      case 401:
-      case 403: {
-        err = "401";
-        break;
-      }
-      case 400: {
-        if (optResult?.message === "too many owners") {
-          err = "too-many-managers";
-          break;
-        }
-      }
-    }
-    if (err) {
-      alert(msg(err));
-      return false;
-    }
-    return true;
-  };
-  let leaveSection = null;
-  let pSec = null;
-  let rSec = null;
-  const render = () => {
-    leaveSection?.remove();
-    pSec?.remove();
-    rSec?.remove();
-    const tabName = location.pathname.split("/")[3];
-    if (isManager && tabName === "curators") {
-      pSec = makeAdder(
-        "promote-new",
-        "promote-btn",
-        async (u) => {
-          if (!/^[\w-]{3,20}$/g.test(u)) return alert(msg("invalid-username"));
-          const r = await fetch(`/site-api/users/curators-in/${studioId}/promote/?usernames=${u}`, {
-            method: "PUT",
-            credentials: "include",
-            headers: {
-              "X-CSRFToken": addon.auth.csrfToken,
-            },
-          });
-          let result = await r.text();
-          try {
-            // Can sometimes fail so we don't really care
-            result = JSON.parse(result);
-          } catch (e) {}
-          if (!isOkay(r, result)) return;
-          alert(msg("promoted", { username: u }));
-          // we don't bother updating redux ourselves
-          location.reload();
-        },
-        () => {
-          if (redux.state.studio.managers < MAX_MANAGERS) return null;
-          return msg("max-managers-reached", { max: MAX_MANAGERS });
-        }
-      );
-
-      rSec = makeAdder("remove-new", "remove-btn", async (u) => {
-        if (!/^[\w-]{3,20}$/g.test(u)) return alert(msg("invalid-username"));
-        const r = await fetch(`/site-api/users/curators-in/${studioId}/remove/?usernames=${u}`, {
-          method: "PUT",
-          credentials: "include",
-          headers: {
-            "X-CSRFToken": addon.auth.csrfToken,
-          },
-        });
-        if (!isOkay(r)) return;
-        alert(msg("removed", { username: u }));
-        // we don't bother updating redux ourselves
-        location.reload();
-      });
-
-      addon.tab.appendToSharedSpace({ space: "studioCuratorsTab", element: pSec, order: 1 });
-      addon.tab.appendToSharedSpace({ space: "studioCuratorsTab", element: rSec, order: 2 });
-    }
-
-    if (canLeave) {
-      /*<button class="button x-button studio-follow-button"><span>Follow Studio</span></button>*/
-      leaveSection = document.createElement("div");
-      leaveSection.className = "studio-info-section sa-leave-section";
-
-      let leaveBtn = document.createElement("button");
-      leaveBtn.className = "button sa-leave-button";
-      leaveBtn.title = msg("added-by");
-      leaveSection.appendChild(leaveBtn);
-
-      const leaveSpan = document.createElement("span");
-      leaveSpan.textContent = msg("leave-new");
-      leaveBtn.appendChild(leaveSpan);
-
-      leaveBtn.addEventListener("click", async () => {
-        if (!(await addon.tab.confirm(msg("leave-new"), msg("leave-confirm")))) return;
-        const u = await addon.auth.fetchUsername();
-        const r = await fetch(`/site-api/users/curators-in/${studioId}/remove/?usernames=${u}`, {
-          method: "PUT",
-          credentials: "include",
-          headers: {
-            "X-CSRFToken": addon.auth.csrfToken,
-          },
-        });
-        if (!isOkay(r)) return;
-        // we don't bother updating redux ourselves
-        location.reload();
-      });
-
-      const studioInfo = document.querySelector(".studio-info");
-      const followButton = document.querySelector(".studio-follow-button");
-      studioInfo.insertBefore(leaveSection, followButton.parentNode.nextSibling);
-      addon.tab.displayNoneWhileDisabled(leaveSection);
-    }
-  };
-  render();
-  addon.tab.addEventListener("urlChange", render);
-  redux.initialize();
-  redux.addEventListener("statechanged", (e) => {
-    if (
-      e.detail.action.type === "SET_ROLES" ||
-      (e.detail.action.type === "SET_INFO" && (e.detail.action.info.host || e.detail.action.info.owner))
-    ) {
-      checkPermissions();
-      render();
-    }
-  });
-};
+export default async({addon:e,msg:t})=>{const{redux:n}=e.tab
+await n.waitForState((e=>"FETCHED"===e.studio?.infoStatus&&"FETCHED"===e.studio?.rolesStatus),{actions:["SET_INFO","SET_ROLES"]})
+const o=n.state.studio.id
+let a=0,s=0,r=0,c=0
+const d=()=>{a=(n.state.studio.host||n.state.studio.owner)===n.state.session.session?.user?.id,s=n.state.studio.manager||a,r=n.state.studio.curator,c=(r||s)&&!a}
+d()
+const i=(n,o,a,s)=>{const r=s&&s(),c=document.createElement("div")
+c.className="studio-adder-section",e.tab.displayNoneWhileDisabled(c)
+const d=document.createElement("h3"),i=document.createElement("span")
+i.textContent=t(n),d.appendChild(i),c.appendChild(d)
+const u=document.createElement("div")
+u.className="studio-adder-row"
+const l=document.createElement("input")
+l.type="text",l.placeholder=e.tab.scratchMessage("studio.inviteCuratorPlaceholder"),u.appendChild(l)
+const m=document.createElement("button")
+m.className="button",m.title=t("added-by")
+const b=document.createElement("span")
+return b.textContent=t(o),m.addEventListener("click",(()=>{l.setAttribute("disabled",1),a(l.value.trim()),l.removeAttribute("disabled")})),r&&(l.setAttribute("disabled",1),m.setAttribute("disabled",1),l.title=r),m.appendChild(b),u.appendChild(m),c.appendChild(u),c},u=(e,n)=>{let o=""
+switch(500>e.status?300>e.status||(o="unknown-error"):o="server-down",e.status){case 404:o="not-curator"
+break
+case 401:case 403:o="401"
+break
+case 400:if("too many owners"===n?.message){o="too-many-managers"
+break}}return o?(alert(t(o)),0):1}
+let l=null,m=null,b=null
+const w=()=>{l?.remove(),m?.remove(),b?.remove()
+const a=location.pathname.split("/")[3]
+if(s&&"curators"===a&&(m=i("promote-new","promote-btn",(async n=>{if(!/^[\w-]{3,20}$/g.test(n))return alert(t("invalid-username"))
+const a=await fetch(`/site-api/users/curators-in/${o}/promote/?usernames=${n}`,{method:"PUT",credentials:"include",headers:{"X-CSRFToken":e.auth.csrfToken}})
+let s=await a.text()
+try{s=JSON.parse(s)}catch(e){}u(a,s)&&(alert(t("promoted",{username:n})),location.reload())}),(()=>40>n.state.studio.managers?null:t("max-managers-reached",{max:40}))),b=i("remove-new","remove-btn",(async n=>{if(!/^[\w-]{3,20}$/g.test(n))return alert(t("invalid-username"))
+const a=await fetch(`/site-api/users/curators-in/${o}/remove/?usernames=${n}`,{method:"PUT",credentials:"include",headers:{"X-CSRFToken":e.auth.csrfToken}})
+u(a)&&(alert(t("removed",{username:n})),location.reload())})),e.tab.appendToSharedSpace({space:"studioCuratorsTab",element:m,order:1}),e.tab.appendToSharedSpace({space:"studioCuratorsTab",element:b,order:2})),c){l=document.createElement("div"),l.className="studio-info-section sa-leave-section"
+let n=document.createElement("button")
+n.className="button sa-leave-button",n.title=t("added-by"),l.appendChild(n)
+const a=document.createElement("span")
+a.textContent=t("leave-new"),n.appendChild(a),n.addEventListener("click",(async()=>{if(!await e.tab.confirm(t("leave-new"),t("leave-confirm")))return
+const n=await e.auth.fetchUsername(),a=await fetch(`/site-api/users/curators-in/${o}/remove/?usernames=${n}`,{method:"PUT",credentials:"include",headers:{"X-CSRFToken":e.auth.csrfToken}})
+u(a)&&location.reload()}))
+const s=document.querySelector(".studio-info"),r=document.querySelector(".studio-follow-button")
+s.insertBefore(l,r.parentNode.nextSibling),e.tab.displayNoneWhileDisabled(l)}}
+w(),e.tab.addEventListener("urlChange",w),n.initialize(),n.addEventListener("statechanged",(e=>{("SET_ROLES"===e.detail.action.type||"SET_INFO"===e.detail.action.type&&(e.detail.action.info.host||e.detail.action.info.owner))&&(d(),w())}))}

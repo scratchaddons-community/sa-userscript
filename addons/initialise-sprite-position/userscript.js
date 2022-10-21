@@ -1,48 +1,8 @@
-export default async function ({ addon }) {
-  const vm = addon.tab.traps.vm;
-
-  const oldAddSprite = vm.constructor.prototype.addSprite;
-  vm.constructor.prototype.addSprite = function (input) {
-    let spriteObj,
-      stringify = true;
-    if (typeof input === "object") [spriteObj, stringify] = [input, false];
-    else spriteObj = JSON.parse(input);
-    const isEmpty = spriteObj.costumes?.[0]?.baseLayerMD5 === "cd21514d0531fdffb22204e0ec5ed84a.svg";
-    if (!addon.self.disabled && (isEmpty || !spriteObj.tags || !addon.settings.get("library"))) {
-      if (spriteObj.scratchX) {
-        spriteObj.scratchX = addon.settings.get("x");
-        spriteObj.scratchY = addon.settings.get("y");
-      }
-      if (spriteObj.x) {
-        spriteObj.x = addon.settings.get("x");
-        spriteObj.y = addon.settings.get("y");
-      }
-    }
-    return oldAddSprite.call(this, stringify ? JSON.stringify(spriteObj) : spriteObj);
-  };
-
-  const registerDupPrototype = () => {
-    const targetPrototype = vm.runtime.getTargetForStage().constructor.prototype;
-    const oldDuplicate = targetPrototype.duplicate;
-    targetPrototype.duplicate = function () {
-      return oldDuplicate.call(this).then((newSprite) => {
-        if (!addon.self.disabled) {
-          switch (addon.settings.get("duplicate")) {
-            case "custom":
-              newSprite.setXY(addon.settings.get("x"), addon.settings.get("y"));
-              break;
-            case "keep":
-              newSprite.setXY(this.x, this.y);
-          }
-        }
-        return newSprite;
-      });
-    };
-  };
-
-  if (vm.runtime.getTargetForStage()) {
-    registerDupPrototype();
-  } else {
-    vm.runtime.once("PROJECT_LOADED", registerDupPrototype);
-  }
-}
+export default async function({addon:t}){const e=t.tab.traps.vm,c=e.constructor.prototype.addSprite
+e.constructor.prototype.addSprite=function(e){let n,s=1
+return"object"==typeof e?[n,s]=[e,0]:n=JSON.parse(e),t.self.disabled||!("cd21514d0531fdffb22204e0ec5ed84a.svg"===n.costumes?.[0]?.baseLayerMD5)&&n.tags&&t.settings.get("library")||(n.scratchX&&(n.scratchX=t.settings.get("x"),n.scratchY=t.settings.get("y")),n.x&&(n.x=t.settings.get("x"),n.y=t.settings.get("y"))),c.call(this,s?JSON.stringify(n):n)}
+const n=()=>{const c=e.runtime.getTargetForStage().constructor.prototype,n=c.duplicate
+c.duplicate=function(){return n.call(this).then((e=>{if(!t.self.disabled)switch(t.settings.get("duplicate")){case"custom":e.setXY(t.settings.get("x"),t.settings.get("y"))
+break
+case"keep":e.setXY(this.x,this.y)}return e}))}}
+e.runtime.getTargetForStage()?n():e.runtime.once("PROJECT_LOADED",n)}

@@ -1,160 +1,23 @@
-export default async function ({ addon, global, console, msg }) {
-  let posts = document.querySelectorAll(".blockpost");
-  const isLoggedIn = await addon.auth.fetchIsLoggedIn();
-  const username = await addon.auth.fetchUsername();
-
-  for (const i of posts) {
-    let postID = i.id.split("p")[1];
-
-    let viewOnOcularContainer = document.createElement("li");
-    addon.tab.displayNoneWhileDisabled(viewOnOcularContainer);
-    let viewOnOcular = document.createElement("a");
-    viewOnOcular.innerText = `🔍 ocular`;
-    viewOnOcular.title = msg("view-on-ocular");
-    viewOnOcular.href = `https://ocular.jeffalo.net/post/${postID}`;
-    viewOnOcularContainer.appendChild(viewOnOcular);
-    addon.tab.appendToSharedSpace({
-      space: "forumsBeforePostReport",
-      scope: i,
-      element: viewOnOcularContainer,
-      order: 2,
-    });
-
-    if (isLoggedIn) {
-      let reactionMenuContainer = document.createElement("li");
-      addon.tab.displayNoneWhileDisabled(reactionMenuContainer);
-      reactionMenuContainer.className = "my-ocular-reaction-menu";
-      let reactionMenuButton = document.createElement("a");
-      reactionMenuButton.href = "";
-      reactionMenuButton.className = "my-ocular-reaction-menu-button";
-      reactionMenuButton.innerText = "😀";
-      reactionMenuButton.title = msg("add-reaction");
-      reactionMenuContainer.appendChild(reactionMenuButton);
-
-      let reactionMenu = document.createElement("span");
-      reactionMenu.className = "my-ocular-popup";
-      reactionMenuContainer.appendChild(reactionMenu);
-      reactionMenuButton.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        reactionMenuContainer.classList.toggle("open");
-        for (let otherMenuContainer of document.querySelectorAll(".my-ocular-reaction-menu")) {
-          if (otherMenuContainer === reactionMenuContainer) continue;
-          otherMenuContainer.classList.remove("open");
-        }
-      });
-      document.body.addEventListener("click", () => reactionMenuContainer.classList.remove("open"));
-      reactionMenu.addEventListener("click", (e) => e.stopPropagation()); /* don't close the menu when it's clicked */
-
-      let reactionList = document.createElement("li"); // it's a list item, because its inside the postfootright list. so it's basically a nested list
-      addon.tab.displayNoneWhileDisabled(reactionList);
-      async function makeReactionList(focusedEmoji, isMenuFocused) {
-        const reactions = await fetchReactions(postID);
-
-        reactionList.innerHTML = "";
-        reactionMenu.innerHTML = "";
-        reactions.forEach((reaction) => {
-          let reactionButton = reaction.reactions.length !== 0 ? document.createElement("a") : null;
-          if (reactionButton) reactionButton.href = "";
-          if (reactionButton) reactionButton.className = "my-ocular-reaction-button";
-          if (reactionButton) reactionButton.innerText = `${reaction.emoji} ${reaction.reactions.length}`;
-
-          if (reactionButton && reaction.emoji.startsWith(":") && reaction.emoji.endsWith(":")) {
-            // special case for "easter egg emojis", load the emoji from the emoji from https://ocular.jeffalo.net/emojis/:name.png
-
-            let emojiName = reaction.emoji.slice(1, -1);
-            let url = `https://ocular.jeffalo.net/emojis/${emojiName}.png`;
-
-            let img = document.createElement("img");
-            img.src = url;
-
-            reactionButton.innerText = "";
-            reactionButton.appendChild(img);
-
-            let reactionAmount = document.createElement("span");
-            reactionAmount.innerText = ` ${reaction.reactions.length}`;
-            reactionButton.appendChild(reactionAmount);
-          }
-
-          let reactionMenuItem = document.createElement("a");
-          reactionMenuItem.href = "";
-          reactionMenuItem.className = "my-ocular-reaction-button";
-          reactionMenuItem.innerText = reaction.emoji;
-
-          if (reaction.emoji.startsWith(":") && reaction.emoji.endsWith(":")) {
-            // special case for "easter egg emojis", load the emoji from the emoji from https://ocular.jeffalo.net/emojis/:name.png
-
-            let emojiName = reaction.emoji.slice(1, -1);
-            let url = `https://ocular.jeffalo.net/emojis/${emojiName}.png`;
-
-            let img = document.createElement("img");
-            img.src = url;
-
-            reactionMenuItem.innerText = "";
-            reactionMenuItem.appendChild(img);
-          }
-
-          if (reaction.reactions.find((r) => r.user === username)) {
-            if (reactionButton) reactionButton.classList.add("selected");
-            reactionMenuItem.classList.add("selected");
-          }
-
-          if (reactionButton) {
-            let tooltip = document.createElement("span");
-            tooltip.className = "my-ocular-popup";
-            if (reaction.reactions.length <= 5)
-              tooltip.innerText = reaction.reactions.map((user) => user.user).join(", ");
-            else
-              tooltip.innerText =
-                reaction.reactions
-                  .slice(0, 5)
-                  .map((user) => user.user)
-                  .join(", ") + " and others";
-            reactionButton.appendChild(tooltip);
-          }
-
-          function react(e, fromMenu) {
-            e.preventDefault();
-            let ocular = window.open(
-              `https://ocular.jeffalo.net/react/${postID}?emoji=${reaction.emoji}`,
-              "ocular",
-              "width=300,height=300"
-            );
-            let timer = setInterval(checkClosed, 500);
-
-            function checkClosed() {
-              if (ocular.closed) {
-                clearInterval(timer);
-                makeReactionList(reaction.emoji, fromMenu);
-              }
-            }
-          }
-          if (reactionButton) reactionButton.addEventListener("click", (e) => react(e, false));
-          reactionMenuItem.addEventListener("click", (e) => react(e, true));
-
-          if (reactionButton) reactionList.appendChild(reactionButton);
-          if (reactionButton && focusedEmoji === reaction.emoji && !isMenuFocused) reactionButton.focus();
-          reactionMenu.appendChild(reactionMenuItem);
-          if (focusedEmoji === reaction.emoji && isMenuFocused) reactionMenuItem.focus();
-        });
-        if (reactions.some((reaction) => reaction.reactions.length !== 0)) {
-          reactionList.appendChild(document.createTextNode("| "));
-        }
-      }
-      addon.tab.appendToSharedSpace({
-        space: "forumsBeforePostReport",
-        scope: i,
-        element: reactionMenuContainer,
-        order: 1,
-      });
-      addon.tab.appendToSharedSpace({ space: "forumsBeforePostReport", scope: i, element: reactionList, order: 0 });
-
-      await makeReactionList();
-    }
-  }
-
-  async function fetchReactions(id) {
-    const response = await fetch(`https://my-ocular.jeffalo.net/api/reactions/${id}`);
-    return response.json();
-  }
-}
+export default async function({addon:e,msg:t}){async function o(e){return(await fetch(`https://my-ocular.jeffalo.net/api/reactions/${e}`)).json()}let c=document.querySelectorAll(".blockpost")
+const n=await e.auth.fetchIsLoggedIn(),a=await e.auth.fetchUsername()
+for(const u of c){let r=u.id.split("p")[1],i=document.createElement("li")
+e.tab.displayNoneWhileDisabled(i)
+let m=document.createElement("a")
+if(m.innerText="🔍 ocular",m.title=t("view-on-ocular"),m.href=`https://ocular.jeffalo.net/post/${r}`,i.appendChild(m),e.tab.appendToSharedSpace({space:"forumsBeforePostReport",scope:u,element:i,order:2}),n){let s=document.createElement("li")
+e.tab.displayNoneWhileDisabled(s),s.className="my-ocular-reaction-menu"
+let p=document.createElement("a")
+p.href="",p.className="my-ocular-reaction-menu-button",p.innerText="😀",p.title=t("add-reaction"),s.appendChild(p)
+let f=document.createElement("span")
+f.className="my-ocular-popup",s.appendChild(f),p.addEventListener("click",(e=>{e.preventDefault(),e.stopPropagation(),s.classList.toggle("open")
+for(let e of document.querySelectorAll(".my-ocular-reaction-menu"))e!==s&&e.classList.remove("open")})),document.body.addEventListener("click",(()=>s.classList.remove("open"))),f.addEventListener("click",(e=>e.stopPropagation()))
+let d=document.createElement("li")
+async function l(e,t){const c=await o(r)
+d.innerHTML="",f.innerHTML="",c.forEach((o=>{function c(e,t){e.preventDefault()
+let c=window.open(`https://ocular.jeffalo.net/react/${r}?emoji=${o.emoji}`,"ocular","width=300,height=300"),n=setInterval((function(){c.closed&&(clearInterval(n),l(o.emoji,t))}),500)}let n=0!==o.reactions.length?document.createElement("a"):null
+if(n&&(n.href=""),n&&(n.className="my-ocular-reaction-button"),n&&(n.innerText=`${o.emoji} ${o.reactions.length}`),n&&o.emoji.startsWith(":")&&o.emoji.endsWith(":")){let e=`https://ocular.jeffalo.net/emojis/${o.emoji.slice(1,-1)}.png`,t=document.createElement("img")
+t.src=e,n.innerText="",n.appendChild(t)
+let c=document.createElement("span")
+c.innerText=` ${o.reactions.length}`,n.appendChild(c)}let u=document.createElement("a")
+if(u.href="",u.className="my-ocular-reaction-button",u.innerText=o.emoji,o.emoji.startsWith(":")&&o.emoji.endsWith(":")){let e=`https://ocular.jeffalo.net/emojis/${o.emoji.slice(1,-1)}.png`,t=document.createElement("img")
+t.src=e,u.innerText="",u.appendChild(t)}if(o.reactions.find((e=>e.user===a))&&(n&&n.classList.add("selected"),u.classList.add("selected")),n){let e=document.createElement("span")
+e.className="my-ocular-popup",e.innerText=o.reactions.length>5?o.reactions.slice(0,5).map((e=>e.user)).join(", ")+" and others":o.reactions.map((e=>e.user)).join(", "),n.appendChild(e)}n&&n.addEventListener("click",(e=>c(e,0))),u.addEventListener("click",(e=>c(e,1))),n&&d.appendChild(n),n&&e===o.emoji&&!t&&n.focus(),f.appendChild(u),e===o.emoji&&t&&u.focus()})),c.some((e=>0!==e.reactions.length))&&d.appendChild(document.createTextNode("| "))}e.tab.displayNoneWhileDisabled(d),e.tab.appendToSharedSpace({space:"forumsBeforePostReport",scope:u,element:s,order:1}),e.tab.appendToSharedSpace({space:"forumsBeforePostReport",scope:u,element:d,order:0}),await l()}}}

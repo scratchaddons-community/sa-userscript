@@ -1,214 +1,32 @@
-import chrome from "../libraries/common/chrome.js";
-
-const localizeSettings = (addonId, setting, tableId) => {
-  const settingId = tableId ? `${tableId}-${setting.id}` : setting.id;
-
-  setting.name = scratchAddons.l10n.get(
-    `${addonId}/@settings-name-${settingId}`,
-    {
-      commentIcon: "@comment.svg",
-      forumIcon: "@forum.svg",
-      heartIcon: "@heart.svg",
-      starIcon: "@star.svg",
-      followIcon: "@follow.svg",
-      studioAddIcon: "@studio-add.svg",
-      studioIcon: "@studio.svg",
-      remixIcon: "@remix.svg",
-      adminusersIcon: "@adminusers.svg",
-      usersIcon: "@users.svg",
-    },
-    setting.name
-  );
-
-  switch (setting.type) {
-    case "string":
-      if (setting.default) {
-        setting.default = scratchAddons.l10n.get(`${addonId}/@settings-default-${settingId}`, {}, setting.default);
-      }
-      break;
-    case "select":
-      setting.potentialValues = setting.potentialValues.map((value) => {
-        value.name = scratchAddons.l10n.get(`${addonId}/@settings-select-${settingId}-${value.id}`, {}, value.name);
-        return value;
-      });
-      break;
-  }
-};
-
-(async function () {
-  const forceEnglish = await new Promise((resolve) => {
-    chrome.storage.local.get("forceEnglish", (obj) => {
-      resolve(!!obj.forceEnglish);
-    });
-  });
-
-  const manifests = await (await fetch(chrome.runtime.getURL("/addons/manifests.json"))).json();
-
-  await scratchAddons.l10n.load(Object.keys(manifests));
-  const useDefault = forceEnglish || scratchAddons.l10n.locale.startsWith("en");
-  for (const addonId in manifests) {
-    if (addonId.startsWith("//")) continue;
-    let manifest;
-    try {
-      manifest = manifests[addonId];
-    } catch (ex) {
-      console.error(`Failed to load addon manifest for ${addonId}, crashing:`, ex);
-      chrome.tabs.create({
-        url: `data:text/plain,Scratch Addons crashed: invalid addon.json for addon with id ${addonId}. Click the "Errors" button on the extension tile for more details.`,
-      });
-      throw ex;
-    }
-    let potentiallyNeedsMissingDynamicWarning =
-      manifest.updateUserstylesOnSettingsChange && !(manifest.dynamicEnable && manifest.dynamicDisable);
-    if (!useDefault) {
-      manifest._english = {};
-      for (const prop of ["name", "description"]) {
-        if (manifest[prop]) {
-          manifest._english[prop] = manifest[prop];
-          manifest[prop] = scratchAddons.l10n.get(`${addonId}/@${prop}`, {}, manifest[prop]);
-        }
-      }
-      if (manifest.info) {
-        for (const info of manifest.info || []) {
-          info.text = scratchAddons.l10n.get(`${addonId}/@info-${info.id}`, {}, info.text);
-        }
-      }
-      if (manifest.credits) {
-        for (const credit of manifest.credits || []) {
-          if (credit.note) credit.note = scratchAddons.l10n.get(`${addonId}/@credits-${credit.id}`, {}, credit.note);
-        }
-      }
-      if (manifest.popup) {
-        manifest.popup.name = scratchAddons.l10n.get(`${addonId}/@popup-name`, {}, manifest.popup.name);
-      }
-      if (manifest.latestUpdate?.temporaryNotice) {
-        manifest.latestUpdate.temporaryNotice = scratchAddons.l10n.get(
-          `${addonId}/@update`,
-          {},
-          manifest.latestUpdate.temporaryNotice
-        );
-      }
-    }
-
-    for (const propName of ["userscripts", "userstyles"]) {
-      for (const injectable of manifest[propName] || []) {
-        const { matches } = injectable;
-        if (typeof matches === "string" && matches.startsWith("^")) {
-          injectable._scratchDomainImplied = !matches.startsWith("^https:");
-          injectable.matches = new RegExp(matches, "u");
-        } else if (Array.isArray(matches)) {
-          for (let i = matches.length; i--; ) {
-            const match = matches[i];
-            if (typeof match === "string" && match.startsWith("^")) {
-              matches[i] = new RegExp(match, "u");
-              matches[i]._scratchDomainImplied = !match.startsWith("^https:");
-            }
-          }
-        }
-        // Cache dependents
-        // if A has addonEnabled: C
-        // A's dependency is C
-        // C's dependent is A
-        // Only handle userstyles because userscript support is complicated
-        if (propName === "userstyles") {
-          if (injectable.if?.addonEnabled?.length) {
-            // Convert string shortcut to Array
-            // might as well remove this in the future
-            if (typeof injectable.if.addonEnabled === "string") {
-              injectable.if.addonEnabled = [injectable.if.addonEnabled];
-            }
-            for (const dependency of injectable.if.addonEnabled) {
-              if (!scratchAddons.dependents[dependency]) scratchAddons.dependents[dependency] = new Set();
-              scratchAddons.dependents[dependency].add(addonId);
-            }
-          }
-          if (potentiallyNeedsMissingDynamicWarning && Object.keys(injectable.if?.settings || {}).length > 0) {
-            potentiallyNeedsMissingDynamicWarning = false; // already warned
-            console.warn(
-              "Addon",
-              addonId,
-              "has updateUserstylesOnSettingsChange set to true without dynamic enable or disable.",
-              "This will cause an issue as userstyle",
-              injectable.url,
-              "has a setting as a condition!"
-            );
-          }
-        }
-      }
-    }
-    if (!useDefault) {
-      manifest._english = {};
-      for (const prop of ["name", "description"]) {
-        if (manifest[prop]) {
-          manifest._english[prop] = manifest[prop];
-          manifest[prop] = scratchAddons.l10n.get(`${addonId}/@${prop}`, {}, manifest[prop]);
-        }
-      }
-      if (manifest.info) {
-        for (const info of manifest.info || []) {
-          info.text = scratchAddons.l10n.get(`${addonId}/@info-${info.id}`, {}, info.text);
-        }
-      }
-      if (manifest.popup) {
-        manifest.popup.name = scratchAddons.l10n.get(`${addonId}/@popup-name`, {}, manifest.popup.name);
-      }
-
-      const localizedSettings = [];
-
-      for (const setting of manifest.settings || []) {
-        localizeSettings(addonId, setting);
-        if (setting.type === "string") {
-          localizedSettings.push(setting.id);
-        } else if (setting.type === "table") {
-          const localizedRows = [];
-          setting.row.forEach((row) => {
-            localizeSettings(addonId, row, setting.id);
-            if (row.type === "string") {
-              localizedRows.push(row.id);
-            }
-          });
-          for (let i = 0; i < (setting.default || []).length; i++) {
-            const defaultValues = setting.default[i];
-            for (const localizedRow of localizedRows) {
-              defaultValues[localizedRow] = scratchAddons.l10n.get(
-                `${addonId}/@settings-default-${setting.id}-${i}-${localizedRows}`,
-                {},
-                defaultValues[localizedRow]
-              );
-            }
-          }
-          for (let i = 0; i < (setting.presets || []).length; i++) {
-            const preset = setting.presets[i];
-            preset.name = scratchAddons.l10n.get(`${addonId}/@preset-${setting.id}-${i}`, {}, preset.name);
-            for (const localizedRow of localizedRows) {
-              preset.values[localizedRow] = scratchAddons.l10n.get(
-                `${addonId}/@preset-value-${setting.id}-${i}-${localizedRows}`,
-                {},
-                preset.values[localizedRow]
-              );
-            }
-          }
-        }
-      }
-      for (const preset of manifest.presets || []) {
-        for (const prop of ["name", "description"]) {
-          if (preset[prop]) {
-            preset[prop] = scratchAddons.l10n.get(`${addonId}/@preset-${prop}-${preset.id}`, {}, preset[prop]);
-          }
-        }
-        for (const localizedSetting of localizedSettings) {
-          if (typeof preset.values[localizedSetting] === "string") {
-            preset.values[localizedSetting] = scratchAddons.l10n.get(
-              `${addonId}/@preset-value-${preset.id}-${localizedSetting}`,
-              {},
-              preset.values[localizedSetting]
-            );
-          }
-        }
-      }
-    }
-    scratchAddons.manifests.push({ addonId, manifest });
-  }
-  scratchAddons.localState.ready.manifests = true;
-  scratchAddons.localEvents.dispatchEvent(new CustomEvent("manifestsReady"));
-})();
+import chrome from"../libraries/common/chrome.js"
+const s=(s,o,t)=>{const n=t?`${t}-${o.id}`:o.id
+switch(o.name=scratchAddons.l10n.get(`${s}/@settings-name-${n}`,{commentIcon:"@comment.svg",forumIcon:"@forum.svg",heartIcon:"@heart.svg",starIcon:"@star.svg",followIcon:"@follow.svg",studioAddIcon:"@studio-add.svg",studioIcon:"@studio.svg",remixIcon:"@remix.svg",adminusersIcon:"@adminusers.svg",usersIcon:"@users.svg"},o.name),o.type){case"string":o.default&&(o.default=scratchAddons.l10n.get(`${s}/@settings-default-${n}`,{},o.default))
+break
+case"select":o.potentialValues=o.potentialValues.map((o=>(o.name=scratchAddons.l10n.get(`${s}/@settings-select-${n}-${o.id}`,{},o.name),o)))}}
+!async function(){const o=await new Promise((s=>{chrome.storage.local.get("forceEnglish",(o=>{s(!!o.forceEnglish)}))})),t=await(await fetch(chrome.runtime.getURL("/addons/manifests.json"))).json()
+await scratchAddons.l10n.load(Object.keys(t))
+const n=o||scratchAddons.l10n.locale.startsWith("en")
+for(const o in t){if(o.startsWith("//"))continue
+let c
+try{c=t[o]}catch(s){throw console.error(`Failed to load addon manifest for ${o}, crashing:`,s),chrome.tabs.create({url:`data:text/plain,Scratch Addons crashed: invalid addon.json for addon with id ${o}. Click the "Errors" button on the extension tile for more details.`}),s}let e=c.updateUserstylesOnSettingsChange&&!(c.dynamicEnable&&c.dynamicDisable)
+if(!n){c._english={}
+for(const s of["name","description"])c[s]&&(c._english[s]=c[s],c[s]=scratchAddons.l10n.get(`${o}/@${s}`,{},c[s]))
+if(c.info)for(const s of c.info||[])s.text=scratchAddons.l10n.get(`${o}/@info-${s.id}`,{},s.text)
+if(c.credits)for(const s of c.credits||[])s.note&&(s.note=scratchAddons.l10n.get(`${o}/@credits-${s.id}`,{},s.note))
+c.popup&&(c.popup.name=scratchAddons.l10n.get(`${o}/@popup-name`,{},c.popup.name)),c.latestUpdate?.temporaryNotice&&(c.latestUpdate.temporaryNotice=scratchAddons.l10n.get(`${o}/@update`,{},c.latestUpdate.temporaryNotice))}for(const s of["userscripts","userstyles"])for(const t of c[s]||[]){const{matches:n}=t
+if("string"==typeof n&&n.startsWith("^"))t._scratchDomainImplied=!n.startsWith("^https:"),t.matches=new RegExp(n,"u")
+else if(Array.isArray(n))for(let s=n.length;s--;){const o=n[s]
+"string"==typeof o&&o.startsWith("^")&&(n[s]=new RegExp(o,"u"),n[s]._scratchDomainImplied=!o.startsWith("^https:"))}if("userstyles"===s){if(t.if?.addonEnabled?.length){"string"==typeof t.if.addonEnabled&&(t.if.addonEnabled=[t.if.addonEnabled])
+for(const s of t.if.addonEnabled)scratchAddons.dependents[s]||(scratchAddons.dependents[s]=new Set),scratchAddons.dependents[s].add(o)}e&&Object.keys(t.if?.settings||{}).length>0&&(e=0,console.warn("Addon",o,"has updateUserstylesOnSettingsChange set to true without dynamic enable or disable.","This will cause an issue as userstyle",t.url,"has a setting as a condition!"))}}if(!n){c._english={}
+for(const s of["name","description"])c[s]&&(c._english[s]=c[s],c[s]=scratchAddons.l10n.get(`${o}/@${s}`,{},c[s]))
+if(c.info)for(const s of c.info||[])s.text=scratchAddons.l10n.get(`${o}/@info-${s.id}`,{},s.text)
+c.popup&&(c.popup.name=scratchAddons.l10n.get(`${o}/@popup-name`,{},c.popup.name))
+const t=[]
+for(const n of c.settings||[])if(s(o,n),"string"===n.type)t.push(n.id)
+else if("table"===n.type){const t=[]
+n.row.forEach((c=>{s(o,c,n.id),"string"===c.type&&t.push(c.id)}))
+for(let s=0;(n.default||[]).length>s;s++){const c=n.default[s]
+for(const e of t)c[e]=scratchAddons.l10n.get(`${o}/@settings-default-${n.id}-${s}-${t}`,{},c[e])}for(let s=0;(n.presets||[]).length>s;s++){const c=n.presets[s]
+c.name=scratchAddons.l10n.get(`${o}/@preset-${n.id}-${s}`,{},c.name)
+for(const e of t)c.values[e]=scratchAddons.l10n.get(`${o}/@preset-value-${n.id}-${s}-${t}`,{},c.values[e])}}for(const s of c.presets||[]){for(const t of["name","description"])s[t]&&(s[t]=scratchAddons.l10n.get(`${o}/@preset-${t}-${s.id}`,{},s[t]))
+for(const n of t)"string"==typeof s.values[n]&&(s.values[n]=scratchAddons.l10n.get(`${o}/@preset-value-${s.id}-${n}`,{},s.values[n]))}}scratchAddons.manifests.push({addonId:o,manifest:c})}scratchAddons.localState.ready.manifests=1,scratchAddons.localEvents.dispatchEvent(new CustomEvent("manifestsReady"))}()

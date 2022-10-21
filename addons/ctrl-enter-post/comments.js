@@ -1,27 +1,4 @@
-export default async function ({ addon, global, console, msg }) {
-  let isScratchR2 = addon.tab.clientVersion === "scratchr2";
-
-  let textboxSelector = isScratchR2 ? "textarea[name='content']" : "[name='compose-comment']";
-
-  while (true) {
-    let textbox = await addon.tab.waitForElement(textboxSelector, {
-      markAsSeen: true,
-      reduxCondition: (state) => {
-        if (!state.scratchGui) return true;
-        return state.scratchGui.mode.isPlayerOnly;
-      },
-    });
-    var button;
-    if (isScratchR2) {
-      button = textbox.parentNode.parentNode.querySelector(".control-group:not(.tooltip) div[data-control='post'] a");
-    } else {
-      button = textbox.parentNode.parentNode.parentNode.querySelector(".compose-bottom-row .compose-post");
-    }
-
-    textbox.addEventListener("keydown", (e) => {
-      if (!addon.self.disabled && (e.ctrlKey || e.metaKey) && (e.code === "Enter" || e.code === "NumpadEnter")) {
-        button.click();
-      }
-    });
-  }
-}
+export default async function({addon:o}){let t="scratchr2"===o.tab.clientVersion,e=t?"textarea[name='content']":"[name='compose-comment']"
+for(;;){let a=await o.tab.waitForElement(e,{markAsSeen:1,reduxCondition(o){return o.scratchGui?o.scratchGui.mode.isPlayerOnly:1}})
+var n
+n=t?a.parentNode.parentNode.querySelector(".control-group:not(.tooltip) div[data-control='post'] a"):a.parentNode.parentNode.parentNode.querySelector(".compose-bottom-row .compose-post"),a.addEventListener("keydown",(t=>{o.self.disabled||!t.ctrlKey&&!t.metaKey||"Enter"!==t.code&&"NumpadEnter"!==t.code||n.click()}))}}

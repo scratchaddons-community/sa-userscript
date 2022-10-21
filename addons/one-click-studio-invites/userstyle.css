@@ -1,7 +1,1 @@
-.sa-curator-invite-button {
-  text-align: center;
-  display: block;
-}
-.sa-curator-invite-button.loading {
-  cursor: wait !important;
-}
+.sa-curator-invite-button{display:block;text-align:center}.sa-curator-invite-button.loading{cursor:wait!important}

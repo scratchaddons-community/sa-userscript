@@ -1,71 +1,12 @@
-export default async function ({ addon, global, console, msg }) {
-  let posts = document.querySelectorAll(".blockpost");
-  let cache = Object.create(null);
-
-  for (const i of posts) {
-    let username = i.querySelector(".username").innerText;
-    let left = i.querySelector(".postleft").children[0];
-    const { userStatus, color } = await (cache[username] || (cache[username] = fetchStatus(username)));
-
-    if (typeof userStatus !== "string") {
-      continue;
-    }
-
-    // Create statusText element
-    let br = document.createElement("br");
-    addon.tab.displayNoneWhileDisabled(br);
-    let status = document.createElement("span");
-    addon.tab.displayNoneWhileDisabled(status);
-    status.title = msg("status-hover");
-    status.innerText = userStatus;
-    status.style.fontStyle = "italic";
-    addon.tab.displayNoneWhileDisabled(status, { display: "inline-block" });
-
-    // Create my-ocular dot
-    let dot = document.createElement("span");
-    addon.tab.displayNoneWhileDisabled(dot, { display: "inline-block" });
-    dot.title = msg("status-hover");
-    dot.className = "my-ocular-dot";
-    dot.style.backgroundColor = color;
-
-    // Hide things
-    if (addon.settings.get("show-status") === "others" && username === (await addon.auth.fetchUsername())) {
-      status.style.display = "none";
-      dot.style.display = "none";
-    }
-
-    // Append elements
-    left.appendChild(br);
-    left.appendChild(status);
-    if (color) left.appendChild(dot);
-  }
-
-  async function fetchStatus(username) {
-    const response = await fetch(`https://my-ocular.jeffalo.net/api/user/${username}`);
-    const data = await response.json();
-    return {
-      userStatus: data.status?.replace(/\n/g, " "),
-      color: data.color,
-    };
-  }
-
-  // Show/hide things on setting change
-  addon.settings.addEventListener("change", async function () {
-    for (const i of posts) {
-      let left = i.querySelector(".postleft").children[0];
-      let username = left.querySelector(".username").innerText;
-      let status = left.querySelector("span");
-      let dot = i.querySelector(".my-ocular-dot");
-      let isMyProfile =
-        addon.settings.get("show-status") === "others" && username === (await addon.auth.fetchUsername());
-      if (!username || !dot) continue;
-      if (isMyProfile || addon.settings.get("discuss") === false) {
-        status.style.display = "none";
-        dot.style.display = "none";
-      } else {
-        status.style.display = "inline-block";
-        dot.style.display = "inline-block";
-      }
-    }
-  });
-}
+export default async function({addon:t,msg:n}){async function o(t){const n=await fetch(`https://my-ocular.jeffalo.net/api/user/${t}`),o=await n.json()
+return{userStatus:o.status?.replace(/\n/g," "),color:o.color}}let e=document.querySelectorAll(".blockpost"),s=Object.create(null)
+for(const a of e){let e=a.querySelector(".username").innerText,c=a.querySelector(".postleft").children[0]
+const{userStatus:l,color:u}=await(s[e]||(s[e]=o(e)))
+if("string"!=typeof l)continue
+let i=document.createElement("br")
+t.tab.displayNoneWhileDisabled(i)
+let r=document.createElement("span")
+t.tab.displayNoneWhileDisabled(r),r.title=n("status-hover"),r.innerText=l,r.style.fontStyle="italic",t.tab.displayNoneWhileDisabled(r,{display:"inline-block"})
+let f=document.createElement("span")
+t.tab.displayNoneWhileDisabled(f,{display:"inline-block"}),f.title=n("status-hover"),f.className="my-ocular-dot",f.style.backgroundColor=u,"others"===t.settings.get("show-status")&&e===await t.auth.fetchUsername()&&(r.style.display="none",f.style.display="none"),c.appendChild(i),c.appendChild(r),u&&c.appendChild(f)}t.settings.addEventListener("change",(async function(){for(const n of e){let o=n.querySelector(".postleft").children[0],e=o.querySelector(".username").innerText,s=o.querySelector("span"),a=n.querySelector(".my-ocular-dot"),c="others"===t.settings.get("show-status")&&e===await t.auth.fetchUsername()
+e&&a&&(c||0==t.settings.get("discuss")?(s.style.display="none",a.style.display="none"):(s.style.display="inline-block",a.style.display="inline-block"))}}))}

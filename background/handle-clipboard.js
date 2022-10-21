@@ -1,25 +1,4 @@
-const dataURLToArrayBuffer = function (dataURL) {
-  const byteString = atob(dataURL.split(",")[1]);
-  const arrayBuffer = new ArrayBuffer(byteString.length);
-  const uintArray = new Uint8Array(arrayBuffer);
-  for (let i = 0; i < byteString.length; i++) {
-    uintArray[i] = byteString.charCodeAt(i);
-  }
-  return arrayBuffer;
-};
-
-if (typeof browser !== "undefined") {
-  // Firefox
-  browser.runtime.onMessage.addListener(function (request) {
-    if (request.clipboardDataURL && browser && browser.clipboard && browser.clipboard.setImageData) {
-      const arrayBuffer = dataURLToArrayBuffer(request.clipboardDataURL);
-      return browser.clipboard
-        .setImageData(arrayBuffer, "png")
-        .then(() => Promise.resolve("success"))
-        .catch((e) => {
-          console.error(e);
-          Promise.reject(e.toString());
-        });
-    }
-  });
-}
+"undefined"!=typeof browser&&browser.runtime.onMessage.addListener((function(r){if(r.clipboardDataURL&&browser&&browser.clipboard&&browser.clipboard.setImageData){const e=function(r){const e=atob(r.split(",")[1]),o=new ArrayBuffer(e.length),n=new Uint8Array(o)
+for(let r=0;e.length>r;r++)n[r]=e.charCodeAt(r)
+return o}(r.clipboardDataURL)
+return browser.clipboard.setImageData(e,"png").then((()=>Promise.resolve("success"))).catch((r=>{console.error(r),Promise.reject(r.toString())}))}}))

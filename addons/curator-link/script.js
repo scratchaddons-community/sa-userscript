@@ -1,32 +1,3 @@
-import { escapeHTML } from "../../libraries/common/cs/autoescaper.js";
-export default async function ({ addon }) {
-  const heading = await addon.tab.waitForElement(".inner.mod-splash:nth-child(2) h4", {
-    reduxCondition: (state) => state.splash.featured.status === "FETCHED",
-    reduxEvents: ["SET_FETCH_STATUS", "SET_ROWS"],
-  });
-
-  const curator = addon.tab.redux.state.splash.featured.rows.curator_top_projects[0].curator_name;
-  const link = document.createElement("a");
-  link.textContent = curator;
-  link.href = `https://scratch.mit.edu/users/${curator}/`;
-  link.id = "curator-link";
-
-  if (!addon.self.disabled) {
-    heading.innerHTML = escapeHTML(addon.tab.scratchMessage("splash.projectsCuratedBy")).replace(
-      "{curatorId}",
-      link.outerHTML
-    );
-  }
-  addon.self.addEventListener("disabled", () => {
-    heading.innerHTML = escapeHTML(addon.tab.scratchMessage("splash.projectsCuratedBy")).replace(
-      "{curatorId}",
-      curator
-    );
-  });
-  addon.self.addEventListener("reenabled", () => {
-    heading.innerHTML = escapeHTML(addon.tab.scratchMessage("splash.projectsCuratedBy")).replace(
-      "{curatorId}",
-      link.outerHTML
-    );
-  });
-}
+import{escapeHTML as r}from"../../libraries/common/cs/autoescaper.js"
+export default async function({addon:t}){const a=await t.tab.waitForElement(".inner.mod-splash:nth-child(2) h4",{reduxCondition(r){return"FETCHED"===r.splash.featured.status},reduxEvents:["SET_FETCH_STATUS","SET_ROWS"]}),e=t.tab.redux.state.splash.featured.rows.curator_top_projects[0].curator_name,s=document.createElement("a")
+s.textContent=e,s.href=`https://scratch.mit.edu/users/${e}/`,s.id="curator-link",t.self.disabled||(a.innerHTML=r(t.tab.scratchMessage("splash.projectsCuratedBy")).replace("{curatorId}",s.outerHTML)),t.self.addEventListener("disabled",(()=>{a.innerHTML=r(t.tab.scratchMessage("splash.projectsCuratedBy")).replace("{curatorId}",e)})),t.self.addEventListener("reenabled",(()=>{a.innerHTML=r(t.tab.scratchMessage("splash.projectsCuratedBy")).replace("{curatorId}",s.outerHTML)}))}

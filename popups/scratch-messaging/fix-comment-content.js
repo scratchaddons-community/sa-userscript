@@ -1,49 +1,13 @@
-import commentEmojis from "../../addons/scratch-notifier/comment-emojis.js";
-import { linkifyTextNode, pingifyTextNode } from "../../libraries/common/cs/fast-linkify.js";
-import formatProfileComments from "../../libraries/common/cs/format-profile-comments.js";
-
-const parser = new DOMParser();
-
-export default (value, enabledAddons) => {
-  const shouldLinkify = enabledAddons.includes("more-links");
-  const shouldInsertLinebreak = enabledAddons.includes("comments-linebreaks");
-  let node;
-  if (value instanceof Node) {
-    // profile
-    node = value.cloneNode(true);
-    if (shouldInsertLinebreak) formatProfileComments(node);
-  } else {
-    // JSON API
-    const fragment = parser.parseFromString(value.trim(), "text/html");
-    node = fragment.body;
-  }
-  node.normalize();
-  for (let i = node.childNodes.length; i--; ) {
-    const item = node.childNodes[i];
-    let collapsed = item.textContent;
-    if (!shouldInsertLinebreak) {
-      collapsed = collapsed.replace(/\s+/g, " ");
-    }
-    if (i === 0) {
-      collapsed = collapsed.trimStart();
-    }
-    if (i === node.childNodes.length - 1) {
-      collapsed = collapsed.trimEnd();
-    }
-    item.textContent = collapsed;
-    if (item instanceof Text && item.textContent === "") {
-      item.remove();
-    } else if (item instanceof HTMLAnchorElement && item.getAttribute("href").startsWith("/")) {
-      item.href = "https://scratch.mit.edu" + item.getAttribute("href");
-    } else if (item instanceof HTMLImageElement) {
-      const splitString = item.src.split("/");
-      const imageName = splitString[splitString.length - 1];
-      if (commentEmojis[imageName]) item.replaceWith(commentEmojis[imageName]);
-    }
-  }
-  if (shouldLinkify) {
-    linkifyTextNode(node);
-  }
-  pingifyTextNode(node);
-  return node;
-};
+import e from"../../addons/scratch-notifier/comment-emojis.js"
+import{linkifyTextNode as t,pingifyTextNode as o}from"../../libraries/common/cs/fast-linkify.js"
+import s from"../../libraries/common/cs/format-profile-comments.js"
+const n=new DOMParser
+export default(r,m)=>{const i=m.includes("more-links"),c=m.includes("comments-linebreaks")
+let f
+r instanceof Node?(f=r.cloneNode(1),c&&s(f)):f=n.parseFromString(r.trim(),"text/html").body,f.normalize()
+for(let t=f.childNodes.length;t--;){const o=f.childNodes[t]
+let s=o.textContent
+if(c||(s=s.replace(/\s+/g," ")),0===t&&(s=s.trimStart()),t===f.childNodes.length-1&&(s=s.trimEnd()),o.textContent=s,o instanceof Text&&""===o.textContent)o.remove()
+else if(o instanceof HTMLAnchorElement&&o.getAttribute("href").startsWith("/"))o.href="https://scratch.mit.edu"+o.getAttribute("href")
+else if(o instanceof HTMLImageElement){const t=o.src.split("/"),s=t[t.length-1]
+e[s]&&o.replaceWith(e[s])}}return i&&t(f),o(f),f}

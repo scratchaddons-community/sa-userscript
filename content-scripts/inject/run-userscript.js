@@ -1,39 +1,10 @@
-import Addon from "../../addon-api/content-script/Addon.js";
-
-export default async function runAddonUserscripts({ addonId, scripts, enabledLate = false }) {
-  const addonObj = new Addon({ id: addonId, enabledLate });
-  addonObj.auth._update(scratchAddons.session);
-  const globalObj = Object.create(null);
-  for (const scriptInfo of scripts) {
-    const { url: scriptPath, runAtComplete } = scriptInfo;
-    const scriptUrl = `${new URL(import.meta.url).origin}/addons/${addonId}/${scriptPath}`;
-    const loadUserscript = async () => {
-      await scratchAddons.l10n.loadByAddonId(addonId);
-      const module = await import(scriptUrl);
-      const msg = (key, placeholders) =>
-        scratchAddons.l10n.get(key.startsWith("/") ? key.slice(1) : `${addonId}/${key}`, placeholders);
-      msg.locale = scratchAddons.l10n.locale;
-      scratchAddons.console.logForAddon(`${addonId} [page]`)(
-        `Running ${scriptUrl}, runAtComplete: ${runAtComplete}, enabledLate: ${enabledLate}`
-      );
-      const localConsole = {
-        log: scratchAddons.console.logForAddon(addonId),
-        warn: scratchAddons.console.warnForAddon(addonId),
-        error: scratchAddons.console.errorForAddon(addonId),
-      };
-      module.default({
-        addon: addonObj,
-        global: globalObj,
-        console: { ...console, ...localConsole },
-        msg,
-        safeMsg: (key, placeholders) =>
-          scratchAddons.l10n.escaped(key.startsWith("/") ? key.slice(1) : `${addonId}/${key}`, placeholders),
-      });
-    };
-    if (runAtComplete && document.readyState !== "complete") {
-      window.addEventListener("load", () => loadUserscript(), { once: true });
-    } else {
-      await loadUserscript();
-    }
-  }
-}
+import n from"../../addon-api/content-script/Addon.js"
+export default async function o({addonId:o,scripts:t,enabledLate:d=0}){const c=new n({id:o,enabledLate:d})
+c.auth._update(scratchAddons.session)
+const s=Object.create(null)
+for(const n of t){const{url:t,runAtComplete:a}=n,e=`${new URL(import.meta.url).origin}/addons/${o}/${t}`,r=async()=>{await scratchAddons.l10n.loadByAddonId(o)
+const n=await import(e),t=(n,t)=>scratchAddons.l10n.get(n.startsWith("/")?n.slice(1):`${o}/${n}`,t)
+t.locale=scratchAddons.l10n.locale,scratchAddons.console.logForAddon(`${o} [page]`)(`Running ${e}, runAtComplete: ${a}, enabledLate: ${d}`)
+const r={log:scratchAddons.console.logForAddon(o),warn:scratchAddons.console.warnForAddon(o),error:scratchAddons.console.errorForAddon(o)}
+n.default({addon:c,global:s,console:{...console,...r},msg:t,safeMsg(n,t){return scratchAddons.l10n.escaped(n.startsWith("/")?n.slice(1):`${o}/${n}`,t)}})}
+a&&"complete"!==document.readyState?window.addEventListener("load",(()=>r()),{once:1}):await r()}}

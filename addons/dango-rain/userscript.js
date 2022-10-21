@@ -1,107 +1,20 @@
-let dangorain = false,
-  dangoContainerLeft,
-  dangoContainerRight,
-  visibleDangos,
-  noticeTimeout;
-const div = () => document.createElement("div");
-const noticeText = div();
-noticeText.className = "sa-dango-notice";
-
-const checkForDango = (text) => {
-  if (!text.toLowerCase().includes("dango")) {
-    if (dangorain && dangoContainerLeft) {
-      dangoContainerLeft?.remove();
-      dangoContainerRight?.remove();
-      noticeText?.remove();
-    }
-    dangorain = false;
-    return;
-  }
-  if (dangorain) return;
-  dangorain = true;
-  dangoContainerLeft = div();
-  dangoContainerLeft.className = "sa-dangos-left";
-  for (let i = 0; i < 20; i++) {
-    const dango = div();
-    dango.className = "sa-dango";
-    dango.style.left = (i % 10) * 10 + "%";
-    dango.style.animationDelay = `${Math.random() * 8}s, ${Math.random() * 8}s`;
-    dangoContainerLeft.append(dango);
-  }
-  setEltWidth(dangoContainerLeft);
-
-  dangoContainerRight = dangoContainerLeft.cloneNode(true);
-  dangoContainerRight.className = "sa-dangos-right";
-
-  document.querySelector("#content").append(dangoContainerLeft, dangoContainerRight);
-  // if (!localStorage.getItem("scratchAddonsAprilFoolsModal2021")) document.querySelector("#content").append(noticeText);
-};
-const setEltWidth = (elt) => {
-  if (!elt) return;
-  let sideWidth = (document.body.clientWidth - document.querySelector("#profile-data").clientWidth) / 2;
-  sideWidth = sideWidth - 25;
-  elt.style.width = sideWidth + "px";
-  visibleDangos = sideWidth > 0;
-  if (visibleDangos) {
-    clearTimeout(noticeTimeout);
-    /* if (!old && !localStorage.getItem("scratchAddonsAprilFoolsModal2021")) {
-      document.querySelector("#content").append(noticeText);
-    } */
-  } else {
-    // Window resizing is very weird on some devices...
-    // Some devices might make the notice text "flicker".
-    clearTimeout(noticeTimeout);
-    noticeTimeout = setTimeout(() => {
-      noticeText?.remove();
-    }, 1000);
-  }
-};
-addEventListener("resize", () => {
-  setEltWidth(dangoContainerLeft);
-  setEltWidth(dangoContainerRight);
-});
-
-export default async function ({ addon, global, console, msg }) {
-  const notifClose = Object.assign(document.createElement("span"), {
-    style: `
-    float: right;
-    cursor:pointer;
-    background-color: #ffffff26;
-    line-height: 10px;
-    width: 10px;
-    text-align: center;
-    padding:5px;
-    border-radius: 50%;`,
-    textContent: "x",
-  });
-  notifClose.onclick = () => {
-    noticeText.style.display = "none";
-    localStorage.setItem("scratchAddonsAprilFoolsModal2021", "true");
-  };
-  noticeText.appendChild(notifClose);
-  const boldSpan = document.createElement("span");
-  boldSpan.innerText = ""; // msg("addedBy");
-  boldSpan.style.fontWeight = "bold";
-  noticeText.appendChild(boldSpan);
-  const normalSpan = document.createElement("span");
-  normalSpan.innerText = ""; // `\n${msg("happyAprilFools")}\n${msg("howToGet")}\n${msg("howToStop")}`;
-  noticeText.appendChild(normalSpan);
-
-  const getAboutMeAndWiwo = () => {
-    if (document.querySelector("textarea[name=bio]")) {
-      // Own profile
-      return `${document.querySelector("textarea[name=bio]").value}/${
-        document.querySelector("textarea[name=status]").value
-      }`;
-    } else {
-      const ps = document.querySelectorAll("p.overview");
-      return `${ps[0].textContent}/${ps[1].textContent}`;
-    }
-  };
-
-  checkForDango(getAboutMeAndWiwo());
-  if (document.querySelector("textarea[name=bio]")) {
-    document.querySelector("textarea[name=bio]").addEventListener("input", () => checkForDango(getAboutMeAndWiwo()));
-    document.querySelector("textarea[name=status]").addEventListener("input", () => checkForDango(getAboutMeAndWiwo()));
-  }
-}
+let t,e,n,o,a=0
+const r=()=>document.createElement("div"),c=r()
+c.className="sa-dango-notice"
+const d=n=>{if(!n.toLowerCase().includes("dango"))return a&&t&&(t?.remove(),e?.remove(),c?.remove()),void(a=0)
+if(!a){a=1,t=r(),t.className="sa-dangos-left"
+for(let e=0;20>e;e++){const n=r()
+n.className="sa-dango",n.style.left=e%10*10+"%",n.style.animationDelay=`${8*Math.random()}s, ${8*Math.random()}s`,t.append(n)}s(t),e=t.cloneNode(1),e.className="sa-dangos-right",document.querySelector("#content").append(t,e)}},s=t=>{if(!t)return
+let e=(document.body.clientWidth-document.querySelector("#profile-data").clientWidth)/2
+e-=25,t.style.width=e+"px",n=e>0,n?clearTimeout(o):(clearTimeout(o),o=setTimeout((()=>{c?.remove()}),1e3))}
+addEventListener("resize",(()=>{s(t),s(e)}))
+export default async function({}){const t=Object.assign(document.createElement("span"),{style:"\n    float: right;\n    cursor:pointer;\n    background-color: #ffffff26;\n    line-height: 10px;\n    width: 10px;\n    text-align: center;\n    padding:5px;\n    border-radius: 50%;",textContent:"x"})
+t.onclick=()=>{c.style.display="none",localStorage.setItem("scratchAddonsAprilFoolsModal2021","true")},c.appendChild(t)
+const e=document.createElement("span")
+e.innerText="",e.style.fontWeight="bold",c.appendChild(e)
+const n=document.createElement("span")
+n.innerText="",c.appendChild(n)
+const o=()=>{if(document.querySelector("textarea[name=bio]"))return`${document.querySelector("textarea[name=bio]").value}/${document.querySelector("textarea[name=status]").value}`
+{const t=document.querySelectorAll("p.overview")
+return`${t[0].textContent}/${t[1].textContent}`}}
+d(o()),document.querySelector("textarea[name=bio]")&&(document.querySelector("textarea[name=bio]").addEventListener("input",(()=>d(o()))),document.querySelector("textarea[name=status]").addEventListener("input",(()=>d(o()))))}

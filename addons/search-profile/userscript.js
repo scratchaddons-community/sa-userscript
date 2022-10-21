@@ -1,21 +1,2 @@
-export default async function ({ addon, global, console, msg }) {
-  const nav = await addon.tab.waitForElement(".sub-nav.tabs");
-  //Create elements for tab
-  const tab = nav.appendChild(document.createElement("a")),
-    li = tab.appendChild(document.createElement("li")),
-    img = li.appendChild(document.createElement("img")),
-    span = li.appendChild(document.createElement("span")),
-    user = document.querySelector('[name="q"]').value.trim(),
-    valid = /^[\w-]{3,20}$/g.test(user);
-  //Set up elements
-  img.src = addon.self.dir + "/user.svg";
-  img.className = "tab-icon";
-  span.innerText = msg("profile");
-  addon.tab.displayNoneWhileDisabled(tab);
-  if (valid) tab.href = "/users/" + user + "/";
-  //Check if whats entered is a valid username
-  if (!valid) {
-    tab.classList.add("sa-search-profile-invalid");
-    li.title = msg("invalid-username", { username: user });
-  }
-}
+export default async function({addon:n,msg:a}){const e=(await n.tab.waitForElement(".sub-nav.tabs")).appendChild(document.createElement("a")),s=e.appendChild(document.createElement("li")),o=s.appendChild(document.createElement("img")),t=s.appendChild(document.createElement("span")),u=document.querySelector('[name="q"]').value.trim(),i=/^[\w-]{3,20}$/g.test(u)
+o.src=n.self.dir+"/user.svg",o.className="tab-icon",t.innerText=a("profile"),n.tab.displayNoneWhileDisabled(e),i&&(e.href="/users/"+u+"/"),i||(e.classList.add("sa-search-profile-invalid"),s.title=a("invalid-username",{username:u}))}

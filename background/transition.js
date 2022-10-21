@@ -1,26 +1,4 @@
-import chrome from "../libraries/common/chrome.js";
-
-const utm = `utm_source=userscript&utm_medium=tabscreate&utm_campaign=v${chrome.runtime.getManifest().version}`;
-const uiLanguage = chrome.i18n.getUILanguage();
-const localeSlash = uiLanguage.startsWith("en") ? "" : `${uiLanguage.split("-")[0]}/`;
-chrome.runtime.onInstalled.addListener(async (details) => {
-  const currentVersion = chrome.runtime.getManifest().version;
-  const [major, minor, _] = currentVersion.split(".");
-  if (details.previousVersion && details.previousVersion.startsWith("0")) {
-    chrome.tabs.create({ url: `https://scratchaddons.com/${localeSlash}scratch-messaging-transition/?${utm}` });
-  } else if (
-    details.reason === "install" &&
-    chrome.runtime.getManifest().version_name.includes("-prerelease") === false
-  ) {
-    chrome.tabs.create({ url: `https://scratchaddons.com/${localeSlash}welcome/?${utm}` });
-  }
-
-  if (details.reason === "install") {
-    chrome.storage.local.set({
-      bannerSettings: { lastShown: `${major}.${minor}` },
-    });
-  }
-});
-if (chrome.runtime.getManifest().version_name.includes("-prerelease") === false) {
-  chrome.runtime.setUninstallURL(`https://scratchaddons.com/${localeSlash}farewell?${utm}`);
-}
+import chrome from"../libraries/common/chrome.js"
+const s=`utm_source=userscript&utm_medium=tabscreate&utm_campaign=v${chrome.runtime.getManifest().version}`,t=chrome.i18n.getUILanguage(),e=t.startsWith("en")?"":`${t.split("-")[0]}/`
+chrome.runtime.onInstalled.addListener((async t=>{const a=chrome.runtime.getManifest().version,[r,c,n]=a.split(".")
+t.previousVersion&&t.previousVersion.startsWith("0")?chrome.tabs.create({url:`https://scratchaddons.com/${e}scratch-messaging-transition/?${s}`}):"install"===t.reason&&0==chrome.runtime.getManifest().version_name.includes("-prerelease")&&chrome.tabs.create({url:`https://scratchaddons.com/${e}welcome/?${s}`}),"install"===t.reason&&chrome.storage.local.set({bannerSettings:{lastShown:`${r}.${c}`}})})),0==chrome.runtime.getManifest().version_name.includes("-prerelease")&&chrome.runtime.setUninstallURL(`https://scratchaddons.com/${e}farewell?${s}`)

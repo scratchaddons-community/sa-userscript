@@ -1,83 +1,11 @@
-export default async function ({ addon, global, console, msg }) {
-  const vm = addon.tab.traps.vm;
-
-  let showIconOnly = addon.settings.get("showicononly");
-
-  if (addon.tab.redux.state && addon.tab.redux.state.scratchGui.stageSize.stageSize === "small") {
-    document.body.classList.add("sa-clones-small");
-  }
-  document.addEventListener(
-    "click",
-    (e) => {
-      if (e.target.closest("[class*='stage-header_stage-button-first']")) {
-        document.body.classList.add("sa-clones-small");
-      } else if (e.target.closest("[class*='stage-header_stage-button-last']")) {
-        document.body.classList.remove("sa-clones-small");
-      }
-    },
-    { capture: true }
-  );
-
-  let countContainerContainer = document.createElement("div");
-
-  let countContainer = document.createElement("div");
-  let count = document.createElement("span");
-  let icon = document.createElement("span");
-
-  countContainerContainer.className = "clone-container-container";
-  countContainer.className = "clone-container";
-  count.className = "clone-count";
-  icon.className = "clone-icon";
-
-  countContainerContainer.appendChild(icon);
-  countContainerContainer.appendChild(countContainer);
-  countContainer.appendChild(count);
-
-  let lastChecked = 0;
-
-  const cache = Array(301)
-    .fill()
-    .map((_, i) => msg("clones", { cloneCount: i }));
-
-  function doCloneChecks(force) {
-    const v = vm.runtime._cloneCounter;
-    // performance
-    if (v === lastChecked && !force) return;
-    countContainerContainer.dataset.count = lastChecked = v;
-    if (showIconOnly) {
-      count.dataset.str = v;
-    } else {
-      count.dataset.str = cache[v] || msg("clones", { cloneCount: v });
-    }
-
-    if (v === 0) countContainerContainer.style.display = "none";
-    else addon.tab.displayNoneWhileDisabled(countContainerContainer, { display: "flex" });
-  }
-
-  addon.settings.addEventListener("change", () => {
-    showIconOnly = addon.settings.get("showicononly");
-    doCloneChecks(true);
-  });
-
-  vm.runtime.on("targetWasRemoved", (t) => {
-    // Fix bug with inaccurate clone counter
-    if (t.isOriginal) vm.runtime.changeCloneCounter(1);
-  });
-  const oldStep = vm.runtime._step;
-  vm.runtime._step = function (...args) {
-    const ret = oldStep.call(this, ...args);
-    doCloneChecks();
-    return ret;
-  };
-
-  while (true) {
-    await addon.tab.waitForElement('[class*="controls_controls-container"]', {
-      markAsSeen: true,
-      reduxEvents: ["scratch-gui/mode/SET_PLAYER", "fontsLoaded/SET_FONTS_LOADED", "scratch-gui/locales/SELECT_LOCALE"],
-    });
-
-    if (addon.tab.editorMode === "editor") {
-      addon.tab.appendToSharedSpace({ space: "afterStopButton", element: countContainerContainer, order: 2 });
-    }
-  }
-}
+export default async function({addon:n,msg:o}){function e(e){const a=t.runtime._cloneCounter;(a!==d||e)&&(s.dataset.count=d=a,l.dataset.str=c?a:u[a]||o("clones",{cloneCount:a}),0===a?s.style.display="none":n.tab.displayNoneWhileDisabled(s,{display:"flex"}))}const t=n.tab.traps.vm
+let c=n.settings.get("showicononly")
+n.tab.redux.state&&"small"===n.tab.redux.state.scratchGui.stageSize.stageSize&&document.body.classList.add("sa-clones-small"),document.addEventListener("click",(n=>{n.target.closest("[class*='stage-header_stage-button-first']")?document.body.classList.add("sa-clones-small"):n.target.closest("[class*='stage-header_stage-button-last']")&&document.body.classList.remove("sa-clones-small")}),{capture:1})
+let s=document.createElement("div"),a=document.createElement("div"),l=document.createElement("span"),r=document.createElement("span")
+s.className="clone-container-container",a.className="clone-container",l.className="clone-count",r.className="clone-icon",s.appendChild(r),s.appendChild(a),a.appendChild(l)
+let d=0
+const u=Array(301).fill().map(((n,e)=>o("clones",{cloneCount:e})))
+n.settings.addEventListener("change",(()=>{c=n.settings.get("showicononly"),e(1)})),t.runtime.on("targetWasRemoved",(n=>{n.isOriginal&&t.runtime.changeCloneCounter(1)}))
+const i=t.runtime._step
+for(t.runtime._step=function(...n){const o=i.call(this,...n)
+return e(),o};;)await n.tab.waitForElement('[class*="controls_controls-container"]',{markAsSeen:1,reduxEvents:["scratch-gui/mode/SET_PLAYER","fontsLoaded/SET_FONTS_LOADED","scratch-gui/locales/SELECT_LOCALE"]}),"editor"===n.tab.editorMode&&n.tab.appendToSharedSpace({space:"afterStopButton",element:s,order:2})}

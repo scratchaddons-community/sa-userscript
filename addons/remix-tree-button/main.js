@@ -1,34 +1,3 @@
-export default async function ({ addon, global, console, msg }) {
-  //define remix tree button elements
-  function loadRemixButton() {
-    if (document.querySelector("#scratchAddonsRemixTreeBtn")) return;
-    if (addon.tab.editorMode === "projectpage") {
-      addon.tab
-        .waitForElement(".flex-row.subactions", {
-          reduxCondition: (state) => state.scratchGui.mode.isPlayerOnly,
-        })
-        .then(() => {
-          if (!document.querySelector(".copy-link-button")) return;
-          const remixtree = document.createElement("button");
-
-          const remixtreeSpan = document.createElement("span");
-          remixtreeSpan.innerText = msg("remix-tree");
-          addon.tab.displayNoneWhileDisabled(remixtree);
-          remixtree.className = "button action-button remixtree-button";
-          remixtree.id = "scratchAddonsRemixTreeBtn";
-          remixtree.appendChild(remixtreeSpan);
-          remixtree.addEventListener("click", () => {
-            window.location.href = `https://scratch.mit.edu/projects/${
-              window.location.href.split("projects")[1].split("/")[1]
-            }/remixtree`;
-          });
-          addon.tab.appendToSharedSpace({ space: "afterCopyLinkButton", element: remixtree, order: 0 });
-        });
-    }
-  }
-
-  loadRemixButton();
-  addon.tab.addEventListener("urlChange", () => {
-    loadRemixButton();
-  });
-}
+export default async function({addon:t,msg:e}){function n(){document.querySelector("#scratchAddonsRemixTreeBtn")||"projectpage"===t.tab.editorMode&&t.tab.waitForElement(".flex-row.subactions",{reduxCondition(t){return t.scratchGui.mode.isPlayerOnly}}).then((()=>{if(!document.querySelector(".copy-link-button"))return
+const n=document.createElement("button"),o=document.createElement("span")
+o.innerText=e("remix-tree"),t.tab.displayNoneWhileDisabled(n),n.className="button action-button remixtree-button",n.id="scratchAddonsRemixTreeBtn",n.appendChild(o),n.addEventListener("click",(()=>{window.location.href=`https://scratch.mit.edu/projects/${window.location.href.split("projects")[1].split("/")[1]}/remixtree`})),t.tab.appendToSharedSpace({space:"afterCopyLinkButton",element:n,order:0})}))}n(),t.tab.addEventListener("urlChange",(()=>{n()}))}

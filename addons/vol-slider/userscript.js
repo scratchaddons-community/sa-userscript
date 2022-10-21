@@ -1,66 +1,8 @@
-import { setup, setVol, getDefVol, setDefVol, isMuted } from "./module.js";
-
-export default async function ({ addon, global, console }) {
-  const vm = addon.tab.traps.vm;
-  let icon = document.createElement("img");
-  icon.loading = "lazy";
-  icon.id = "sa-vol-icon";
-  let slider = document.createElement("input");
-  slider.id = "sa-vol-slider";
-  slider.type = "range";
-  slider.min = 0;
-  slider.max = 1;
-  slider.step = 0.02;
-  const container = document.createElement("div");
-  container.className = "sa-volume";
-
-  document.addEventListener(
-    "click",
-    (e) => {
-      if (e.target.closest("[class*='stage-header_stage-button-first']")) {
-        container.style.display = "none";
-      } else if (e.target.closest("[class*='stage-header_stage-button-last']")) {
-        container.style.display = "inline-block";
-      }
-    },
-    { capture: true }
-  );
-
-  addon.self.addEventListener("disabled", () => {
-    setVol(1);
-  });
-
-  addon.self.addEventListener("reenabled", () => {
-    setVol(getDefVol());
-  });
-
-  addon.settings.addEventListener("change", () => {
-    setDefVol(addon.settings.get("defVol") / 100);
-  });
-
-  icon.addEventListener("click", function (e) {
-    // Same logic as mute-project
-    if (isMuted()) {
-      setVol(getDefVol());
-    } else {
-      setVol(0);
-    }
-  });
-  slider.addEventListener("input", function (e) {
-    setVol(this.value);
-  });
-
-  while (true) {
-    await addon.tab.waitForElement("[class^='green-flag_green-flag']", {
-      markAsSeen: true,
-      reduxEvents: ["scratch-gui/mode/SET_PLAYER", "fontsLoaded/SET_FONTS_LOADED", "scratch-gui/locales/SELECT_LOCALE"],
-    });
-    addon.tab.displayNoneWhileDisabled(container, { display: "inline-block" });
-    addon.tab.appendToSharedSpace({ space: "afterStopButton", element: container, order: 0 });
-    container.appendChild(icon);
-    container.appendChild(slider);
-    setup(vm);
-    setDefVol(addon.settings.get("defVol") / 100);
-    setVol(getDefVol());
-  }
-}
+import{setup as e,setVol as t,getDefVol as n,setDefVol as a,isMuted as o}from"./module.js"
+export default async function({addon:s}){const l=s.tab.traps.vm
+let c=document.createElement("img")
+c.loading="lazy",c.id="sa-vol-icon"
+let d=document.createElement("input")
+d.id="sa-vol-slider",d.type="range",d.min=0,d.max=1,d.step=.02
+const i=document.createElement("div")
+for(i.className="sa-volume",document.addEventListener("click",(e=>{e.target.closest("[class*='stage-header_stage-button-first']")?i.style.display="none":e.target.closest("[class*='stage-header_stage-button-last']")&&(i.style.display="inline-block")}),{capture:1}),s.self.addEventListener("disabled",(()=>{t(1)})),s.self.addEventListener("reenabled",(()=>{t(n())})),s.settings.addEventListener("change",(()=>{a(s.settings.get("defVol")/100)})),c.addEventListener("click",(function(){o()?t(n()):t(0)})),d.addEventListener("input",(function(){t(this.value)}));;)await s.tab.waitForElement("[class^='green-flag_green-flag']",{markAsSeen:1,reduxEvents:["scratch-gui/mode/SET_PLAYER","fontsLoaded/SET_FONTS_LOADED","scratch-gui/locales/SELECT_LOCALE"]}),s.tab.displayNoneWhileDisabled(i,{display:"inline-block"}),s.tab.appendToSharedSpace({space:"afterStopButton",element:i,order:0}),i.appendChild(c),i.appendChild(d),e(l),a(s.settings.get("defVol")/100),t(n())}

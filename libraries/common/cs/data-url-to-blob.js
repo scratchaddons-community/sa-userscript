@@ -1,13 +1,3 @@
-// From https://github.com/LLK/scratch-gui/blob/develop/src/lib/data-uri-to-blob.js
-export default function (dataURL, returnArrayBuffer) {
-  const byteString = atob(dataURL.split(",")[1]);
-  const mimeString = dataURL.split(",")[0].split(":")[1].split(";")[0];
-  const arrayBuffer = new ArrayBuffer(byteString.length);
-  const uintArray = new Uint8Array(arrayBuffer);
-  for (let i = 0; i < byteString.length; i++) {
-    uintArray[i] = byteString.charCodeAt(i);
-  }
-  if (returnArrayBuffer) return arrayBuffer;
-  const blob = new Blob([arrayBuffer], { type: mimeString });
-  return blob;
-}
+export default function(e,r){const t=atob(e.split(",")[1]),n=e.split(",")[0].split(":")[1].split(";")[0],o=new ArrayBuffer(t.length),f=new Uint8Array(o)
+for(let e=0;t.length>e;e++)f[e]=t.charCodeAt(e)
+return r?o:new Blob([o],{type:n})}

@@ -1,17 +1,3 @@
-export default async function ({ addon, msg, global, console }) {
-  const oldSend = XMLHttpRequest.prototype.send;
-
-  XMLHttpRequest.prototype.send = function () {
-    if (!addon.self.disabled && this.method === "POST" && this.url?.startsWith("https://backpack.scratch.mit.edu/")) {
-      try {
-        const arg = JSON.parse(arguments[0]);
-        if (arg.type === "script") {
-          arg.name = prompt(msg("prompt"), arg.name).substring(0, 255);
-        }
-        arguments[0] = JSON.stringify(arg);
-      } catch {}
-    }
-
-    return oldSend.call(this, ...arguments);
-  };
-}
+export default async function({addon:t,msg:c}){const s=XMLHttpRequest.prototype.send
+XMLHttpRequest.prototype.send=function(p){if(!t.self.disabled&&"POST"===this.method&&this.url?.startsWith("https://backpack.scratch.mit.edu/"))try{const t=JSON.parse(p)
+"script"===t.type&&(t.name=prompt(c("prompt"),t.name).substring(0,255)),p=JSON.stringify(t)}catch{}return s.call(this,...arguments)}}

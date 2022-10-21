@@ -1,43 +1,6 @@
-/* global $, paste */
-export default async function ({ addon, console, msg }) {
-  const buttons = document.querySelectorAll(".postfootright");
-  buttons.forEach(function (elm) {
-    const addBtn = document.createElement("li");
-    const addBtnAElement = document.createElement("a");
-    addBtnAElement.href = "#reply";
-    addBtnAElement.textContent = msg("add-btn");
-    addBtn.appendChild(addBtnAElement);
-    addBtn.addEventListener("click", (e) => setTimeout(() => addIDLink(e), 0));
-    addon.tab.appendToSharedSpace({ space: "forumsBeforePostReport", element: addBtn, scope: elm, order: 10 });
-    addon.tab.displayNoneWhileDisabled(addBtn, { display: "inline" });
-  });
-  function addIDLink(e) {
-    let idName = e.target.closest(".blockpost").querySelector(".box-head > .conr").textContent;
-    let id = e.target.closest(".blockpost").id.substring(1);
-    window.paste(getIDLink(id, idName, true));
-  }
-  function getIDLink(id, name, addSpace) {
-    return `[url=https://scratch.mit.edu/discuss/post/${id}/]${name}[/url]${addSpace ? " " : ""}`;
-  }
-  //Auto-adding IDs to quotes
-  const originalCopyPaste = window.copy_paste;
-  window.copy_paste = function (id) {
-    if (addon.self.disabled || !addon.settings.get("auto_add")) {
-      originalCopyPaste(id);
-      return;
-    }
-    var post = $("#" + id);
-    var username = post.find(".username").text();
-    $.ajax("/discuss/post/" + id.substr(1) + "/source/").done(function (data) {
-      paste(
-        "[quote=" +
-          username +
-          "][small](" +
-          getIDLink(id.substring(1), post["0"].querySelector(".box-head > .conr").textContent, false) +
-          ")[/small]\n" +
-          data +
-          "[/quote]\n"
-      );
-    });
-  };
-}
+export default async function({addon:o,msg:t}){function n(o,t,n){return`[url=https://scratch.mit.edu/discuss/post/${o}/]${t}[/url]${n?" ":""}`}document.querySelectorAll(".postfootright").forEach((function(e){const s=document.createElement("li"),c=document.createElement("a")
+c.href="#reply",c.textContent=t("add-btn"),s.appendChild(c),s.addEventListener("click",(o=>setTimeout((()=>function(o){let t=o.target.closest(".blockpost").querySelector(".box-head > .conr").textContent,e=o.target.closest(".blockpost").id.substring(1)
+window.paste(n(e,t,1))}(o)),0))),o.tab.appendToSharedSpace({space:"forumsBeforePostReport",element:s,scope:e,order:10}),o.tab.displayNoneWhileDisabled(s,{display:"inline"})}))
+const e=window.copy_paste
+window.copy_paste=function(t){if(!o.self.disabled&&o.settings.get("auto_add")){var s=$("#"+t),c=s.find(".username").text()
+$.ajax("/discuss/post/"+t.substr(1)+"/source/").done((function(o){paste("[quote="+c+"][small]("+n(t.substring(1),s[0].querySelector(".box-head > .conr").textContent,0)+")[/small]\n"+o+"[/quote]\n")}))}else e(t)}}

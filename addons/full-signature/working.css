@@ -1,16 +1,1 @@
-.activity-stream {
-  overflow-y: scroll !important;
-}
-
-ul.activity-stream div {
-  width: 90%;
-}
-
-.load-more-wibd {
-  outline: none;
-}
-
-.load-more-wibd-container {
-  display: block !important;
-  text-align: center;
-}
+.activity-stream{overflow-y:scroll!important}ul.activity-stream div{width:90%}.load-more-wibd{outline:none}.load-more-wibd-container{display:block!important;text-align:center}

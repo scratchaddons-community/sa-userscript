@@ -1,14 +1,2 @@
-﻿export default async function ({ addon, console }) {
-  while (true) {
-    const el = await addon.tab.waitForElement(
-      'a[href^="https://scratch.mit.edu/discuss/youtube/"], a[href^="/discuss/youtube/"]',
-      {
-        reduxCondition: (state) => {
-          if (!state.scratchGui) return true;
-          return state.scratchGui.mode.isPlayerOnly;
-        },
-      }
-    );
-    el.href = el.href.replace("https://scratch.mit.edu/discuss/youtube/", "https://www.youtube.com/watch?v=");
-  }
-}
+export default async function({addon:t}){for(;;){const u=await t.tab.waitForElement('a[href^="https://scratch.mit.edu/discuss/youtube/"], a[href^="/discuss/youtube/"]',{reduxCondition(t){return t.scratchGui?t.scratchGui.mode.isPlayerOnly:1}})
+u.href=u.href.replace("https://scratch.mit.edu/discuss/youtube/","https://www.youtube.com/watch?v=")}}

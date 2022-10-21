@@ -1,44 +1,10 @@
-export default async function ({ addon, console }) {
-  const textarea = await addon.tab.waitForElement(".markItUpEditor");
-  const previewButton = await addon.tab.waitForElement(".markItUpButton.preview");
-  let previewIframe;
-  let delay;
-  switch (addon.settings.get("rate")) {
-    case "slow":
-      delay = 2500;
-      break;
-    case "fast":
-      delay = 250;
-      break;
-    default:
-      delay = 1000;
-  }
-  addon.tab.waitForElement(".markItUpPreviewFrame").then((iframe) => (previewIframe = iframe));
-
-  const showPreview = () => {
-    if (previewIframe) previewIframe.style.removeProperty("display");
-  };
-  const hidePreview = () => {
-    if (previewIframe) previewIframe.style.display = "none";
-  };
-  const updatePreview = () => {
-    if (addon.self.disabled) return;
-    previewButton.dispatchEvent(new MouseEvent("mousedown"));
-    if (textarea.value) {
-      showPreview();
-    } else {
-      hidePreview();
-    }
-  };
-
-  let timeout;
-  textarea.addEventListener("input", () => {
-    if (timeout !== undefined) clearTimeout(timeout);
-    timeout = setTimeout(updatePreview, delay);
-  });
-  addon.self.addEventListener("disabled", () => {
-    showPreview();
-  });
-
-  if (addon.self.enabledLate) updatePreview();
-}
+export default async function({addon:e}){const t=await e.tab.waitForElement(".markItUpEditor"),a=await e.tab.waitForElement(".markItUpButton.preview")
+let o,i
+switch(e.settings.get("rate")){case"slow":i=2500
+break
+case"fast":i=250
+break
+default:i=1e3}e.tab.waitForElement(".markItUpPreviewFrame").then((e=>o=e))
+const n=()=>{o&&o.style.removeProperty("display")},s=()=>{e.self.disabled||(a.dispatchEvent(new MouseEvent("mousedown")),t.value?n():o&&(o.style.display="none"))}
+let r
+t.addEventListener("input",(()=>{void 0!==r&&clearTimeout(r),r=setTimeout(s,i)})),e.self.addEventListener("disabled",(()=>{n()})),e.self.enabledLate&&s()}

@@ -1,38 +1,5 @@
-export default async function ({ addon }) {
-  async function countProjects(url, page, delta) {
-    const res = await fetch(url + 40 * page);
-    const data = await res.json();
-    let pageLen = data.length;
-    if (pageLen === 40) {
-      return countProjects(url, page + delta, delta);
-    } else if (pageLen > 0) {
-      let count = 40 * page + pageLen;
-      return count;
-    } else if (pageLen === 0 && page === 0) {
-      return 0;
-    } else {
-      page -= delta;
-      delta /= 10;
-      return countProjects(url, page + delta, delta);
-    }
-  }
-  const apiUrlPrefix =
-    "https://api.scratch.mit.edu/studios/" + /[0-9]+/.exec(location.pathname)[0] + "/projects/?limit=40&offset=";
-  const initialDelta = 100;
-  const countElement = await addon.tab.waitForElement(".studio-tab-nav > a:first-child .tab-count");
-  const originalText = countElement.innerText;
-  let counted = false;
-  addon.self.addEventListener("disabled", () => {
-    if (typeof counted === "number") {
-      countElement.innerText = originalText;
-    }
-  });
-  addon.self.addEventListener("reenabled", () => {
-    if (typeof counted === "number") {
-      countElement.innerText = `(${counted})`;
-    }
-  });
-
-  counted = await countProjects(apiUrlPrefix, 0, initialDelta);
-  if (!addon.self.disabled) countElement.innerText = `(${counted})`;
-}
+export default async function({addon:t}){const a="https://api.scratch.mit.edu/studios/"+/[0-9]+/.exec(location.pathname)[0]+"/projects/?limit=40&offset=",e=await t.tab.waitForElement(".studio-tab-nav > a:first-child .tab-count"),i=e.innerText
+let n=0
+t.self.addEventListener("disabled",(()=>{"number"==typeof n&&(e.innerText=i)})),t.self.addEventListener("reenabled",(()=>{"number"==typeof n&&(e.innerText=`(${n})`)})),n=await async function t(a,e,i){const n=await fetch(a+40*e)
+let o=(await n.json()).length
+return 40===o?t(a,e+i,i):o>0?40*e+o:0===o&&0===e?0:t(a,(e-=i)+(i/=10),i)}(a,0,100),t.self.disabled||(e.innerText=`(${n})`)}

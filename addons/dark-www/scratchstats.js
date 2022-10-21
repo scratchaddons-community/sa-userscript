@@ -1,24 +1,8 @@
-import { textColor } from "../../libraries/common/cs/text-color.esm.js";
-
-export default async function ({ addon, console }) {
-  // Style the chart added by the scratchstats addon
-  const canvas = await addon.tab.waitForElement("#sa-scratchstats-chart", { markAsSeen: true });
-  await addon.tab.loadScript(addon.self.lib + "/thirdparty/cs/chart.min.js");
-  const updateChart = () => {
-    const chart = Chart.getChart(canvas);
-    if (!chart) return;
-    const color = addon.self.disabled ? "#575e75" : textColor(addon.settings.get("box"));
-    const lineColor = addon.self.disabled ? "rgba(0, 0, 0, 0.1)" : addon.settings.get("border");
-    const options = chart.options;
-    options.scales.x.ticks.color = options.scales.y.ticks.color = color;
-    options.scales.x.grid.tickColor = options.scales.y.grid.tickColor = color;
-    options.scales.x.grid.borderColor = options.scales.y.grid.borderColor = color;
-    options.scales.x.grid.color = options.scales.y.grid.color = lineColor;
-    options.plugins.title.color = color;
-    chart.update();
-  };
-  updateChart();
-  addon.settings.addEventListener("change", updateChart);
-  addon.self.addEventListener("disabled", updateChart);
-  addon.self.addEventListener("reenabled", updateChart);
-}
+import{textColor as t}from"../../libraries/common/cs/text-color.esm.js"
+export default async function({addon:a}){const r=await a.tab.waitForElement("#sa-scratchstats-chart",{markAsSeen:1})
+await a.tab.loadScript(a.self.lib+"/thirdparty/cs/chart.min.js")
+const s=()=>{const s=Chart.getChart(r)
+if(!s)return
+const c=a.self.disabled?"#575e75":t(a.settings.get("box")),e=a.self.disabled?"rgba(0, 0, 0, 0.1)":a.settings.get("border"),o=s.options
+o.scales.x.ticks.color=o.scales.y.ticks.color=c,o.scales.x.grid.tickColor=o.scales.y.grid.tickColor=c,o.scales.x.grid.borderColor=o.scales.y.grid.borderColor=c,o.scales.x.grid.color=o.scales.y.grid.color=e,o.plugins.title.color=c,s.update()}
+s(),a.settings.addEventListener("change",s),a.self.addEventListener("disabled",s),a.self.addEventListener("reenabled",s)}

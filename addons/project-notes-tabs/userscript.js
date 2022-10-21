@@ -1,58 +1,10 @@
-export default async function ({ addon, global, console }) {
-  async function remixHandler() {
-    while (true) {
-      await addon.tab.waitForElement(".remix-credit", {
-        markAsSeen: true,
-        reduxCondition: (state) => state.scratchGui.mode.isPlayerOnly,
-      });
-      projectNotes.insertBefore(tabs, projectNotes.querySelector(".description-block"));
-    }
-  }
-
-  let projectNotes;
-  let tabs;
-
-  while (true) {
-    projectNotes = await addon.tab.waitForElement(".project-notes", {
-      markAsSeen: true,
-      reduxCondition: (state) => state.scratchGui.mode.isPlayerOnly,
-    });
-
-    const labels = document.querySelectorAll(".project-textlabel");
-    const descriptions = document.querySelectorAll(".description-block");
-    const tabButtons = [];
-    const sectionCount = descriptions.length;
-    for (const label of labels) {
-      label.remove();
-    }
-
-    tabs = projectNotes.insertBefore(document.createElement("div"), projectNotes.querySelector(".description-block"));
-    tabs.classList.add("tabs-sa");
-
-    if (!remixHandler.run) {
-      remixHandler.run = true;
-      remixHandler();
-    }
-
-    for (let i = 0; i < sectionCount; i++) {
-      const tab = document.createElement("div");
-      tab.classList.add("tab-choice-sa");
-      const inner = document.createElement("span");
-      inner.innerText = labels[i].innerText;
-      tab.appendChild(inner);
-      tab.addEventListener("click", () => selectTab(i));
-      tabButtons.push(tab);
-      tabs.appendChild(tab);
-    }
-
-    function selectTab(index) {
-      for (let i = 0; i < sectionCount; i++) {
-        const selected = i === index;
-        tabButtons[i].classList.toggle("tab-choice-selected-sa", selected);
-        descriptions[i].style.display = selected ? "" : "none";
-      }
-    }
-
-    selectTab(0);
-  }
-}
+export default async function({addon:o}){async function t(){for(;;)await o.tab.waitForElement(".remix-credit",{markAsSeen:1,reduxCondition(o){return o.scratchGui.mode.isPlayerOnly}}),e.insertBefore(n,e.querySelector(".description-block"))}let e,n
+for(;;){e=await o.tab.waitForElement(".project-notes",{markAsSeen:1,reduxCondition(o){return o.scratchGui.mode.isPlayerOnly}})
+const i=document.querySelectorAll(".project-textlabel"),r=document.querySelectorAll(".description-block"),d=[],s=r.length
+for(const a of i)a.remove()
+n=e.insertBefore(document.createElement("div"),e.querySelector(".description-block")),n.classList.add("tabs-sa"),t.run||(t.run=1,t())
+for(let u=0;s>u;u++){const l=document.createElement("div")
+l.classList.add("tab-choice-sa")
+const f=document.createElement("span")
+f.innerText=i[u].innerText,l.appendChild(f),l.addEventListener("click",(()=>c(u))),d.push(l),n.appendChild(l)}function c(o){for(let t=0;s>t;t++){const e=t===o
+d[t].classList.toggle("tab-choice-selected-sa",e),r[t].style.display=e?"":"none"}}c(0)}}

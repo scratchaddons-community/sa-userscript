@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name        __MSG_extensionName__
-// @description __MSG_extensionDescription__
+// @name        Scratch Addons
+// @description Scratch Addons provides customizable features and themes for the scratch.mit.edu website and project editor.
 // @author      scratchaddons.com
-// @version     __MSG_extensionVersionName__
-// @icon        __MSG_extensionIcon__
+// @version     1.29.0-71dfae7-prerelease
+// @icon        https://sa-userscript-dev.cf/images/icon-blue.png
 // @homepage    https://scratchaddons.com
-// @supportURL  https://scratchaddons.com/feedback?ext_version=__MSG_extensionVersionName__&utm_source=userscript&utm_medium=supportURL&utm_campaign=v__MSG_extensionVersionName__
+// @supportURL  https://scratchaddons.com/feedback?ext_version=1.29.0-71dfae7-prerelease&utm_source=userscript&utm_medium=supportURL&utm_campaign=v1.29.0-71dfae7-prerelease
 // @updateURL   https://sa-userscript-dev.cf/userscript/script.user.js
 // @downloadURL https://sa-userscript-dev.cf/userscript/script.user.js
 // @match       https://scratch.mit.edu/*

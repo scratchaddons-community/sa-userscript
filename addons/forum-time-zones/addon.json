@@ -1,16 +1,1 @@
-{
-  "name": "Local timezone on forums",
-  "description": "Uses your local time zone for displaying post dates and times on the forums.",
-  "userscripts": [
-    {
-      "url": "userscript.js",
-      "matches": ["topics"],
-      "runAtComplete": false
-    }
-  ],
-  "dynamicEnable": true,
-  "dynamicDisable": true,
-  "versionAdded": "1.0.0",
-  "tags": ["forums", "community"],
-  "enabledByDefault": false
-}
+{"name":"Local timezone on forums","description":"Uses your local time zone for displaying post dates and times on the forums.","userscripts":[{"url":"userscript.js","matches":["topics"],"runAtComplete":false}],"versionAdded":"1.0.0","tags":["forums","community"],"enabledByDefault":false}

@@ -1,7 +1,1 @@
-.compose-comment .textarea-row textarea,
-#comments #comment-form textarea,
-#comments .comment form textarea {
-  resize: vertical;
-  min-height: 32px;
-  max-height: 480px;
-}
+#comments #comment-form textarea,#comments .comment form textarea,.compose-comment .textarea-row textarea{max-height:480px;min-height:32px;resize:vertical}

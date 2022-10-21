@@ -1,7 +1,1 @@
-.sb-label {
-  fill: black;
-}
-.sb3-label,
-#sb3-dropdownArrow path {
-  fill: #575e75;
-}
+.sb-label{fill:#000}#sb3-dropdownArrow path,.sb3-label{fill:#575e75}
