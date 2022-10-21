@@ -50,7 +50,7 @@ body:
     attributes:
       label: Environment
       description: Include information related to your environment/device.
-      placeholder: Include what version of Scratch Addons you're using (can be found in the extension popup), your browser and its version, and your operating system.
+      placeholder: Include what version of Scratch Addons you're using (can be found under "More settings"), your browser and its version, and your operating system.
       value: |
         Browser: <!-- e.g. Chrome 89 -->
         Scratch Addons version: <!-- e.g. 1.10.0. For pre-releases, include hash if possible -->
